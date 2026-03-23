@@ -22,7 +22,7 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
       imageId: z.string().describe('Image ID'),
     },
     async ({ environmentId, imageId }) => {
-      return jsonResponse(await client.get(`/api/images/${imageId}`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/images/${encodeURIComponent(String(imageId))}`, { env: environmentId }));
     }
   );
 
@@ -54,7 +54,7 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
       imageId: z.string().describe('Image ID'),
     },
     async ({ environmentId, imageId }) => {
-      return jsonResponse(await client.delete(`/api/images/${imageId}`, { env: environmentId }));
+      return jsonResponse(await client.delete(`/api/images/${encodeURIComponent(String(imageId))}`, { env: environmentId }));
     }
   );
 

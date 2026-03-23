@@ -22,7 +22,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      return jsonResponse(await client.get(`/api/containers/${containerId}`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/containers/${encodeURIComponent(String(containerId))}`, { env: environmentId }));
     }
   );
 

@@ -107,4 +107,12 @@ export function registerAuthTools(server: McpServer, client: DockhandClient): vo
       return jsonResponse(await client.delete('/api/hawser/tokens', { id: tokenId }));
     }
   );
+
+  // Logout (session cleanup)
+  registerTool(server, 'logout', 'Logout and invalidate the current session',
+    {},
+    async () => {
+      return jsonResponse(await client.post('/api/auth/logout', {}));
+    }
+  );
 }

@@ -2,16 +2,15 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
-COPY tsconfig.json ./
-COPY src/ ./src/
+COPY . .
 RUN npm run build
 
 FROM node:22-alpine
 WORKDIR /app
 RUN addgroup -g 1001 mcp && adduser -u 1001 -G mcp -D mcp
+COPY --from=build /app/package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package.json ./
 USER mcp
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://localhost:8080/health || exit 1

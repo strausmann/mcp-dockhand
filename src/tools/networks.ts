@@ -22,7 +22,7 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
       networkId: z.string().describe('Network ID'),
     },
     async ({ environmentId, networkId }) => {
-      return jsonResponse(await client.get(`/api/networks/${networkId}`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/networks/${encodeURIComponent(String(networkId))}`, { env: environmentId }));
     }
   );
 
@@ -66,7 +66,7 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
       networkId: z.string().describe('Network ID'),
     },
     async ({ environmentId, networkId }) => {
-      return jsonResponse(await client.delete(`/api/networks/${networkId}`, { env: environmentId }));
+      return jsonResponse(await client.delete(`/api/networks/${encodeURIComponent(String(networkId))}`, { env: environmentId }));
     }
   );
 
