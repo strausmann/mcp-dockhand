@@ -1,0 +1,42 @@
+{
+  "name": "mcp-dockhand",
+  "version": "1.0.0",
+  "description": "MCP Server for Dockhand Docker Management - exposes 130+ API endpoints as MCP tools",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "docker",
+    "dockhand",
+    "model-context-protocol",
+    "docker-management"
+  ],
+  "author": "Bjoern Strausmann <bjoern@strausmann.net>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/strausmann/mcp-dockhand.git"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "express": "^5.1.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3",
+    "tsx": "^4.19.4"
+  }
+}
