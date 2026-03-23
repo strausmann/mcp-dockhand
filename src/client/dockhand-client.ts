@@ -6,6 +6,9 @@
 import { SessionManager } from '../auth/session.js';
 import type { DockhandConfig, SSEResult } from '../types/dockhand.js';
 
+/** Timeout for SSE streaming responses (5 minutes). */
+const SSE_TIMEOUT_MS = 300_000;
+
 export class DockhandClient {
   private session: SessionManager;
   private baseUrl: string;
@@ -68,6 +71,7 @@ export class DockhandClient {
       method: 'POST',
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(SSE_TIMEOUT_MS),
     });
 
     if (response.status === 401) {
@@ -79,6 +83,7 @@ export class DockhandClient {
         method: 'POST',
         headers,
         body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(SSE_TIMEOUT_MS),
       });
       return this.parseSSEResponse(retryResponse);
     }
@@ -103,6 +108,7 @@ export class DockhandClient {
       method: 'PUT',
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(SSE_TIMEOUT_MS),
     });
 
     if (response.status === 401) {
@@ -113,6 +119,7 @@ export class DockhandClient {
         method: 'PUT',
         headers,
         body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(SSE_TIMEOUT_MS),
       });
       return this.parseSSEResponse(retryResponse);
     }

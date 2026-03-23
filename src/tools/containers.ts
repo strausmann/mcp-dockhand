@@ -5,48 +5,38 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
+import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
 
 export function registerContainerTools(server: McpServer, client: DockhandClient): void {
 
-  server.tool(
-    'list_containers',
-    'List all containers in a Dockhand environment',
+  registerTool(server, 'list_containers', 'List all containers in a Dockhand environment',
     { environmentId: z.number().describe('Environment ID (required)') },
     async ({ environmentId }) => {
-      const data = await client.get('/api/containers', { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/containers', { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_container',
-    'Get details of a specific container',
+  registerTool(server, 'get_container', 'Get details of a specific container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      const data = await client.get(`/api/containers/${containerId}`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get(`/api/containers/${containerId}`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'inspect_container',
-    'Docker inspect a container (full low-level details)',
+  registerTool(server, 'inspect_container', 'Docker inspect a container (full low-level details)',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      const data = await client.get(`/api/containers/${containerId}/inspect`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get(`/api/containers/${containerId}/inspect`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_container_logs',
-    'Get logs of a container',
+  registerTool(server, 'get_container_logs', 'Get logs of a container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
@@ -57,132 +47,103 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
         env: environmentId,
         tail: tail ?? 100,
       });
-      return { content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }] };
+      return textResponse(data);
     }
   );
 
-  server.tool(
-    'get_container_stats',
-    'Get resource usage statistics of a container',
+  registerTool(server, 'get_container_stats', 'Get resource usage statistics of a container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      const data = await client.get(`/api/containers/${containerId}/stats`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get(`/api/containers/${containerId}/stats`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_container_top',
-    'Get running processes inside a container',
+  registerTool(server, 'get_container_top', 'Get running processes inside a container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      const data = await client.get(`/api/containers/${containerId}/top`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get(`/api/containers/${containerId}/top`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'start_container',
-    'Start a stopped container',
+  registerTool(server, 'start_container', 'Start a stopped container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      const data = await client.post(`/api/containers/${containerId}/start`, undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/containers/${containerId}/start`, undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'stop_container',
-    'Stop a running container',
+  registerTool(server, 'stop_container', 'Stop a running container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      const data = await client.post(`/api/containers/${containerId}/stop`, undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/containers/${containerId}/stop`, undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'restart_container',
-    'Restart a container',
+  registerTool(server, 'restart_container', 'Restart a container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      const data = await client.post(`/api/containers/${containerId}/restart`, undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/containers/${containerId}/restart`, undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'pause_container',
-    'Pause a running container',
+  registerTool(server, 'pause_container', 'Pause a running container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      const data = await client.post(`/api/containers/${containerId}/pause`, undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/containers/${containerId}/pause`, undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'unpause_container',
-    'Unpause a paused container',
+  registerTool(server, 'unpause_container', 'Unpause a paused container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      const data = await client.post(`/api/containers/${containerId}/unpause`, undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/containers/${containerId}/unpause`, undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'rename_container',
-    'Rename a container',
+  registerTool(server, 'rename_container', 'Rename a container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
       name: z.string().describe('New container name'),
     },
     async ({ environmentId, containerId, name }) => {
-      const data = await client.post(`/api/containers/${containerId}/rename`, { name }, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/containers/${containerId}/rename`, { name }, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'update_container',
-    'Update a container (recreate with new settings)',
+  registerTool(server, 'update_container', 'Update a container (recreate with new settings)',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
       settings: z.record(z.unknown()).optional().describe('Container settings to update'),
     },
     async ({ environmentId, containerId, settings }) => {
-      const data = await client.post(`/api/containers/${containerId}/update`, settings, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/containers/${containerId}/update`, settings, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'create_container',
-    'Create a new container directly (without Compose)',
+  registerTool(server, 'create_container', 'Create a new container directly (without Compose)',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Container name'),
@@ -207,46 +168,37 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       if (networkMode) hostConfig.NetworkMode = networkMode;
       if (Object.keys(hostConfig).length > 0) body.HostConfig = hostConfig;
 
-      const data = await client.post('/api/containers', body, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post('/api/containers', body, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_container_shells',
-    'Get available shells inside a container',
+  registerTool(server, 'get_container_shells', 'Get available shells inside a container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      const data = await client.get(`/api/containers/${containerId}/shells`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get(`/api/containers/${containerId}/shells`, { env: environmentId }));
     }
   );
 
   // --- Container Files ---
 
-  server.tool(
-    'list_container_files',
-    'List files inside a container at a given path',
+  registerTool(server, 'list_container_files', 'List files inside a container at a given path',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
       path: z.string().optional().describe('Path inside container (default: /)'),
     },
     async ({ environmentId, containerId, path }) => {
-      const data = await client.get(`/api/containers/${containerId}/files`, {
+      return jsonResponse(await client.get(`/api/containers/${containerId}/files`, {
         env: environmentId,
         path: path ?? '/',
-      });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      }));
     }
   );
 
-  server.tool(
-    'get_container_file_content',
-    'Read file content inside a container',
+  registerTool(server, 'get_container_file_content', 'Read file content inside a container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
@@ -257,13 +209,11 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
         env: environmentId,
         path,
       });
-      return { content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }] };
+      return textResponse(data);
     }
   );
 
-  server.tool(
-    'create_container_file',
-    'Create a file inside a container',
+  registerTool(server, 'create_container_file', 'Create a file inside a container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
@@ -271,28 +221,22 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       content: z.string().describe('File content'),
     },
     async ({ environmentId, containerId, path, content }) => {
-      const data = await client.post(`/api/containers/${containerId}/files/create`, { path, content }, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/containers/${containerId}/files/create`, { path, content }, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'delete_container_file',
-    'Delete a file inside a container',
+  registerTool(server, 'delete_container_file', 'Delete a file inside a container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
       path: z.string().describe('File path inside container'),
     },
     async ({ environmentId, containerId, path }) => {
-      const data = await client.post(`/api/containers/${containerId}/files/delete`, { path }, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/containers/${containerId}/files/delete`, { path }, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'rename_container_file',
-    'Rename a file inside a container',
+  registerTool(server, 'rename_container_file', 'Rename a file inside a container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
@@ -300,14 +244,11 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       newPath: z.string().describe('New file path'),
     },
     async ({ environmentId, containerId, oldPath, newPath }) => {
-      const data = await client.post(`/api/containers/${containerId}/files/rename`, { oldPath, newPath }, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/containers/${containerId}/files/rename`, { oldPath, newPath }, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'chmod_container_file',
-    'Change file permissions inside a container',
+  registerTool(server, 'chmod_container_file', 'Change file permissions inside a container',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
@@ -315,63 +256,47 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       mode: z.string().describe('Permission mode (e.g. 0755)'),
     },
     async ({ environmentId, containerId, path, mode }) => {
-      const data = await client.post(`/api/containers/${containerId}/files/chmod`, { path, mode }, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/containers/${containerId}/files/chmod`, { path, mode }, { env: environmentId }));
     }
   );
 
   // --- Global container endpoints ---
 
-  server.tool(
-    'check_container_updates',
-    'Check all containers for available image updates',
+  registerTool(server, 'check_container_updates', 'Check all containers for available image updates',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      const data = await client.post('/api/containers/check-updates', undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post('/api/containers/check-updates', undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_pending_updates',
-    'Get containers with pending image updates',
+  registerTool(server, 'get_pending_updates', 'Get containers with pending image updates',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      const data = await client.get('/api/containers/pending-updates', { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/containers/pending-updates', { env: environmentId }));
     }
   );
 
-  server.tool(
-    'batch_update_containers',
-    'Batch update multiple containers to their latest images',
+  registerTool(server, 'batch_update_containers', 'Batch update multiple containers to their latest images',
     {
       environmentId: z.number().describe('Environment ID'),
       containerIds: z.array(z.string()).describe('Array of container IDs to update'),
     },
     async ({ environmentId, containerIds }) => {
-      const result = await client.postSSE('/api/containers/batch-update', { containerIds }, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return jsonResponse(await client.postSSE('/api/containers/batch-update', { containerIds }, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_container_sizes',
-    'Get disk sizes of all containers',
+  registerTool(server, 'get_container_sizes', 'Get disk sizes of all containers',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      const data = await client.get('/api/containers/sizes', { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/containers/sizes', { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_containers_stats',
-    'Get aggregated stats for all containers',
+  registerTool(server, 'get_containers_stats', 'Get aggregated stats for all containers',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      const data = await client.get('/api/containers/stats', { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/containers/stats', { env: environmentId }));
     }
   );
 }

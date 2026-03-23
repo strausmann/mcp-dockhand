@@ -5,65 +5,52 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
+import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
 
 export function registerVolumeTools(server: McpServer, client: DockhandClient): void {
 
-  server.tool(
-    'list_volumes',
-    'List all Docker volumes in an environment',
+  registerTool(server, 'list_volumes', 'List all Docker volumes in an environment',
     { environmentId: z.number().describe('Environment ID (required)') },
     async ({ environmentId }) => {
-      const data = await client.get('/api/volumes', { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/volumes', { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_volume',
-    'Get details of a specific Docker volume',
+  registerTool(server, 'get_volume', 'Get details of a specific Docker volume',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
     },
     async ({ environmentId, volumeName }) => {
-      const data = await client.get(`/api/volumes/${encodeURIComponent(volumeName)}`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get(`/api/volumes/${encodeURIComponent(volumeName)}`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'inspect_volume',
-    'Inspect a Docker volume (full low-level details)',
+  registerTool(server, 'inspect_volume', 'Inspect a Docker volume (full low-level details)',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
     },
     async ({ environmentId, volumeName }) => {
-      const data = await client.get(`/api/volumes/${encodeURIComponent(volumeName)}/inspect`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get(`/api/volumes/${encodeURIComponent(volumeName)}/inspect`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'browse_volume',
-    'Browse files inside a Docker volume',
+  registerTool(server, 'browse_volume', 'Browse files inside a Docker volume',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
       path: z.string().optional().describe('Path inside the volume (default: /)'),
     },
     async ({ environmentId, volumeName, path }) => {
-      const data = await client.get(`/api/volumes/${encodeURIComponent(volumeName)}/browse`, {
+      return jsonResponse(await client.get(`/api/volumes/${encodeURIComponent(volumeName)}/browse`, {
         env: environmentId,
         path: path ?? '/',
-      });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      }));
     }
   );
 
-  server.tool(
-    'get_volume_file_content',
-    'Read file content from a Docker volume',
+  registerTool(server, 'get_volume_file_content', 'Read file content from a Docker volume',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
@@ -74,26 +61,21 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
         env: environmentId,
         path,
       });
-      return { content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }] };
+      return textResponse(data);
     }
   );
 
-  server.tool(
-    'release_volume_browse',
-    'Release a volume browse session (cleanup helper container)',
+  registerTool(server, 'release_volume_browse', 'Release a volume browse session (cleanup helper container)',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
     },
     async ({ environmentId, volumeName }) => {
-      const data = await client.post(`/api/volumes/${encodeURIComponent(volumeName)}/browse/release`, undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/volumes/${encodeURIComponent(volumeName)}/browse/release`, undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'clone_volume',
-    'Clone a Docker volume',
+  registerTool(server, 'clone_volume', 'Clone a Docker volume',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Source volume name'),
@@ -102,34 +84,27 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
     async ({ environmentId, volumeName, newName }) => {
       const body: Record<string, unknown> = {};
       if (newName) body.newName = newName;
-      const data = await client.post(`/api/volumes/${encodeURIComponent(volumeName)}/clone`, body, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/volumes/${encodeURIComponent(volumeName)}/clone`, body, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'export_volume',
-    'Export a Docker volume as a tarball',
+  registerTool(server, 'export_volume', 'Export a Docker volume as a tarball',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
     },
     async ({ environmentId, volumeName }) => {
-      const data = await client.post(`/api/volumes/${encodeURIComponent(volumeName)}/export`, undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/volumes/${encodeURIComponent(volumeName)}/export`, undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'remove_volume',
-    'Remove a Docker volume (DESTRUCTIVE - data will be lost!)',
+  registerTool(server, 'remove_volume', 'Remove a Docker volume (DESTRUCTIVE - data will be lost!)',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
     },
     async ({ environmentId, volumeName }) => {
-      const data = await client.delete(`/api/volumes/${encodeURIComponent(volumeName)}`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.delete(`/api/volumes/${encodeURIComponent(volumeName)}`, { env: environmentId }));
     }
   );
 }

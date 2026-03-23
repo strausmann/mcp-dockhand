@@ -5,84 +5,62 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
+import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
 
 export function registerDashboardTools(server: McpServer, client: DockhandClient): void {
 
-  server.tool(
-    'get_dashboard_stats',
-    'Get dashboard statistics (containers, images, volumes, networks overview)',
+  registerTool(server, 'get_dashboard_stats', 'Get dashboard statistics (containers, images, volumes, networks overview)',
     {},
     async () => {
-      const data = await client.get('/api/dashboard/stats');
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/dashboard/stats'));
     }
   );
 
-  server.tool(
-    'get_dashboard_preferences',
-    'Get dashboard display preferences',
+  registerTool(server, 'get_dashboard_preferences', 'Get dashboard display preferences',
     {},
     async () => {
-      const data = await client.get('/api/dashboard/preferences');
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/dashboard/preferences'));
     }
   );
 
-  server.tool(
-    'set_dashboard_preferences',
-    'Set dashboard display preferences',
+  registerTool(server, 'set_dashboard_preferences', 'Set dashboard display preferences',
     { preferences: z.record(z.unknown()).describe('Dashboard preferences') },
     async ({ preferences }) => {
-      const data = await client.put('/api/dashboard/preferences', preferences);
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.put('/api/dashboard/preferences', preferences));
     }
   );
 
-  server.tool(
-    'get_activity_feed',
-    'Get the activity feed (recent actions and events)',
+  registerTool(server, 'get_activity_feed', 'Get the activity feed (recent actions and events)',
     {
       environmentId: z.number().optional().describe('Filter by environment ID'),
     },
     async ({ environmentId }) => {
-      const data = await client.get('/api/activity', environmentId ? { env: environmentId } : undefined);
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/activity', environmentId ? { env: environmentId } : undefined));
     }
   );
 
-  server.tool(
-    'get_container_activity',
-    'Get container-specific activity feed',
+  registerTool(server, 'get_container_activity', 'Get container-specific activity feed',
     {},
     async () => {
-      const data = await client.get('/api/activity/containers');
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/activity/containers'));
     }
   );
 
-  server.tool(
-    'get_activity_events',
-    'Get activity events',
+  registerTool(server, 'get_activity_events', 'Get activity events',
     {},
     async () => {
-      const data = await client.get('/api/activity/events');
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/activity/events'));
     }
   );
 
-  server.tool(
-    'get_activity_stats',
-    'Get activity statistics',
+  registerTool(server, 'get_activity_stats', 'Get activity statistics',
     {},
     async () => {
-      const data = await client.get('/api/activity/stats');
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/activity/stats'));
     }
   );
 
-  server.tool(
-    'get_merged_logs',
-    'Get merged logs from multiple containers',
+  registerTool(server, 'get_merged_logs', 'Get merged logs from multiple containers',
     {
       environmentId: z.number().describe('Environment ID'),
       containers: z.string().describe('Comma-separated container names or IDs'),
@@ -94,7 +72,7 @@ export function registerDashboardTools(server: McpServer, client: DockhandClient
         containers,
         tail: tail ?? 50,
       });
-      return { content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }] };
+      return textResponse(data);
     }
   );
 }

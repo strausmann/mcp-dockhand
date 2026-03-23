@@ -47,10 +47,12 @@ export class SessionManager {
       redirect: 'manual',
     });
 
+    // Read body once and cache it to avoid double-read errors
+    const responseBody = await response.text().catch(() => '');
+
     if (!response.ok) {
-      const body = await response.text().catch(() => '');
       throw new Error(
-        `Dockhand login failed (HTTP ${response.status}): ${body || response.statusText}`
+        `Dockhand login failed (HTTP ${response.status}): ${responseBody || response.statusText}`
       );
     }
 
@@ -81,10 +83,8 @@ export class SessionManager {
     }
 
     if (!sessionCookie) {
-      // Some Dockhand versions return session in body
-      const body = await response.text().catch(() => '');
       throw new Error(
-        `No session cookie received from Dockhand login. Response: ${body.slice(0, 200)}`
+        `No session cookie received from Dockhand login. Response: ${responseBody.slice(0, 200)}`
       );
     }
 

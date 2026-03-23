@@ -2,6 +2,7 @@
  * MCP Server setup with Streamable HTTP transport.
  */
 
+import { readFileSync } from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import express from 'express';
@@ -10,9 +11,12 @@ import { DockhandClient } from './client/dockhand-client.js';
 import { registerAllTools } from './tools/index.js';
 import type { DockhandConfig } from './types/dockhand.js';
 
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
+
 export interface ServerConfig {
   dockhand: DockhandConfig;
   port: number;
+  host?: string;
 }
 
 export async function createServer(config: ServerConfig): Promise<void> {
@@ -20,16 +24,19 @@ export async function createServer(config: ServerConfig): Promise<void> {
 
   const server = new McpServer({
     name: 'mcp-dockhand',
-    version: '1.0.0',
+    version: pkg.version,
   });
 
   registerAllTools(server, client);
 
   const app = express();
 
+  // Parse JSON request bodies (required for MCP Streamable HTTP)
+  app.use(express.json());
+
   // Health endpoint (no auth required)
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', server: 'mcp-dockhand', version: '1.0.0' });
+    res.json({ status: 'ok', server: 'mcp-dockhand', version: pkg.version });
   });
 
   // Store transports by session ID for session management
@@ -94,8 +101,9 @@ export async function createServer(config: ServerConfig): Promise<void> {
     transports.delete(sessionId);
   });
 
-  app.listen(config.port, () => {
-    console.error(`[server] MCP Dockhand server listening on port ${config.port}`);
+  const host = config.host || '0.0.0.0';
+  app.listen(config.port, host, () => {
+    console.error(`[server] MCP Dockhand server v${pkg.version} listening on ${host}:${config.port}`);
     console.error(`[server] Dockhand URL: ${config.dockhand.url}`);
     console.error(`[server] Health: http://localhost:${config.port}/health`);
     console.error(`[server] MCP endpoint: http://localhost:${config.port}/mcp`);

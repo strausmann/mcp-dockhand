@@ -24,6 +24,7 @@ const config = {
     password: getEnvOrThrow('DOCKHAND_PASSWORD'),
   },
   port: parseInt(process.env['MCP_PORT'] ?? '8080', 10),
+  host: process.env['MCP_HOST'] || '0.0.0.0',
 };
 
 console.error('[config] Starting MCP Dockhand server...');

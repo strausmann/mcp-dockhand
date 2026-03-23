@@ -5,48 +5,38 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
+import { registerTool, jsonResponse } from '../utils/tool-helper.js';
 
 export function registerNetworkTools(server: McpServer, client: DockhandClient): void {
 
-  server.tool(
-    'list_networks',
-    'List all Docker networks in an environment',
+  registerTool(server, 'list_networks', 'List all Docker networks in an environment',
     { environmentId: z.number().describe('Environment ID (required)') },
     async ({ environmentId }) => {
-      const data = await client.get('/api/networks', { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/networks', { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_network',
-    'Get details of a specific Docker network',
+  registerTool(server, 'get_network', 'Get details of a specific Docker network',
     {
       environmentId: z.number().describe('Environment ID'),
       networkId: z.string().describe('Network ID'),
     },
     async ({ environmentId, networkId }) => {
-      const data = await client.get(`/api/networks/${networkId}`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get(`/api/networks/${networkId}`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'inspect_network',
-    'Inspect a Docker network (full low-level details)',
+  registerTool(server, 'inspect_network', 'Inspect a Docker network (full low-level details)',
     {
       environmentId: z.number().describe('Environment ID'),
       networkId: z.string().describe('Network ID'),
     },
     async ({ environmentId, networkId }) => {
-      const data = await client.get(`/api/networks/${networkId}/inspect`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get(`/api/networks/${networkId}/inspect`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'create_network',
-    'Create a new Docker network',
+  registerTool(server, 'create_network', 'Create a new Docker network',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Network name'),
@@ -66,49 +56,39 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
       if (labels) body.labels = labels;
       if (options) body.options = options;
 
-      const data = await client.post('/api/networks', body, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post('/api/networks', body, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'remove_network',
-    'Remove a Docker network',
+  registerTool(server, 'remove_network', 'Remove a Docker network',
     {
       environmentId: z.number().describe('Environment ID'),
       networkId: z.string().describe('Network ID'),
     },
     async ({ environmentId, networkId }) => {
-      const data = await client.delete(`/api/networks/${networkId}`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.delete(`/api/networks/${networkId}`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'connect_container_to_network',
-    'Connect a container to a Docker network',
+  registerTool(server, 'connect_container_to_network', 'Connect a container to a Docker network',
     {
       environmentId: z.number().describe('Environment ID'),
       networkId: z.string().describe('Network ID'),
       containerId: z.string().describe('Container ID to connect'),
     },
     async ({ environmentId, networkId, containerId }) => {
-      const data = await client.post(`/api/networks/${networkId}/connect`, { containerId }, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/networks/${networkId}/connect`, { containerId }, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'disconnect_container_from_network',
-    'Disconnect a container from a Docker network',
+  registerTool(server, 'disconnect_container_from_network', 'Disconnect a container from a Docker network',
     {
       environmentId: z.number().describe('Environment ID'),
       networkId: z.string().describe('Network ID'),
       containerId: z.string().describe('Container ID to disconnect'),
     },
     async ({ environmentId, networkId, containerId }) => {
-      const data = await client.post(`/api/networks/${networkId}/disconnect`, { containerId }, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/networks/${networkId}/disconnect`, { containerId }, { env: environmentId }));
     }
   );
 }

@@ -5,35 +5,28 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
+import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
 
 export function registerStackTools(server: McpServer, client: DockhandClient): void {
 
-  server.tool(
-    'list_stacks',
-    'List all Docker Compose stacks in an environment',
+  registerTool(server, 'list_stacks', 'List all Docker Compose stacks in an environment',
     { environmentId: z.number().describe('Environment ID (required)') },
     async ({ environmentId }) => {
-      const data = await client.get('/api/stacks', { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/stacks', { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_stack',
-    'Get details of a specific stack by name',
+  registerTool(server, 'get_stack', 'Get details of a specific stack by name',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      const data = await client.get(`/api/stacks/${encodeURIComponent(name)}`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get(`/api/stacks/${encodeURIComponent(name)}`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'create_stack',
-    'Create a new Docker Compose stack and optionally deploy it',
+  registerTool(server, 'create_stack', 'Create a new Docker Compose stack and optionally deploy it',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -52,53 +45,41 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       if (envVars) body.envVars = envVars;
       if (rawEnvContent) body.rawEnvContent = rawEnvContent;
 
-      const result = await client.postSSE('/api/stacks', body, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return jsonResponse(await client.postSSE('/api/stacks', body, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'start_stack',
-    'Start a stack (docker compose up -d)',
+  registerTool(server, 'start_stack', 'Start a stack (docker compose up -d)',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      const result = await client.postSSE(`/api/stacks/${encodeURIComponent(name)}/start`, undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return jsonResponse(await client.postSSE(`/api/stacks/${encodeURIComponent(name)}/start`, undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'stop_stack',
-    'Stop a stack (docker compose stop)',
+  registerTool(server, 'stop_stack', 'Stop a stack (docker compose stop)',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      const result = await client.postSSE(`/api/stacks/${encodeURIComponent(name)}/stop`, undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return jsonResponse(await client.postSSE(`/api/stacks/${encodeURIComponent(name)}/stop`, undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'restart_stack',
-    'Restart a stack (docker compose restart)',
+  registerTool(server, 'restart_stack', 'Restart a stack (docker compose restart)',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      const result = await client.postSSE(`/api/stacks/${encodeURIComponent(name)}/restart`, undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return jsonResponse(await client.postSSE(`/api/stacks/${encodeURIComponent(name)}/restart`, undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'down_stack',
-    'Take down a stack (docker compose down)',
+  registerTool(server, 'down_stack', 'Take down a stack (docker compose down)',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -106,44 +87,35 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     },
     async ({ environmentId, name, removeVolumes }) => {
       const body = removeVolumes !== undefined ? { removeVolumes } : undefined;
-      const result = await client.postSSE(`/api/stacks/${encodeURIComponent(name)}/down`, body, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return jsonResponse(await client.postSSE(`/api/stacks/${encodeURIComponent(name)}/down`, body, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'delete_stack',
-    'Delete a stack completely',
+  registerTool(server, 'delete_stack', 'Delete a stack completely',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
       force: z.boolean().optional().describe('Force deletion'),
     },
     async ({ environmentId, name, force }) => {
-      const data = await client.delete(`/api/stacks/${encodeURIComponent(name)}`, {
+      return jsonResponse(await client.delete(`/api/stacks/${encodeURIComponent(name)}`, {
         env: environmentId,
         force: force ? 'true' : undefined,
-      });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      }));
     }
   );
 
-  server.tool(
-    'get_stack_compose',
-    'Read the docker-compose.yml content of a stack',
+  registerTool(server, 'get_stack_compose', 'Read the docker-compose.yml content of a stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      const data = await client.get(`/api/stacks/${encodeURIComponent(name)}/compose`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get(`/api/stacks/${encodeURIComponent(name)}/compose`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'update_stack_compose',
-    'Update the docker-compose.yml of a stack and optionally redeploy',
+  registerTool(server, 'update_stack_compose', 'Update the docker-compose.yml of a stack and optionally redeploy',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -155,31 +127,24 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       if (restart !== undefined) body.restart = restart;
 
       if (restart) {
-        const result = await client.putSSE(`/api/stacks/${encodeURIComponent(name)}/compose`, body, { env: environmentId });
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+        return jsonResponse(await client.putSSE(`/api/stacks/${encodeURIComponent(name)}/compose`, body, { env: environmentId }));
       }
 
-      const data = await client.put(`/api/stacks/${encodeURIComponent(name)}/compose`, body, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.put(`/api/stacks/${encodeURIComponent(name)}/compose`, body, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_stack_env',
-    'Read environment variables of a stack',
+  registerTool(server, 'get_stack_env', 'Read environment variables of a stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      const data = await client.get(`/api/stacks/${encodeURIComponent(name)}/env`, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get(`/api/stacks/${encodeURIComponent(name)}/env`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'update_stack_env',
-    'Update environment variables of a stack',
+  registerTool(server, 'update_stack_env', 'Update environment variables of a stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -194,50 +159,38 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       const body: Record<string, unknown> = {};
       if (variables) body.variables = variables;
       if (rawContent) body.rawContent = rawContent;
-      const data = await client.put(`/api/stacks/${encodeURIComponent(name)}/env`, body, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.put(`/api/stacks/${encodeURIComponent(name)}/env`, body, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_stack_env_raw',
-    'Read the raw .env file of a stack',
+  registerTool(server, 'get_stack_env_raw', 'Read the raw .env file of a stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      const data = await client.get(`/api/stacks/${encodeURIComponent(name)}/env/raw`, { env: environmentId });
-      return { content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }] };
+      return textResponse(await client.get(`/api/stacks/${encodeURIComponent(name)}/env/raw`, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'validate_stack_env',
-    'Validate environment variables of a stack',
+  registerTool(server, 'validate_stack_env', 'Validate environment variables of a stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      const data = await client.post(`/api/stacks/${encodeURIComponent(name)}/env/validate`, undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/stacks/${encodeURIComponent(name)}/env/validate`, undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'scan_stacks',
-    'Scan filesystem for existing Docker Compose stacks',
+  registerTool(server, 'scan_stacks', 'Scan filesystem for existing Docker Compose stacks',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      const data = await client.post('/api/stacks/scan', undefined, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post('/api/stacks/scan', undefined, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'adopt_stack',
-    'Adopt an existing untracked stack into Dockhand management',
+  registerTool(server, 'adopt_stack', 'Adopt an existing untracked stack into Dockhand management',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name to adopt'),
@@ -246,65 +199,69 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     async ({ environmentId, name, path }) => {
       const body: Record<string, unknown> = { name };
       if (path) body.path = path;
-      const data = await client.post('/api/stacks/adopt', body, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post('/api/stacks/adopt', body, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'relocate_stack',
-    'Move a stack to a different filesystem path',
+  registerTool(server, 'relocate_stack', 'Move a stack to a different filesystem path',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
       newPath: z.string().describe('New filesystem path'),
     },
     async ({ environmentId, name, newPath }) => {
-      const data = await client.post(`/api/stacks/${encodeURIComponent(name)}/relocate`, { path: newPath }, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post(`/api/stacks/${encodeURIComponent(name)}/relocate`, { path: newPath }, { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_stack_sources',
-    'Get available stack sources',
+  registerTool(server, 'get_stack_sources', 'Get available stack sources',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      const data = await client.get('/api/stacks/sources', { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/stacks/sources', { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_stack_base_path',
-    'Get the base path for stacks on an environment',
+  registerTool(server, 'get_stack_base_path', 'Get the base path for stacks on an environment',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      const data = await client.get('/api/stacks/base-path', { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/stacks/base-path', { env: environmentId }));
     }
   );
 
-  server.tool(
-    'get_stack_path_hints',
-    'Get path suggestions for new stacks',
+  registerTool(server, 'get_stack_path_hints', 'Get path suggestions for new stacks',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      const data = await client.get('/api/stacks/path-hints', { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.get('/api/stacks/path-hints', { env: environmentId }));
     }
   );
 
-  server.tool(
-    'validate_stack_path',
-    'Validate a filesystem path for a new stack',
+  registerTool(server, 'validate_stack_path', 'Validate a filesystem path for a new stack',
     {
       environmentId: z.number().describe('Environment ID'),
       path: z.string().describe('Path to validate'),
     },
     async ({ environmentId, path }) => {
-      const data = await client.post('/api/stacks/validate-path', { path }, { env: environmentId });
-      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+      return jsonResponse(await client.post('/api/stacks/validate-path', { path }, { env: environmentId }));
+    }
+  );
+
+  // --- Missing endpoints ---
+
+  registerTool(server, 'get_stack_default_path', 'Get the default path for new stacks',
+    { environmentId: z.number().describe('Environment ID') },
+    async ({ environmentId }) => {
+      return jsonResponse(await client.get('/api/stacks/default-path', { env: environmentId }));
+    }
+  );
+
+  registerTool(server, 'check_stack_path_change', 'Check if a stack path change is safe',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      name: z.string().describe('Stack name'),
+      newPath: z.string().describe('New filesystem path to check'),
+    },
+    async ({ environmentId, name, newPath }) => {
+      return jsonResponse(await client.post(`/api/stacks/${encodeURIComponent(name)}/check-path-change`, { path: newPath }, { env: environmentId }));
     }
   );
 }
