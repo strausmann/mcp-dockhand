@@ -23,28 +23,57 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
     }
   );
 
-  registerTool(server, 'create_environment', 'Create a new environment (Docker host)',
+  registerTool(server, 'create_environment', 'Create a new environment (Docker host). For hawser-standard mode, provide host/port directly or a url that will be parsed into host/port. Edge mode does not require host/port.',
     {
       name: z.string().describe('Environment name'),
       connectionType: z.string().describe('Connection type (e.g. hawser-standard, hawser-edge)'),
-      url: z.string().optional().describe('Docker host URL (for standard mode)'),
+      host: z.string().optional().describe('Docker host IP or hostname (for hawser-standard mode)'),
+      port: z.number().optional().describe('Docker host port (for hawser-standard mode, default: 2376)'),
+      url: z.string().optional().describe('Docker host URL (legacy, will be parsed into host/port for hawser-standard mode)'),
     },
-    async ({ name, connectionType, url }) => {
+    async ({ name, connectionType, host, port, url }) => {
       const body: Record<string, unknown> = { name, connectionType };
-      if (url) body.url = url;
+      if (host) {
+        body.host = host;
+        body.port = port ?? 2376;
+      } else if (url) {
+        try {
+          const parsed = new URL(url);
+          body.host = parsed.hostname;
+          body.port = parsed.port ? parseInt(parsed.port, 10) : 2376;
+        } catch {
+          // If URL parsing fails, pass url as-is for backward compatibility
+          body.url = url;
+        }
+      }
       return jsonResponse(await client.post('/api/environments', body));
     }
   );
 
-  registerTool(server, 'update_environment', 'Update an existing environment',
+  registerTool(server, 'update_environment', 'Update an existing environment. For hawser-standard mode, provide host/port directly or a url that will be parsed.',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().optional().describe('New name'),
-      settings: z.record(z.unknown()).optional().describe('Settings to update'),
+      host: z.string().optional().describe('Docker host IP or hostname (for hawser-standard mode)'),
+      port: z.number().optional().describe('Docker host port (for hawser-standard mode)'),
+      url: z.string().optional().describe('Docker host URL (legacy, will be parsed into host/port)'),
+      settings: z.record(z.unknown()).optional().describe('Additional settings to update'),
     },
-    async ({ environmentId, name, settings }) => {
+    async ({ environmentId, name, host, port, url, settings }) => {
       const body: Record<string, unknown> = {};
       if (name) body.name = name;
+      if (host) {
+        body.host = host;
+        if (port !== undefined) body.port = port;
+      } else if (url) {
+        try {
+          const parsed = new URL(url);
+          body.host = parsed.hostname;
+          body.port = parsed.port ? parseInt(parsed.port, 10) : 2376;
+        } catch {
+          body.url = url;
+        }
+      }
       if (settings) Object.assign(body, settings);
       return jsonResponse(await client.put(`/api/environments/${environmentId}`, body));
     }
@@ -64,14 +93,27 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
     }
   );
 
-  registerTool(server, 'test_environment_connection', 'Test a Docker connection without saving an environment',
+  registerTool(server, 'test_environment_connection', 'Test a Docker connection without saving an environment. For hawser-standard, provide host/port or a url.',
     {
       connectionType: z.string().describe('Connection type'),
-      url: z.string().optional().describe('Docker host URL'),
+      host: z.string().optional().describe('Docker host IP or hostname (for hawser-standard mode)'),
+      port: z.number().optional().describe('Docker host port (for hawser-standard mode, default: 2376)'),
+      url: z.string().optional().describe('Docker host URL (legacy, will be parsed into host/port)'),
     },
-    async ({ connectionType, url }) => {
+    async ({ connectionType, host, port, url }) => {
       const body: Record<string, unknown> = { connectionType };
-      if (url) body.url = url;
+      if (host) {
+        body.host = host;
+        body.port = port ?? 2376;
+      } else if (url) {
+        try {
+          const parsed = new URL(url);
+          body.host = parsed.hostname;
+          body.port = parsed.port ? parseInt(parsed.port, 10) : 2376;
+        } catch {
+          body.url = url;
+        }
+      }
       return jsonResponse(await client.post('/api/environments/test', body));
     }
   );
