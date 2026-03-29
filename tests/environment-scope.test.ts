@@ -42,11 +42,21 @@ describe('Environment scope consistency', () => {
 
         if (handlerMatch) {
           const handlerBody = handlerMatch[1]!;
+          // Verify environmentId is actually used in the handler body,
+          // not just destructured. Check for specific usage patterns:
           const passesEnv =
-            handlerBody.includes('env: environmentId') ||
-            handlerBody.includes('env: environmentId,') ||
-            // Some tools pass it as a query param directly
-            handlerBody.includes('environmentId');
+            // Passed as env parameter: { env: environmentId }
+            /env:\s*environmentId/.test(handlerBody) ||
+            // Passed as named property: { environmentId: environmentId } or shorthand { environmentId }
+            /\benvironmentId\b/.test(handlerBody) && (
+              // Used in template literal: `.../${encodePath(environmentId)}`
+              /encodePath\(environmentId\)/.test(handlerBody) ||
+              /\$\{environmentId\}/.test(handlerBody) ||
+              // Used in object literal (shorthand or explicit)
+              /\{\s*[^}]*\benvironmentId\b[^}]*\}/.test(handlerBody) ||
+              // Used as query/body parameter
+              /params.*environmentId|body.*environmentId/.test(handlerBody)
+            );
 
           expect(
             passesEnv,
