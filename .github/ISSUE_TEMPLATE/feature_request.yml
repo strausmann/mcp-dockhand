@@ -1,39 +1,39 @@
 name: Feature Request
-description: Ein neues Feature oder eine Verbesserung vorschlagen
+description: Suggest a new feature or improvement
 title: "[Feature]: "
 labels: ["enhancement", "status: needs-triage"]
 body:
   - type: textarea
     id: description
     attributes:
-      label: Beschreibung
-      description: Was soll implementiert werden?
+      label: Description
+      description: What should be implemented?
     validations:
       required: true
   - type: textarea
     id: motivation
     attributes:
       label: Motivation
-      description: Warum wird dieses Feature benötigt?
+      description: Why is this feature needed?
     validations:
       required: true
   - type: textarea
     id: implementation
     attributes:
-      label: Mögliche Implementierung
-      description: Hast du Ideen wie es umgesetzt werden könnte?
+      label: Possible Implementation
+      description: Any ideas on how to implement this?
   - type: dropdown
     id: component
     attributes:
-      label: Betroffene Komponente
+      label: Affected Component
       options:
-        - Container-Management
-        - Stack-Management
-        - Image-Management
-        - Netzwerk-Management
-        - Volume-Management
-        - Authentifizierung
+        - Container Management
+        - Stack Management
+        - Image Management
+        - Network Management
+        - Volume Management
+        - Authentication
         - Vulnerability Scanning
-        - Sonstiges
+        - Other
     validations:
       required: true

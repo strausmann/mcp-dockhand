@@ -1,47 +1,47 @@
 name: Bug Report
-description: Einen Fehler im MCP-Dockhand Server melden
+description: Report a bug in the MCP-Dockhand server
 title: "[Bug]: "
 labels: ["bug", "status: needs-triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Danke für den Bug Report! Bitte fülle die folgenden Felder aus.
+        Thanks for reporting a bug! Please fill in the details below.
   - type: input
     id: version
     attributes:
       label: MCP-Dockhand Version
-      description: Welche Version nutzt du?
-      placeholder: "z.B. 1.2.0 oder latest"
+      description: Which version are you using?
+      placeholder: "e.g. 1.0.0 or latest"
     validations:
       required: true
   - type: input
     id: dockhand-version
     attributes:
       label: Dockhand Server Version
-      description: Welche Dockhand-Version läuft?
-      placeholder: "z.B. 3.2.1"
+      description: Which Dockhand version is running?
+      placeholder: "e.g. 1.0.22"
     validations:
       required: true
   - type: textarea
     id: description
     attributes:
-      label: Beschreibung
-      description: Was ist passiert?
+      label: Description
+      description: What happened?
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Erwartetes Verhalten
-      description: Was hättest du erwartet?
+      label: Expected Behavior
+      description: What did you expect to happen?
     validations:
       required: true
   - type: textarea
     id: reproduction
     attributes:
-      label: Reproduktion
-      description: Schritte um den Fehler zu reproduzieren
+      label: Steps to Reproduce
+      description: How can we reproduce this bug?
     validations:
       required: true
   - type: dropdown
@@ -56,6 +56,6 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Relevante Logs
-      description: Fehlermeldungen, Stack Traces etc.
+      label: Relevant Logs
+      description: Error messages, stack traces, etc.
       render: shell

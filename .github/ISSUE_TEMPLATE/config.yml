@@ -2,4 +2,4 @@ blank_issues_enabled: true
 contact_links:
   - name: Dockhand Server
     url: https://github.com/finsys/dockhand
-    about: Issues mit dem Dockhand Server selbst bitte dort melden
+    about: Report issues with the Dockhand server itself there
