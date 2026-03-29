@@ -35,12 +35,22 @@ describe('Tool registration completeness', () => {
 
     it(`${file}: should have its register function called in registerAllTools()`, () => {
       // Convention: each module exports register<Category>Tools
-      // Check that at least one function from this module is called
-      const registerFnRegex = new RegExp(`register\\w+Tools\\(server, client\\)`);
+      // Derive the expected function name from the import path in index.ts
+      const importRegex = new RegExp(
+        `import\\s*\\{\\s*(register\\w+Tools)\\s*\\}\\s*from\\s*['\\./"]*${moduleName}\\.js['"]`
+      );
+      const importMatch = indexContent.match(importRegex);
+      expect(
+        importMatch,
+        `No import found for module ${moduleName} in tools/index.ts`
+      ).not.toBeNull();
+
+      const registerFnName = importMatch![1]!;
+      const callRegex = new RegExp(`${registerFnName}\\(server, client\\)`);
       expect(
         indexContent,
-        `No register function call found for ${file} in tools/index.ts`
-      ).toMatch(registerFnRegex);
+        `Function ${registerFnName} not called for ${file} in tools/index.ts`
+      ).toMatch(callRegex);
     });
   }
 
