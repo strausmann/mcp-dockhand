@@ -32,7 +32,7 @@ export function registerAuthTools(server: McpServer, client: DockhandClient): vo
   );
 
   registerTool(server, 'create_oidc_provider', 'Create a new OIDC authentication provider',
-    { config: z.record(z.unknown()).describe('OIDC provider configuration') },
+    { config: z.record(z.string(), z.unknown()).describe('OIDC provider configuration') },
     async ({ config }) => {
       return jsonResponse(await client.post('/api/auth/oidc', config));
     }
@@ -60,7 +60,7 @@ export function registerAuthTools(server: McpServer, client: DockhandClient): vo
   );
 
   registerTool(server, 'create_ldap_provider', 'Create a new LDAP authentication provider',
-    { config: z.record(z.unknown()).describe('LDAP provider configuration') },
+    { config: z.record(z.string(), z.unknown()).describe('LDAP provider configuration') },
     async ({ config }) => {
       return jsonResponse(await client.post('/api/auth/ldap', config));
     }

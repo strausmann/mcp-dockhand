@@ -137,7 +137,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
-      settings: z.record(z.unknown()).optional().describe('Container settings to update'),
+      settings: z.record(z.string(), z.unknown()).optional().describe('Container settings to update'),
     },
     async ({ environmentId, containerId, settings }) => {
       return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/update`, settings, { env: environmentId }));
@@ -151,11 +151,11 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       image: z.string().describe('Docker image (e.g. nginx:alpine)'),
       startAfterCreate: z.boolean().optional().describe('Start container after creation'),
       env: z.array(z.string()).optional().describe('Environment variables (KEY=VALUE format)'),
-      ports: z.record(z.unknown()).optional().describe('Port bindings'),
+      ports: z.record(z.string(), z.unknown()).optional().describe('Port bindings'),
       volumes: z.array(z.string()).optional().describe('Volume mounts'),
       restartPolicy: z.string().optional().describe('Restart policy (e.g. unless-stopped)'),
       networkMode: z.string().optional().describe('Network mode'),
-      labels: z.record(z.string()).optional().describe('Container labels'),
+      labels: z.record(z.string(), z.string()).optional().describe('Container labels'),
     },
     async ({ environmentId, name, image, startAfterCreate, env: envVars, ports, volumes, restartPolicy, networkMode, labels }) => {
       const body: Record<string, unknown> = { name, image };

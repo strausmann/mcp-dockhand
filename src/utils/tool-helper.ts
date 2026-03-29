@@ -24,7 +24,7 @@ export function registerTool<T extends ZodShape>(
   name: string,
   description: string,
   schema: T,
-  callback: (args: z.objectOutputType<T, z.ZodTypeAny>) => Promise<ToolResponse>
+  callback: (args: z.output<z.ZodObject<T>>) => Promise<ToolResponse>
 ): void {
   /* eslint-disable @typescript-eslint/no-explicit-any */
   (server as any).tool(name, description, schema, async (args: any) => {

@@ -44,7 +44,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
   registerTool(server, 'update_user', 'Update a Dockhand user',
     {
       userId: z.number().describe('User ID'),
-      settings: z.record(z.unknown()).describe('User settings to update'),
+      settings: z.record(z.string(), z.unknown()).describe('User settings to update'),
     },
     async ({ userId, settings }) => {
       return jsonResponse(await client.put(`/api/users/${encodePath(userId)}`, settings));
@@ -120,7 +120,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
   registerTool(server, 'update_role', 'Update a Dockhand role',
     {
       roleId: z.number().describe('Role ID'),
-      config: z.record(z.unknown()).describe('Role configuration to update'),
+      config: z.record(z.string(), z.unknown()).describe('Role configuration to update'),
     },
     async ({ roleId, config }) => {
       return jsonResponse(await client.put(`/api/roles/${encodePath(roleId)}`, config));
@@ -145,7 +145,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
 
   registerTool(server, 'update_profile', 'Update the current user profile',
     {
-      settings: z.record(z.unknown()).describe('Profile settings to update'),
+      settings: z.record(z.string(), z.unknown()).describe('Profile settings to update'),
     },
     async ({ settings }) => {
       return jsonResponse(await client.put('/api/profile', settings));
@@ -161,7 +161,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
 
   registerTool(server, 'update_profile_preferences', 'Update profile preferences',
     {
-      preferences: z.record(z.unknown()).describe('Preferences to update'),
+      preferences: z.record(z.string(), z.unknown()).describe('Preferences to update'),
     },
     async ({ preferences }) => {
       return jsonResponse(await client.put('/api/profile/preferences', preferences));
@@ -211,7 +211,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
 
   registerTool(server, 'set_grid_preferences', 'Set grid display preferences',
     {
-      preferences: z.record(z.unknown()).describe('Grid preferences'),
+      preferences: z.record(z.string(), z.unknown()).describe('Grid preferences'),
     },
     async ({ preferences }) => {
       return jsonResponse(await client.post('/api/preferences/grid', preferences));
@@ -229,7 +229,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
 
   registerTool(server, 'create_config_set', 'Create a new config set',
     {
-      config: z.record(z.unknown()).describe('Config set data'),
+      config: z.record(z.string(), z.unknown()).describe('Config set data'),
     },
     async ({ config }) => {
       return jsonResponse(await client.post('/api/config-sets', config));
@@ -246,7 +246,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
   registerTool(server, 'update_config_set', 'Update a config set',
     {
       configSetId: z.number().describe('Config set ID'),
-      config: z.record(z.unknown()).describe('Updated config set data'),
+      config: z.record(z.string(), z.unknown()).describe('Updated config set data'),
     },
     async ({ configSetId, config }) => {
       return jsonResponse(await client.put(`/api/config-sets/${encodePath(configSetId)}`, config));

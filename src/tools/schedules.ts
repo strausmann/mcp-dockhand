@@ -26,7 +26,7 @@ export function registerScheduleTools(server: McpServer, client: DockhandClient)
 
   registerTool(server, 'update_schedule_settings', 'Update schedule settings',
     {
-      settings: z.record(z.unknown()).describe('Schedule settings to update'),
+      settings: z.record(z.string(), z.unknown()).describe('Schedule settings to update'),
     },
     async ({ settings }) => {
       return jsonResponse(await client.put('/api/schedules/settings', settings));

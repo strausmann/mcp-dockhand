@@ -19,7 +19,7 @@ export function registerNotificationTools(server: McpServer, client: DockhandCli
 
   registerTool(server, 'create_notification', 'Create a new notification configuration',
     {
-      config: z.record(z.unknown()).describe('Notification configuration (name, type, settings)'),
+      config: z.record(z.string(), z.unknown()).describe('Notification configuration (name, type, settings)'),
     },
     async ({ config }) => {
       return jsonResponse(await client.post('/api/notifications', config));
@@ -36,7 +36,7 @@ export function registerNotificationTools(server: McpServer, client: DockhandCli
   registerTool(server, 'update_notification', 'Update a notification configuration',
     {
       notificationId: z.number().describe('Notification ID'),
-      config: z.record(z.unknown()).describe('Updated notification configuration'),
+      config: z.record(z.string(), z.unknown()).describe('Updated notification configuration'),
     },
     async ({ notificationId, config }) => {
       return jsonResponse(await client.put(`/api/notifications/${encodePath(notificationId)}`, config));
@@ -59,7 +59,7 @@ export function registerNotificationTools(server: McpServer, client: DockhandCli
 
   registerTool(server, 'test_notification_config', 'Send a test notification without saving the configuration first',
     {
-      config: z.record(z.unknown()).describe('Notification configuration to test'),
+      config: z.record(z.string(), z.unknown()).describe('Notification configuration to test'),
     },
     async ({ config }) => {
       return jsonResponse(await client.post('/api/notifications/test', config));

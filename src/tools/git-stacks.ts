@@ -86,7 +86,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       password: z.string().optional().describe('Password for password-based authentication'),
       sshKey: z.string().optional().describe('Private SSH key content for SSH authentication'),
       token: z.string().optional().describe('Personal access token for token-based authentication'),
-      additionalConfig: z.record(z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
+      additionalConfig: z.record(z.string(), z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
     },
     async ({ name, type, username, password, sshKey, token, additionalConfig }) => {
       // Fix #30 (MEDIUM): Merge additionalConfig FIRST so explicit fields always win (PR #29)
@@ -115,7 +115,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       password: z.string().optional().describe('Password for password-based authentication'),
       sshKey: z.string().optional().describe('Private SSH key content for SSH authentication'),
       token: z.string().optional().describe('Personal access token for token-based authentication'),
-      additionalConfig: z.record(z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
+      additionalConfig: z.record(z.string(), z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
     },
     async ({ credentialId, name, type, username, password, sshKey, token, additionalConfig }) => {
       // Fix #30 (MEDIUM): Merge additionalConfig FIRST so explicit fields always win (PR #29)
@@ -154,7 +154,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       composePath: z.string().optional().describe('Path to docker-compose file within the repository'),
       envFilePath: z.string().optional().describe('Path to .env file within the repository'),
       stackName: z.string().optional().describe('Name for the stack created from this repository'),
-      additionalConfig: z.record(z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
+      additionalConfig: z.record(z.string(), z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
     },
     async ({ url, branch, credentialId, composePath, envFilePath, stackName, additionalConfig }) => {
       // Fix #30 (MEDIUM): Merge additionalConfig FIRST so explicit fields always win (PR #29)
