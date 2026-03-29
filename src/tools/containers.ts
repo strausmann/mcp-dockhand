@@ -261,6 +261,44 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
     }
   );
 
+  // --- Container File Download / Upload ---
+
+  registerTool(server, 'download_container_file', 'Download a file from a container. Returns the raw file content as base64-encoded data (the API returns a tar archive which is decoded automatically)',
+    {
+      environmentId: z.number().describe('Environment ID (required)'),
+      containerId: z.string().describe('Container ID or name'),
+      path: z.string().describe('Absolute path to the file inside the container'),
+    },
+    async ({ environmentId, containerId, path }) => {
+      const buffer = await client.getRaw(`/api/containers/${encodePath(containerId)}/files/download`, {
+        env: environmentId,
+        path,
+      });
+      return textResponse(`base64:${buffer.toString('base64')}`);
+    }
+  );
+
+  registerTool(server, 'upload_container_file', 'Upload a file to a container. The file content is sent as multipart form data',
+    {
+      environmentId: z.number().describe('Environment ID (required)'),
+      containerId: z.string().describe('Container ID or name'),
+      path: z.string().describe('Absolute path to the target directory inside the container'),
+      filename: z.string().describe('Name for the uploaded file'),
+      content: z.string().describe('File content to upload'),
+    },
+    async ({ environmentId, containerId, path, filename, content }) => {
+      const formData = new FormData();
+      const blob = new Blob([content], { type: 'application/octet-stream' });
+      formData.append('files', blob, filename);
+
+      return jsonResponse(await client.postMultipart(
+        `/api/containers/${encodePath(containerId)}/files/upload`,
+        formData,
+        { env: environmentId, path },
+      ));
+    }
+  );
+
   // --- Global container endpoints ---
 
   registerTool(server, 'check_container_updates', 'Check all containers for available image updates',
