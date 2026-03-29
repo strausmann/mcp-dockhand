@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `download_container_file`: Download files from containers (returns tar archive as base64)
+- `upload_container_file`: Upload files to containers (multipart form upload)
+
 ### Fixed
 
 - `create_environment`: Add `host` and `port` parameters for hawser-standard mode (#4, PR #15)

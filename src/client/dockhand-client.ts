@@ -51,6 +51,83 @@ export class DockhandClient {
   }
 
   /**
+   * Make an authenticated GET request that returns raw bytes (e.g. tar archives).
+   */
+  async getRaw(path: string, params?: Record<string, string | number | undefined>): Promise<Buffer> {
+    const url = this.buildUrl(path, params);
+    const cookie = await this.session.getCookie();
+
+    let response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Cookie': cookie },
+    });
+
+    if (response.status === 401) {
+      this.session.invalidate();
+      const retryCookie = await this.session.getCookie();
+      response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Cookie': retryCookie },
+      });
+    }
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(
+        `Dockhand API error: GET ${url} returned ${response.status}: ${errorBody || response.statusText}`
+      );
+    }
+
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  /**
+   * Make an authenticated POST request with multipart/form-data body.
+   * Used for file upload endpoints that expect a 'files' field.
+   */
+  async postMultipart<T = unknown>(path: string, formData: FormData, params?: Record<string, string | number | undefined>): Promise<T> {
+    const url = this.buildUrl(path, params);
+    const cookie = await this.session.getCookie();
+
+    let response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Cookie': cookie,
+        'Accept': 'application/json',
+      },
+      body: formData,
+    });
+
+    if (response.status === 401) {
+      this.session.invalidate();
+      const retryCookie = await this.session.getCookie();
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Cookie': retryCookie,
+          'Accept': 'application/json',
+        },
+        body: formData,
+      });
+    }
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(
+        `Dockhand API error: POST ${url} returned ${response.status}: ${errorBody || response.statusText}`
+      );
+    }
+
+    const contentType = response.headers.get('content-type') ?? '';
+    if (contentType.includes('application/json')) {
+      return (await response.json()) as T;
+    }
+
+    const text = await response.text();
+    return text as unknown as T;
+  }
+
+  /**
    * Make a POST request that returns SSE (Server-Sent Events).
    * Used for deploy, start, stop, down, restart operations.
    */
