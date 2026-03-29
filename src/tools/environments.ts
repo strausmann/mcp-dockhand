@@ -110,7 +110,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       collectMetrics: z.boolean().optional().describe('Collect host metrics (CPU, memory, etc.)'),
       highlightChanges: z.boolean().optional().describe('Highlight recent container changes'),
       socketPath: z.string().optional().describe('Custom Docker socket path (e.g. /var/run/docker.sock)'),
-      additionalSettings: z.record(z.unknown()).optional().describe('Additional settings not covered by explicit parameters'),
+      additionalSettings: z.record(z.string(), z.unknown()).optional().describe('Additional settings not covered by explicit parameters'),
     },
     async ({ environmentId, name, connectionType, host, port, url, icon, labels, collectActivity, collectMetrics, highlightChanges, socketPath, additionalSettings }) => {
       // Only fetch environment when connectionType is not provided (avoids performance regression from PR #21)
@@ -196,7 +196,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
   registerTool(server, 'set_environment_update_check', 'Set update-check settings of an environment',
     {
       environmentId: z.number().describe('Environment ID'),
-      settings: z.record(z.unknown()).describe('Update-check settings'),
+      settings: z.record(z.string(), z.unknown()).describe('Update-check settings'),
     },
     async ({ environmentId, settings }) => {
       return jsonResponse(await client.post(`/api/environments/${encodePath(environmentId)}/update-check`, settings));
@@ -213,7 +213,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
   registerTool(server, 'set_environment_image_prune', 'Set image prune settings of an environment',
     {
       environmentId: z.number().describe('Environment ID'),
-      settings: z.record(z.unknown()).describe('Image prune settings'),
+      settings: z.record(z.string(), z.unknown()).describe('Image prune settings'),
     },
     async ({ environmentId, settings }) => {
       return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}/image-prune`, settings));
@@ -230,7 +230,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
   registerTool(server, 'create_environment_notification', 'Create a notification for an environment',
     {
       environmentId: z.number().describe('Environment ID'),
-      config: z.record(z.unknown()).describe('Notification configuration'),
+      config: z.record(z.string(), z.unknown()).describe('Notification configuration'),
     },
     async ({ environmentId, config }) => {
       return jsonResponse(await client.post(`/api/environments/${encodePath(environmentId)}/notifications`, config));

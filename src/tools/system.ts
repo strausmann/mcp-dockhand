@@ -91,7 +91,7 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   registerTool(server, 'update_general_settings', 'Update general Dockhand settings',
     {
-      settings: z.record(z.unknown()).describe('Settings to update'),
+      settings: z.record(z.string(), z.unknown()).describe('Settings to update'),
     },
     async ({ settings }) => {
       return jsonResponse(await client.post('/api/settings/general', settings));
@@ -114,7 +114,7 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   registerTool(server, 'update_scanner_settings', 'Update vulnerability scanner settings',
     {
-      settings: z.record(z.unknown()).describe('Scanner settings to update'),
+      settings: z.record(z.string(), z.unknown()).describe('Scanner settings to update'),
     },
     async ({ settings }) => {
       return jsonResponse(await client.post('/api/settings/scanner', settings));

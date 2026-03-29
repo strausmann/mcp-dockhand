@@ -19,7 +19,7 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
 
   registerTool(server, 'create_registry', 'Add a new Docker registry',
     {
-      config: z.record(z.unknown()).describe('Registry configuration (name, url, username, password, etc.)'),
+      config: z.record(z.string(), z.unknown()).describe('Registry configuration (name, url, username, password, etc.)'),
     },
     async ({ config }) => {
       return jsonResponse(await client.post('/api/registries', config));
@@ -36,7 +36,7 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'update_registry', 'Update a Docker registry configuration',
     {
       registryId: z.number().describe('Registry ID'),
-      config: z.record(z.unknown()).describe('Updated registry configuration'),
+      config: z.record(z.string(), z.unknown()).describe('Updated registry configuration'),
     },
     async ({ registryId, config }) => {
       return jsonResponse(await client.put(`/api/registries/${encodePath(registryId)}`, config));

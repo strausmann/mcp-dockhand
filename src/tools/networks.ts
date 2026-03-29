@@ -45,8 +45,8 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
       internal: z.boolean().optional().describe('Internal network (no external access)'),
       attachable: z.boolean().optional().describe('Allow manual container attachment'),
       enableIPv6: z.boolean().optional().describe('Enable IPv6'),
-      labels: z.record(z.string()).optional().describe('Network labels'),
-      options: z.record(z.string()).optional().describe('Driver-specific options'),
+      labels: z.record(z.string(), z.string()).optional().describe('Network labels'),
+      options: z.record(z.string(), z.string()).optional().describe('Driver-specific options'),
     },
     async ({ environmentId, name, driver, internal, attachable, enableIPv6, labels, options }) => {
       const body: Record<string, unknown> = { name };
