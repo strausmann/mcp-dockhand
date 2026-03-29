@@ -1,0 +1,96 @@
+name: Dockhand API Schema Sync
+
+on:
+  schedule:
+    - cron: '0 5 * * *'  # Täglich 05:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sync-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Extract Dockhand API Schema
+        run: node scripts/extract-dockhand-api.mjs
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ ! -f docs/dockhand-api-schema.json ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Kein Schema vorhanden — Initiale Extraktion"
+          elif ! git diff --quiet docs/dockhand-api-schema.json; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Schema hat sich geändert"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Keine Änderungen"
+          fi
+
+      - name: Commit schema update
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/dockhand-api-schema.json
+          git commit -m "chore: update Dockhand API schema (automated)"
+          git push
+
+      - name: Validate MCP tools against schema
+        id: validate
+        run: node scripts/validate-mcp-tools.mjs
+        continue-on-error: true
+
+      - name: Create issue on validation failure
+        if: steps.validate.outcome == 'failure'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.existsSync('validation-report.md')
+              ? fs.readFileSync('validation-report.md', 'utf8')
+              : 'Validation failed. Check workflow logs for details.';
+
+            // Prüfe ob bereits ein offenes Issue existiert
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'api-change',
+              state: 'open',
+            });
+
+            if (existing.data.length > 0) {
+              // Update existierendes Issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body: `## Aktualisierter Report (${new Date().toISOString().split('T')[0]})\n\n${report}`,
+              });
+            } else {
+              // Neues Issue erstellen
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[API Change]: Dockhand API Schema Mismatch (${new Date().toISOString().split('T')[0]})`,
+                labels: ['api-change', 'priority: high', 'status: needs-triage'],
+                body: `## Automatisch erkannte API-Änderung\n\nDer tägliche API-Schema-Sync hat Unterschiede zwischen der Dockhand API und unseren MCP-Tools erkannt.\n\n${report}\n\n### Nächste Schritte\n\n- [ ] Report analysieren\n- [ ] Betroffene MCP Tools identifizieren\n- [ ] Anpassungen implementieren\n- [ ] Tests aktualisieren`,
+              });
+            }
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-report
+          path: validation-report.md
+          if-no-files-found: ignore
