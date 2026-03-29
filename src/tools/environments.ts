@@ -7,6 +7,61 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse } from '../utils/tool-helper.js';
 
+/**
+ * Resolve host/port from explicit args or a URL string into the request body.
+ * Only applies to hawser-standard connections — other types ignore host/port.
+ *
+ * @param body        - The request body to mutate
+ * @param args        - User-supplied host, port, url
+ * @param connectionType - The connection type of the environment
+ * @param useDefaultPort - If true, default port 2376 when not explicitly set (create/test).
+ *                         If false, only set port when the caller provided one (update).
+ */
+function resolveHostPort(
+  body: Record<string, unknown>,
+  args: { host?: string; port?: number; url?: string },
+  connectionType: string,
+  useDefaultPort: boolean,
+): void {
+  if (connectionType !== 'hawser-standard') return;
+
+  if (args.host) {
+    body.host = args.host;
+    if (useDefaultPort) {
+      body.port = args.port ?? 2376;
+    } else if (args.port !== undefined) {
+      body.port = args.port;
+    }
+    return;
+  }
+
+  if (args.url) {
+    try {
+      const parsed = new URL(args.url);
+      body.host = parsed.hostname;
+      if (parsed.port) {
+        body.port = parseInt(parsed.port, 10);
+      } else if (useDefaultPort) {
+        body.port = 2376;
+      }
+    } catch {
+      try {
+        const parsed = new URL(`tcp://${args.url}`);
+        body.host = parsed.hostname;
+        if (parsed.port) {
+          body.port = parseInt(parsed.port, 10);
+        } else if (useDefaultPort) {
+          body.port = 2376;
+        }
+      } catch {
+        throw new Error(
+          'Invalid Docker host URL for hawser-standard. Provide host:port or tcp://host:port.',
+        );
+      }
+    }
+  }
+}
+
 export function registerEnvironmentTools(server: McpServer, client: DockhandClient): void {
 
   registerTool(server, 'list_environments', 'List all Dockhand environments (Docker hosts)',
@@ -33,19 +88,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
     },
     async ({ name, connectionType, host, port, url }) => {
       const body: Record<string, unknown> = { name, connectionType };
-      if (host) {
-        body.host = host;
-        body.port = port ?? 2376;
-      } else if (url) {
-        try {
-          const parsed = new URL(url);
-          body.host = parsed.hostname;
-          body.port = parsed.port ? parseInt(parsed.port, 10) : 2376;
-        } catch {
-          // If URL parsing fails, pass url as-is for backward compatibility
-          body.url = url;
-        }
-      }
+      resolveHostPort(body, { host, port, url }, connectionType, true);
       return jsonResponse(await client.post('/api/environments', body));
     }
   );
@@ -60,21 +103,13 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       settings: z.record(z.unknown()).optional().describe('Additional settings to update'),
     },
     async ({ environmentId, name, host, port, url, settings }) => {
+      const env = await client.get(`/api/environments/${environmentId}`) as Record<string, unknown>;
+      const connectionType = (env.connectionType as string) ?? '';
       const body: Record<string, unknown> = {};
       if (name) body.name = name;
-      if (host) {
-        body.host = host;
-        if (port !== undefined) body.port = port;
-      } else if (url) {
-        try {
-          const parsed = new URL(url);
-          body.host = parsed.hostname;
-          body.port = parsed.port ? parseInt(parsed.port, 10) : 2376;
-        } catch {
-          body.url = url;
-        }
-      }
+      // Merge settings first so explicit host/port can override them
       if (settings) Object.assign(body, settings);
+      resolveHostPort(body, { host, port, url }, connectionType, false);
       return jsonResponse(await client.put(`/api/environments/${environmentId}`, body));
     }
   );
@@ -102,18 +137,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
     },
     async ({ connectionType, host, port, url }) => {
       const body: Record<string, unknown> = { connectionType };
-      if (host) {
-        body.host = host;
-        body.port = port ?? 2376;
-      } else if (url) {
-        try {
-          const parsed = new URL(url);
-          body.host = parsed.hostname;
-          body.port = parsed.port ? parseInt(parsed.port, 10) : 2376;
-        } catch {
-          body.url = url;
-        }
-      }
+      resolveHostPort(body, { host, port, url }, connectionType, true);
       return jsonResponse(await client.post('/api/environments/test', body));
     }
   );
