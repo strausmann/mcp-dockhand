@@ -95,7 +95,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
       volumeName: z.string().describe('Volume name'),
     },
     async ({ environmentId, volumeName }) => {
-      return jsonResponse(await client.post(`/api/volumes/${encodePath(volumeName)}/export`, undefined, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/volumes/${encodePath(volumeName)}/export`, { env: environmentId }));
     }
   );
 

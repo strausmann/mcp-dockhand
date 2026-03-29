@@ -17,16 +17,6 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'get_image', 'Get details of a specific Docker image',
-    {
-      environmentId: z.number().describe('Environment ID'),
-      imageId: z.string().describe('Image ID'),
-    },
-    async ({ environmentId, imageId }) => {
-      return jsonResponse(await client.get(`/api/images/${encodePath(imageId)}`, { env: environmentId }));
-    }
-  );
-
   registerTool(server, 'get_image_history', 'Get the layer history of a Docker image',
     {
       environmentId: z.number().describe('Environment ID'),
@@ -95,7 +85,7 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
       imageId: z.string().describe('Image ID'),
     },
     async ({ environmentId, imageId }) => {
-      return jsonResponse(await client.post(`/api/images/${encodePath(imageId)}/export`, undefined, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/images/${encodePath(imageId)}/export`, { env: environmentId }));
     }
   );
 }

@@ -7,3 +7,4 @@ dist/
 *.tgz
 coverage/
 .nyc_output/
+validation-report.md

@@ -94,7 +94,7 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
       settings: z.record(z.unknown()).describe('Settings to update'),
     },
     async ({ settings }) => {
-      return jsonResponse(await client.put('/api/settings/general', settings));
+      return jsonResponse(await client.post('/api/settings/general', settings));
     }
   );
 
@@ -102,15 +102,6 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
     {},
     async () => {
       return jsonResponse(await client.get('/api/settings/theme'));
-    }
-  );
-
-  registerTool(server, 'update_theme_settings', 'Update Dockhand theme settings',
-    {
-      settings: z.record(z.unknown()).describe('Theme settings to update'),
-    },
-    async ({ settings }) => {
-      return jsonResponse(await client.put('/api/settings/theme', settings));
     }
   );
 
@@ -126,7 +117,7 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
       settings: z.record(z.unknown()).describe('Scanner settings to update'),
     },
     async ({ settings }) => {
-      return jsonResponse(await client.put('/api/settings/scanner', settings));
+      return jsonResponse(await client.post('/api/settings/scanner', settings));
     }
   );
 
@@ -199,7 +190,7 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
   registerTool(server, 'get_batch_operations', 'Get available batch operations',
     {},
     async () => {
-      return jsonResponse(await client.get('/api/batch'));
+      return jsonResponse(await client.post('/api/batch'));
     }
   );
 

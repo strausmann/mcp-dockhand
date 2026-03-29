@@ -17,16 +17,6 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'get_stack', 'Get details of a specific stack by name',
-    {
-      environmentId: z.number().describe('Environment ID'),
-      name: z.string().describe('Stack name'),
-    },
-    async ({ environmentId, name }) => {
-      return jsonResponse(await client.get(`/api/stacks/${encodePath(name)}`, { env: environmentId }));
-    }
-  );
-
   registerTool(server, 'create_stack', 'Create a new Docker Compose stack and optionally deploy it',
     {
       environmentId: z.number().describe('Environment ID'),

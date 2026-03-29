@@ -47,16 +47,6 @@ export function registerScheduleTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'get_schedule', 'Get a specific schedule by type and ID',
-    {
-      type: z.string().describe('Schedule type'),
-      scheduleId: z.number().describe('Schedule ID'),
-    },
-    async ({ type, scheduleId }) => {
-      return jsonResponse(await client.get(`/api/schedules/${encodePath(type)}/${encodePath(scheduleId)}`));
-    }
-  );
-
   registerTool(server, 'run_schedule_now', 'Run a schedule immediately',
     {
       type: z.string().describe('Schedule type'),

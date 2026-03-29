@@ -58,13 +58,6 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
     }
   );
 
-  registerTool(server, 'get_user_mfa_status', 'Get MFA status of a user',
-    { userId: z.number().describe('User ID') },
-    async ({ userId }) => {
-      return jsonResponse(await client.get(`/api/users/${encodePath(userId)}/mfa`));
-    }
-  );
-
   registerTool(server, 'enable_user_mfa', 'Enable MFA for a user',
     { userId: z.number().describe('User ID') },
     async ({ userId }) => {
@@ -92,7 +85,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
       roles: z.array(z.string()).describe('Role names to assign'),
     },
     async ({ userId, roles }) => {
-      return jsonResponse(await client.put(`/api/users/${encodePath(userId)}/roles`, { roles }));
+      return jsonResponse(await client.post(`/api/users/${encodePath(userId)}/roles`, { roles }));
     }
   );
 
@@ -189,7 +182,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
       favorites: z.array(z.unknown()).describe('Favorites list'),
     },
     async ({ favorites }) => {
-      return jsonResponse(await client.put('/api/preferences/favorites', favorites));
+      return jsonResponse(await client.post('/api/preferences/favorites', favorites));
     }
   );
 
@@ -205,7 +198,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
       groups: z.array(z.unknown()).describe('Favorite groups'),
     },
     async ({ groups }) => {
-      return jsonResponse(await client.put('/api/preferences/favorite-groups', groups));
+      return jsonResponse(await client.post('/api/preferences/favorite-groups', groups));
     }
   );
 
@@ -221,7 +214,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
       preferences: z.record(z.unknown()).describe('Grid preferences'),
     },
     async ({ preferences }) => {
-      return jsonResponse(await client.put('/api/preferences/grid', preferences));
+      return jsonResponse(await client.post('/api/preferences/grid', preferences));
     }
   );
 

@@ -163,7 +163,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       timezone: z.string().describe('Timezone string (e.g. Europe/Berlin)'),
     },
     async ({ environmentId, timezone }) => {
-      return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}/timezone`, { timezone }));
+      return jsonResponse(await client.post(`/api/environments/${encodePath(environmentId)}/timezone`, { timezone }));
     }
   );
 
@@ -180,7 +180,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       settings: z.record(z.unknown()).describe('Update-check settings'),
     },
     async ({ environmentId, settings }) => {
-      return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}/update-check`, settings));
+      return jsonResponse(await client.post(`/api/environments/${encodePath(environmentId)}/update-check`, settings));
     }
   );
 

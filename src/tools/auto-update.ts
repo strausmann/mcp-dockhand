@@ -34,7 +34,7 @@ export function registerAutoUpdateTools(server: McpServer, client: DockhandClien
       policy: z.enum(['never', 'any', 'critical-high', 'critical', 'more-than-current']).describe('Auto-update policy'),
     },
     async ({ environmentId, containerName, policy }) => {
-      return jsonResponse(await client.put(`/api/auto-update/${encodePath(containerName)}`, { policy }, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/auto-update/${encodePath(containerName)}`, { policy }, { env: environmentId }));
     }
   );
 }
