@@ -26,7 +26,7 @@ export function registerDashboardTools(server: McpServer, client: DockhandClient
   registerTool(server, 'set_dashboard_preferences', 'Set dashboard display preferences',
     { preferences: z.record(z.unknown()).describe('Dashboard preferences') },
     async ({ preferences }) => {
-      return jsonResponse(await client.put('/api/dashboard/preferences', preferences));
+      return jsonResponse(await client.post('/api/dashboard/preferences', preferences));
     }
   );
 

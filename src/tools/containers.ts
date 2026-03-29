@@ -233,7 +233,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       path: z.string().describe('File path inside container'),
     },
     async ({ environmentId, containerId, path }) => {
-      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/files/delete`, { path }, { env: environmentId }));
+      return jsonResponse(await client.delete(`/api/containers/${encodePath(containerId)}/files/delete`, { env: environmentId, path }));
     }
   );
 

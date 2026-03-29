@@ -78,16 +78,6 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'get_registry_image', 'Get image details from a registry',
-    {
-      image: z.string().describe('Image name'),
-      environmentId: z.number().optional().describe('Environment ID'),
-    },
-    async ({ image, environmentId }) => {
-      return jsonResponse(await client.get('/api/registry/image', { image, env: environmentId }));
-    }
-  );
-
   registerTool(server, 'get_registry_tags', 'Get available tags for an image in a registry',
     {
       image: z.string().describe('Image name'),

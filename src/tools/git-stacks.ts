@@ -211,7 +211,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'get_git_preview_env', 'Get preview environment for Git deployments',
     {},
     async () => {
-      return jsonResponse(await client.get('/api/git/preview-env'));
+      return jsonResponse(await client.post('/api/git/preview-env'));
     }
   );
 }
