@@ -101,15 +101,27 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       host: z.string().optional().describe('Docker host IP or hostname (for hawser-standard mode)'),
       port: z.number().optional().describe('Docker host port (for hawser-standard mode)'),
       url: z.string().optional().describe('Docker host URL (legacy, will be parsed into host/port)'),
-      settings: z.record(z.unknown()).optional().describe('Additional settings to update'),
+      icon: z.string().optional().describe('Icon name for the environment'),
+      labels: z.array(z.string()).optional().describe('Labels assigned to the environment'),
+      collectActivity: z.boolean().optional().describe('Collect container activity logs'),
+      collectMetrics: z.boolean().optional().describe('Collect host metrics (CPU, memory, etc.)'),
+      highlightChanges: z.boolean().optional().describe('Highlight recent container changes'),
+      socketPath: z.string().optional().describe('Custom Docker socket path (e.g. /var/run/docker.sock)'),
+      additionalSettings: z.record(z.unknown()).optional().describe('Additional settings not covered by explicit parameters'),
     },
-    async ({ environmentId, name, host, port, url, settings }) => {
+    async ({ environmentId, name, host, port, url, icon, labels, collectActivity, collectMetrics, highlightChanges, socketPath, additionalSettings }) => {
       const env = await client.get(`/api/environments/${encodePath(environmentId)}`) as Record<string, unknown>;
       const connectionType = (env.connectionType as string) ?? '';
       const body: Record<string, unknown> = {};
       if (name) body.name = name;
-      // Merge settings first so explicit host/port can override them
-      if (settings) Object.assign(body, settings);
+      // Merge additional settings first so explicit fields can override them
+      if (additionalSettings) Object.assign(body, additionalSettings);
+      if (icon !== undefined) body.icon = icon;
+      if (labels !== undefined) body.labels = labels;
+      if (collectActivity !== undefined) body.collectActivity = collectActivity;
+      if (collectMetrics !== undefined) body.collectMetrics = collectMetrics;
+      if (highlightChanges !== undefined) body.highlightChanges = highlightChanges;
+      if (socketPath !== undefined) body.socketPath = socketPath;
       resolveHostPort(body, { host, port, url }, connectionType, false);
       return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}`, body));
     }

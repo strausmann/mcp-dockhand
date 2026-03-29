@@ -82,10 +82,20 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     {
       name: z.string().describe('Credential name'),
       type: z.string().describe('Credential type (e.g. ssh, token, password)'),
-      config: z.record(z.unknown()).describe('Credential configuration'),
+      username: z.string().optional().describe('Username for password-based authentication'),
+      password: z.string().optional().describe('Password for password-based authentication'),
+      sshKey: z.string().optional().describe('Private SSH key content for SSH authentication'),
+      token: z.string().optional().describe('Personal access token for token-based authentication'),
+      additionalConfig: z.record(z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
     },
-    async ({ name, type, config }) => {
-      return jsonResponse(await client.post('/api/git/credentials', { name, type, ...config }));
+    async ({ name, type, username, password, sshKey, token, additionalConfig }) => {
+      const body: Record<string, unknown> = { name, type };
+      if (username !== undefined) body.username = username;
+      if (password !== undefined) body.password = password;
+      if (sshKey !== undefined) body.sshKey = sshKey;
+      if (token !== undefined) body.token = token;
+      if (additionalConfig) Object.assign(body, additionalConfig);
+      return jsonResponse(await client.post('/api/git/credentials', body));
     }
   );
 
@@ -99,10 +109,24 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'update_git_credential', 'Update a Git credential',
     {
       credentialId: z.number().describe('Credential ID'),
-      config: z.record(z.unknown()).describe('Updated credential configuration'),
+      name: z.string().optional().describe('Updated credential name'),
+      type: z.string().optional().describe('Updated credential type (e.g. ssh, token, password)'),
+      username: z.string().optional().describe('Username for password-based authentication'),
+      password: z.string().optional().describe('Password for password-based authentication'),
+      sshKey: z.string().optional().describe('Private SSH key content for SSH authentication'),
+      token: z.string().optional().describe('Personal access token for token-based authentication'),
+      additionalConfig: z.record(z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
     },
-    async ({ credentialId, config }) => {
-      return jsonResponse(await client.put(`/api/git/credentials/${encodePath(credentialId)}`, config));
+    async ({ credentialId, name, type, username, password, sshKey, token, additionalConfig }) => {
+      const body: Record<string, unknown> = {};
+      if (name !== undefined) body.name = name;
+      if (type !== undefined) body.type = type;
+      if (username !== undefined) body.username = username;
+      if (password !== undefined) body.password = password;
+      if (sshKey !== undefined) body.sshKey = sshKey;
+      if (token !== undefined) body.token = token;
+      if (additionalConfig) Object.assign(body, additionalConfig);
+      return jsonResponse(await client.put(`/api/git/credentials/${encodePath(credentialId)}`, body));
     }
   );
 
@@ -124,10 +148,23 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
 
   registerTool(server, 'create_git_repository', 'Create a new Git repository configuration',
     {
-      config: z.record(z.unknown()).describe('Repository configuration (url, branch, credentialId, etc.)'),
+      url: z.string().describe('Git repository URL (HTTPS or SSH)'),
+      branch: z.string().optional().describe('Branch to track (default: main or master)'),
+      credentialId: z.number().optional().describe('ID of the Git credential to use for authentication'),
+      composePath: z.string().optional().describe('Path to docker-compose file within the repository'),
+      envFilePath: z.string().optional().describe('Path to .env file within the repository'),
+      stackName: z.string().optional().describe('Name for the stack created from this repository'),
+      additionalConfig: z.record(z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
     },
-    async ({ config }) => {
-      return jsonResponse(await client.post('/api/git/repositories', config));
+    async ({ url, branch, credentialId, composePath, envFilePath, stackName, additionalConfig }) => {
+      const body: Record<string, unknown> = { url };
+      if (branch !== undefined) body.branch = branch;
+      if (credentialId !== undefined) body.credentialId = credentialId;
+      if (composePath !== undefined) body.composePath = composePath;
+      if (envFilePath !== undefined) body.envFilePath = envFilePath;
+      if (stackName !== undefined) body.stackName = stackName;
+      if (additionalConfig) Object.assign(body, additionalConfig);
+      return jsonResponse(await client.post('/api/git/repositories', body));
     }
   );
 
