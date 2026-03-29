@@ -94,10 +94,13 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
     }
   );
 
-  registerTool(server, 'update_environment', 'Update an existing environment. For hawser-standard mode, provide host/port directly or a url that will be parsed.',
+  // Fix #30 (HIGH): Accept optional connectionType param to skip redundant GET request.
+  // Only fetches environment via GET when connectionType is not provided by the caller.
+  registerTool(server, 'update_environment', 'Update an existing environment. For hawser-standard mode, provide host/port directly or a url that will be parsed. Pass connectionType to avoid an extra GET request.',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().optional().describe('New name'),
+      connectionType: z.string().optional().describe('Connection type of the environment (e.g. hawser-standard). When provided, skips fetching the environment to read it.'),
       host: z.string().optional().describe('Docker host IP or hostname (for hawser-standard mode)'),
       port: z.number().optional().describe('Docker host port (for hawser-standard mode)'),
       url: z.string().optional().describe('Docker host URL (legacy, will be parsed into host/port)'),
@@ -109,9 +112,13 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       socketPath: z.string().optional().describe('Custom Docker socket path (e.g. /var/run/docker.sock)'),
       additionalSettings: z.record(z.unknown()).optional().describe('Additional settings not covered by explicit parameters'),
     },
-    async ({ environmentId, name, host, port, url, icon, labels, collectActivity, collectMetrics, highlightChanges, socketPath, additionalSettings }) => {
-      const env = await client.get(`/api/environments/${encodePath(environmentId)}`) as Record<string, unknown>;
-      const connectionType = (env.connectionType as string) ?? '';
+    async ({ environmentId, name, connectionType, host, port, url, icon, labels, collectActivity, collectMetrics, highlightChanges, socketPath, additionalSettings }) => {
+      // Only fetch environment when connectionType is not provided (avoids performance regression from PR #21)
+      let resolvedConnectionType = connectionType;
+      if (!resolvedConnectionType) {
+        const env = await client.get(`/api/environments/${encodePath(environmentId)}`) as Record<string, unknown>;
+        resolvedConnectionType = (env.connectionType as string) ?? '';
+      }
       const body: Record<string, unknown> = {};
       if (name) body.name = name;
       // Merge additional settings first so explicit fields can override them
@@ -122,7 +129,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       if (collectMetrics !== undefined) body.collectMetrics = collectMetrics;
       if (highlightChanges !== undefined) body.highlightChanges = highlightChanges;
       if (socketPath !== undefined) body.socketPath = socketPath;
-      resolveHostPort(body, { host, port, url }, connectionType, false);
+      resolveHostPort(body, { host, port, url }, resolvedConnectionType, false);
       return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}`, body));
     }
   );

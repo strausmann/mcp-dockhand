@@ -172,7 +172,7 @@ function main() {
     const queryParams = extractQueryParams(file);
 
     if (methods.length === 0) {
-      console.error(`[extract] WARNUNG: Keine HTTP-Methoden in ${apiPath}`);
+      console.error(`[extract] WARNING: No HTTP methods found in ${apiPath}`);
       continue;
     }
 
@@ -200,13 +200,31 @@ function main() {
     endpoints,
   };
 
+  // Fix #30 (MEDIUM): Deterministic schema output (PR #25).
+  // Only write the file if endpoints actually changed — ignore generatedAt to avoid unnecessary commits.
+  if (existsSync(OUTPUT_FILE)) {
+    try {
+      const existing = JSON.parse(readFileSync(OUTPUT_FILE, 'utf8'));
+      const existingComparable = { ...existing, generatedAt: '' };
+      const newComparable = { ...schema, generatedAt: '' };
+      if (JSON.stringify(existingComparable.endpoints?.sort((a,b) => a.path.localeCompare(b.path))) === JSON.stringify(newComparable.endpoints?.sort((a,b) => a.path.localeCompare(b.path)))) {
+        console.error(`[extract] Schema unchanged (${endpoints.length} endpoints) — skipping write`);
+        rmSync(CLONE_DIR, { recursive: true, force: true });
+        console.error('[extract] Temporary directory cleaned up');
+        return;
+      }
+    } catch {
+      // If existing file is corrupt, overwrite it
+    }
+  }
+
   writeFileSync(OUTPUT_FILE, JSON.stringify(schema, null, 2) + '\n', 'utf8');
   console.error(`[extract] Schema geschrieben: ${OUTPUT_FILE}`);
   console.error(`[extract] ${endpoints.length} Endpunkte extrahiert`);
 
   // Aufräumen
   rmSync(CLONE_DIR, { recursive: true, force: true });
-  console.error('[extract] Temporäres Verzeichnis aufgeräumt');
+  console.error('[extract] Temporary directory cleaned up');
 }
 
 main();

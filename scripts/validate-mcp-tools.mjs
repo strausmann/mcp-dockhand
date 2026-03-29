@@ -95,9 +95,13 @@ function extractToolCalls() {
           .replace(/\$\{encodePath\((\w+)\)\}/g, '{$1}')
           .replace(/\$\{(\w+)\}/g, '{$1}');
 
-        // Prüfe ob encodePath verwendet wird
-        const usesEncode = rawPath.includes('encodePath');
+        // Fix #30 (HIGH): Per-interpolation encodePath check (PR #25).
+        // Each ${...} interpolation must use encodePath, not just any occurrence in the string.
+        const interpolations = [...rawPath.matchAll(/\$\{([^}]+)\}/g)].map(m => m[1]);
         const hasPathParams = normalizedPath.includes('{');
+        const usesEncode = hasPathParams
+          ? interpolations.every(expr => expr.includes('encodePath'))
+          : true;
 
         calls.push({
           file,

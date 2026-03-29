@@ -89,12 +89,12 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       additionalConfig: z.record(z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
     },
     async ({ name, type, username, password, sshKey, token, additionalConfig }) => {
-      const body: Record<string, unknown> = { name, type };
+      // Fix #30 (MEDIUM): Merge additionalConfig FIRST so explicit fields always win (PR #29)
+      const body: Record<string, unknown> = { ...additionalConfig, name, type };
       if (username !== undefined) body.username = username;
       if (password !== undefined) body.password = password;
       if (sshKey !== undefined) body.sshKey = sshKey;
       if (token !== undefined) body.token = token;
-      if (additionalConfig) Object.assign(body, additionalConfig);
       return jsonResponse(await client.post('/api/git/credentials', body));
     }
   );
@@ -118,14 +118,14 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       additionalConfig: z.record(z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
     },
     async ({ credentialId, name, type, username, password, sshKey, token, additionalConfig }) => {
-      const body: Record<string, unknown> = {};
+      // Fix #30 (MEDIUM): Merge additionalConfig FIRST so explicit fields always win (PR #29)
+      const body: Record<string, unknown> = { ...additionalConfig };
       if (name !== undefined) body.name = name;
       if (type !== undefined) body.type = type;
       if (username !== undefined) body.username = username;
       if (password !== undefined) body.password = password;
       if (sshKey !== undefined) body.sshKey = sshKey;
       if (token !== undefined) body.token = token;
-      if (additionalConfig) Object.assign(body, additionalConfig);
       return jsonResponse(await client.put(`/api/git/credentials/${encodePath(credentialId)}`, body));
     }
   );
@@ -157,13 +157,13 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       additionalConfig: z.record(z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
     },
     async ({ url, branch, credentialId, composePath, envFilePath, stackName, additionalConfig }) => {
-      const body: Record<string, unknown> = { url };
+      // Fix #30 (MEDIUM): Merge additionalConfig FIRST so explicit fields always win (PR #29)
+      const body: Record<string, unknown> = { ...additionalConfig, url };
       if (branch !== undefined) body.branch = branch;
       if (credentialId !== undefined) body.credentialId = credentialId;
       if (composePath !== undefined) body.composePath = composePath;
       if (envFilePath !== undefined) body.envFilePath = envFilePath;
       if (stackName !== undefined) body.stackName = stackName;
-      if (additionalConfig) Object.assign(body, additionalConfig);
       return jsonResponse(await client.post('/api/git/repositories', body));
     }
   );
@@ -208,7 +208,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'get_git_preview_env', 'Get preview environment for Git deployments',
+  registerTool(server, 'request_git_preview_env', 'Get preview environment for Git deployments',
     {},
     async () => {
       return jsonResponse(await client.post('/api/git/preview-env'));

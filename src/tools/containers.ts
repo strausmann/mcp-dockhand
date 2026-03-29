@@ -278,17 +278,23 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
     }
   );
 
-  registerTool(server, 'upload_container_file', 'Upload a file to a container. The file content is sent as multipart form data',
+  // Fix #30 (HIGH): Add encoding parameter for binary file support (PR #23).
+  // When encoding is 'base64', content is decoded from base64 before upload.
+  registerTool(server, 'upload_container_file', 'Upload a file to a container. The file content is sent as multipart form data. For binary files, pass content as base64 and set encoding to "base64".',
     {
       environmentId: z.number().describe('Environment ID (required)'),
       containerId: z.string().describe('Container ID or name'),
       path: z.string().describe('Absolute path to the target directory inside the container'),
       filename: z.string().describe('Name for the uploaded file'),
-      content: z.string().describe('File content to upload'),
+      content: z.string().describe('File content to upload (plain text or base64-encoded binary)'),
+      encoding: z.enum(['utf-8', 'base64']).optional().describe('Content encoding: "utf-8" (default) for text, "base64" for binary data'),
     },
-    async ({ environmentId, containerId, path, filename, content }) => {
+    async ({ environmentId, containerId, path, filename, content, encoding }) => {
       const formData = new FormData();
-      const blob = new Blob([content], { type: 'application/octet-stream' });
+      const bytes = encoding === 'base64'
+        ? Buffer.from(content, 'base64')
+        : new TextEncoder().encode(content);
+      const blob = new Blob([bytes], { type: 'application/octet-stream' });
       formData.append('files', blob, filename);
 
       return jsonResponse(await client.postMultipart(
