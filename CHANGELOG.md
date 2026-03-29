@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `download_container_file`: Download files from containers (returns tar archive as base64)
 - `upload_container_file`: Upload files to containers (multipart form upload)
+- Vitest test suite with path encoding validation and tool registration tests
+- CI: Tests run on every push and PR
 
 ### Fixed
 
