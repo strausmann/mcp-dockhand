@@ -172,7 +172,7 @@ function main() {
     const queryParams = extractQueryParams(file);
 
     if (methods.length === 0) {
-      console.error(`[extract] WARNUNG: Keine HTTP-Methoden in ${apiPath}`);
+      console.error(`[extract] WARNING: No HTTP methods found in ${apiPath}`);
       continue;
     }
 
@@ -207,10 +207,10 @@ function main() {
       const existing = JSON.parse(readFileSync(OUTPUT_FILE, 'utf8'));
       const existingComparable = { ...existing, generatedAt: '' };
       const newComparable = { ...schema, generatedAt: '' };
-      if (JSON.stringify(existingComparable) === JSON.stringify(newComparable)) {
+      if (JSON.stringify(existingComparable.endpoints?.sort((a,b) => a.path.localeCompare(b.path))) === JSON.stringify(newComparable.endpoints?.sort((a,b) => a.path.localeCompare(b.path)))) {
         console.error(`[extract] Schema unchanged (${endpoints.length} endpoints) — skipping write`);
         rmSync(CLONE_DIR, { recursive: true, force: true });
-        console.error('[extract] Temporäres Verzeichnis aufgeräumt');
+        console.error('[extract] Temporary directory cleaned up');
         return;
       }
     } catch {
@@ -224,7 +224,7 @@ function main() {
 
   // Aufräumen
   rmSync(CLONE_DIR, { recursive: true, force: true });
-  console.error('[extract] Temporäres Verzeichnis aufgeräumt');
+  console.error('[extract] Temporary directory cleaned up');
 }
 
 main();
