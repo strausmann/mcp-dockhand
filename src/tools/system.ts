@@ -196,7 +196,7 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   // --- Batch ---
 
-  registerTool(server, 'get_batch_operations', 'Get available batch operations',
+  registerTool(server, 'list_batch_operations', 'Get available batch operations',
     {},
     async () => {
       return jsonResponse(await client.get('/api/batch'));
