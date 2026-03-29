@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export function registerScheduleTools(server: McpServer, client: DockhandClient): void {
 
@@ -42,7 +43,7 @@ export function registerScheduleTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'get_schedule_execution', 'Get details of a specific schedule execution',
     { executionId: z.number().describe('Execution ID') },
     async ({ executionId }) => {
-      return jsonResponse(await client.get(`/api/schedules/executions/${executionId}`));
+      return jsonResponse(await client.get(`/api/schedules/executions/${encodePath(executionId)}`));
     }
   );
 
@@ -52,7 +53,7 @@ export function registerScheduleTools(server: McpServer, client: DockhandClient)
       scheduleId: z.number().describe('Schedule ID'),
     },
     async ({ type, scheduleId }) => {
-      return jsonResponse(await client.get(`/api/schedules/${type}/${scheduleId}`));
+      return jsonResponse(await client.get(`/api/schedules/${encodePath(type)}/${encodePath(scheduleId)}`));
     }
   );
 
@@ -62,7 +63,7 @@ export function registerScheduleTools(server: McpServer, client: DockhandClient)
       scheduleId: z.number().describe('Schedule ID'),
     },
     async ({ type, scheduleId }) => {
-      return jsonResponse(await client.post(`/api/schedules/${type}/${scheduleId}/run`));
+      return jsonResponse(await client.post(`/api/schedules/${encodePath(type)}/${encodePath(scheduleId)}/run`));
     }
   );
 
@@ -72,14 +73,14 @@ export function registerScheduleTools(server: McpServer, client: DockhandClient)
       scheduleId: z.number().describe('Schedule ID'),
     },
     async ({ type, scheduleId }) => {
-      return jsonResponse(await client.post(`/api/schedules/${type}/${scheduleId}/toggle`));
+      return jsonResponse(await client.post(`/api/schedules/${encodePath(type)}/${encodePath(scheduleId)}/toggle`));
     }
   );
 
   registerTool(server, 'toggle_system_schedule', 'Enable or disable a system schedule',
     { scheduleId: z.number().describe('System schedule ID') },
     async ({ scheduleId }) => {
-      return jsonResponse(await client.post(`/api/schedules/system/${scheduleId}/toggle`));
+      return jsonResponse(await client.post(`/api/schedules/system/${encodePath(scheduleId)}/toggle`));
     }
   );
 }

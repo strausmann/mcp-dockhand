@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export function registerUserTools(server: McpServer, client: DockhandClient): void {
 
@@ -36,7 +37,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
   registerTool(server, 'get_user', 'Get details of a Dockhand user',
     { userId: z.number().describe('User ID') },
     async ({ userId }) => {
-      return jsonResponse(await client.get(`/api/users/${userId}`));
+      return jsonResponse(await client.get(`/api/users/${encodePath(userId)}`));
     }
   );
 
@@ -46,42 +47,42 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
       settings: z.record(z.unknown()).describe('User settings to update'),
     },
     async ({ userId, settings }) => {
-      return jsonResponse(await client.put(`/api/users/${userId}`, settings));
+      return jsonResponse(await client.put(`/api/users/${encodePath(userId)}`, settings));
     }
   );
 
   registerTool(server, 'delete_user', 'Delete a Dockhand user',
     { userId: z.number().describe('User ID') },
     async ({ userId }) => {
-      return jsonResponse(await client.delete(`/api/users/${userId}`));
+      return jsonResponse(await client.delete(`/api/users/${encodePath(userId)}`));
     }
   );
 
   registerTool(server, 'get_user_mfa_status', 'Get MFA status of a user',
     { userId: z.number().describe('User ID') },
     async ({ userId }) => {
-      return jsonResponse(await client.get(`/api/users/${userId}/mfa`));
+      return jsonResponse(await client.get(`/api/users/${encodePath(userId)}/mfa`));
     }
   );
 
   registerTool(server, 'enable_user_mfa', 'Enable MFA for a user',
     { userId: z.number().describe('User ID') },
     async ({ userId }) => {
-      return jsonResponse(await client.post(`/api/users/${userId}/mfa`));
+      return jsonResponse(await client.post(`/api/users/${encodePath(userId)}/mfa`));
     }
   );
 
   registerTool(server, 'disable_user_mfa', 'Disable MFA for a user',
     { userId: z.number().describe('User ID') },
     async ({ userId }) => {
-      return jsonResponse(await client.delete(`/api/users/${userId}/mfa`));
+      return jsonResponse(await client.delete(`/api/users/${encodePath(userId)}/mfa`));
     }
   );
 
   registerTool(server, 'get_user_roles', 'Get roles assigned to a user',
     { userId: z.number().describe('User ID') },
     async ({ userId }) => {
-      return jsonResponse(await client.get(`/api/users/${userId}/roles`));
+      return jsonResponse(await client.get(`/api/users/${encodePath(userId)}/roles`));
     }
   );
 
@@ -91,7 +92,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
       roles: z.array(z.string()).describe('Role names to assign'),
     },
     async ({ userId, roles }) => {
-      return jsonResponse(await client.put(`/api/users/${userId}/roles`, { roles }));
+      return jsonResponse(await client.put(`/api/users/${encodePath(userId)}/roles`, { roles }));
     }
   );
 
@@ -119,7 +120,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
   registerTool(server, 'get_role', 'Get details of a Dockhand role',
     { roleId: z.number().describe('Role ID') },
     async ({ roleId }) => {
-      return jsonResponse(await client.get(`/api/roles/${roleId}`));
+      return jsonResponse(await client.get(`/api/roles/${encodePath(roleId)}`));
     }
   );
 
@@ -129,14 +130,14 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
       config: z.record(z.unknown()).describe('Role configuration to update'),
     },
     async ({ roleId, config }) => {
-      return jsonResponse(await client.put(`/api/roles/${roleId}`, config));
+      return jsonResponse(await client.put(`/api/roles/${encodePath(roleId)}`, config));
     }
   );
 
   registerTool(server, 'delete_role', 'Delete a Dockhand role',
     { roleId: z.number().describe('Role ID') },
     async ({ roleId }) => {
-      return jsonResponse(await client.delete(`/api/roles/${roleId}`));
+      return jsonResponse(await client.delete(`/api/roles/${encodePath(roleId)}`));
     }
   );
 
@@ -245,7 +246,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
   registerTool(server, 'get_config_set', 'Get a specific config set',
     { configSetId: z.number().describe('Config set ID') },
     async ({ configSetId }) => {
-      return jsonResponse(await client.get(`/api/config-sets/${configSetId}`));
+      return jsonResponse(await client.get(`/api/config-sets/${encodePath(configSetId)}`));
     }
   );
 
@@ -255,14 +256,14 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
       config: z.record(z.unknown()).describe('Updated config set data'),
     },
     async ({ configSetId, config }) => {
-      return jsonResponse(await client.put(`/api/config-sets/${configSetId}`, config));
+      return jsonResponse(await client.put(`/api/config-sets/${encodePath(configSetId)}`, config));
     }
   );
 
   registerTool(server, 'delete_config_set', 'Delete a config set',
     { configSetId: z.number().describe('Config set ID') },
     async ({ configSetId }) => {
-      return jsonResponse(await client.delete(`/api/config-sets/${configSetId}`));
+      return jsonResponse(await client.delete(`/api/config-sets/${encodePath(configSetId)}`));
     }
   );
 }

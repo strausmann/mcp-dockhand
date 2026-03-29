@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export function registerNotificationTools(server: McpServer, client: DockhandClient): void {
 
@@ -28,7 +29,7 @@ export function registerNotificationTools(server: McpServer, client: DockhandCli
   registerTool(server, 'get_notification', 'Get details of a notification configuration',
     { notificationId: z.number().describe('Notification ID') },
     async ({ notificationId }) => {
-      return jsonResponse(await client.get(`/api/notifications/${notificationId}`));
+      return jsonResponse(await client.get(`/api/notifications/${encodePath(notificationId)}`));
     }
   );
 
@@ -38,21 +39,21 @@ export function registerNotificationTools(server: McpServer, client: DockhandCli
       config: z.record(z.unknown()).describe('Updated notification configuration'),
     },
     async ({ notificationId, config }) => {
-      return jsonResponse(await client.put(`/api/notifications/${notificationId}`, config));
+      return jsonResponse(await client.put(`/api/notifications/${encodePath(notificationId)}`, config));
     }
   );
 
   registerTool(server, 'delete_notification', 'Delete a notification configuration',
     { notificationId: z.number().describe('Notification ID') },
     async ({ notificationId }) => {
-      return jsonResponse(await client.delete(`/api/notifications/${notificationId}`));
+      return jsonResponse(await client.delete(`/api/notifications/${encodePath(notificationId)}`));
     }
   );
 
   registerTool(server, 'test_notification', 'Send a test notification using a saved configuration',
     { notificationId: z.number().describe('Notification ID') },
     async ({ notificationId }) => {
-      return jsonResponse(await client.post(`/api/notifications/${notificationId}/test`));
+      return jsonResponse(await client.post(`/api/notifications/${encodePath(notificationId)}/test`));
     }
   );
 

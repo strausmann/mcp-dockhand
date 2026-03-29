@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export function registerAutoUpdateTools(server: McpServer, client: DockhandClient): void {
 
@@ -22,7 +23,7 @@ export function registerAutoUpdateTools(server: McpServer, client: DockhandClien
       containerName: z.string().describe('Container name'),
     },
     async ({ environmentId, containerName }) => {
-      return jsonResponse(await client.get(`/api/auto-update/${encodeURIComponent(containerName)}`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/auto-update/${encodePath(containerName)}`, { env: environmentId }));
     }
   );
 
@@ -33,7 +34,7 @@ export function registerAutoUpdateTools(server: McpServer, client: DockhandClien
       policy: z.enum(['never', 'any', 'critical-high', 'critical', 'more-than-current']).describe('Auto-update policy'),
     },
     async ({ environmentId, containerName, policy }) => {
-      return jsonResponse(await client.put(`/api/auto-update/${encodeURIComponent(containerName)}`, { policy }, { env: environmentId }));
+      return jsonResponse(await client.put(`/api/auto-update/${encodePath(containerName)}`, { policy }, { env: environmentId }));
     }
   );
 }

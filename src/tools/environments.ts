@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 /**
  * Resolve host/port from explicit args or a URL string into the request body.
@@ -74,7 +75,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
   registerTool(server, 'get_environment', 'Get details of a specific environment',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      return jsonResponse(await client.get(`/api/environments/${environmentId}`));
+      return jsonResponse(await client.get(`/api/environments/${encodePath(environmentId)}`));
     }
   );
 
@@ -103,28 +104,28 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       settings: z.record(z.unknown()).optional().describe('Additional settings to update'),
     },
     async ({ environmentId, name, host, port, url, settings }) => {
-      const env = await client.get(`/api/environments/${environmentId}`) as Record<string, unknown>;
+      const env = await client.get(`/api/environments/${encodePath(environmentId)}`) as Record<string, unknown>;
       const connectionType = (env.connectionType as string) ?? '';
       const body: Record<string, unknown> = {};
       if (name) body.name = name;
       // Merge settings first so explicit host/port can override them
       if (settings) Object.assign(body, settings);
       resolveHostPort(body, { host, port, url }, connectionType, false);
-      return jsonResponse(await client.put(`/api/environments/${environmentId}`, body));
+      return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}`, body));
     }
   );
 
   registerTool(server, 'delete_environment', 'Delete an environment',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      return jsonResponse(await client.delete(`/api/environments/${environmentId}`));
+      return jsonResponse(await client.delete(`/api/environments/${encodePath(environmentId)}`));
     }
   );
 
   registerTool(server, 'test_environment', 'Test connection to an environment',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      return jsonResponse(await client.post(`/api/environments/${environmentId}/test`));
+      return jsonResponse(await client.post(`/api/environments/${encodePath(environmentId)}/test`));
     }
   );
 
@@ -152,7 +153,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
   registerTool(server, 'get_environment_timezone', 'Get the timezone of an environment',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      return jsonResponse(await client.get(`/api/environments/${environmentId}/timezone`));
+      return jsonResponse(await client.get(`/api/environments/${encodePath(environmentId)}/timezone`));
     }
   );
 
@@ -162,14 +163,14 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       timezone: z.string().describe('Timezone string (e.g. Europe/Berlin)'),
     },
     async ({ environmentId, timezone }) => {
-      return jsonResponse(await client.put(`/api/environments/${environmentId}/timezone`, { timezone }));
+      return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}/timezone`, { timezone }));
     }
   );
 
   registerTool(server, 'get_environment_update_check', 'Get update-check settings of an environment',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      return jsonResponse(await client.get(`/api/environments/${environmentId}/update-check`));
+      return jsonResponse(await client.get(`/api/environments/${encodePath(environmentId)}/update-check`));
     }
   );
 
@@ -179,14 +180,14 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       settings: z.record(z.unknown()).describe('Update-check settings'),
     },
     async ({ environmentId, settings }) => {
-      return jsonResponse(await client.put(`/api/environments/${environmentId}/update-check`, settings));
+      return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}/update-check`, settings));
     }
   );
 
   registerTool(server, 'get_environment_image_prune', 'Get image prune settings of an environment',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      return jsonResponse(await client.get(`/api/environments/${environmentId}/image-prune`));
+      return jsonResponse(await client.get(`/api/environments/${encodePath(environmentId)}/image-prune`));
     }
   );
 
@@ -196,14 +197,14 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       settings: z.record(z.unknown()).describe('Image prune settings'),
     },
     async ({ environmentId, settings }) => {
-      return jsonResponse(await client.put(`/api/environments/${environmentId}/image-prune`, settings));
+      return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}/image-prune`, settings));
     }
   );
 
   registerTool(server, 'list_environment_notifications', 'List notifications configured for an environment',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      return jsonResponse(await client.get(`/api/environments/${environmentId}/notifications`));
+      return jsonResponse(await client.get(`/api/environments/${encodePath(environmentId)}/notifications`));
     }
   );
 
@@ -213,7 +214,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       config: z.record(z.unknown()).describe('Notification configuration'),
     },
     async ({ environmentId, config }) => {
-      return jsonResponse(await client.post(`/api/environments/${environmentId}/notifications`, config));
+      return jsonResponse(await client.post(`/api/environments/${encodePath(environmentId)}/notifications`, config));
     }
   );
 
@@ -223,7 +224,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       notificationId: z.number().describe('Notification ID'),
     },
     async ({ environmentId, notificationId }) => {
-      return jsonResponse(await client.get(`/api/environments/${environmentId}/notifications/${notificationId}`));
+      return jsonResponse(await client.get(`/api/environments/${encodePath(environmentId)}/notifications/${encodePath(notificationId)}`));
     }
   );
 
@@ -233,7 +234,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       notificationId: z.number().describe('Notification ID'),
     },
     async ({ environmentId, notificationId }) => {
-      return jsonResponse(await client.delete(`/api/environments/${environmentId}/notifications/${notificationId}`));
+      return jsonResponse(await client.delete(`/api/environments/${encodePath(environmentId)}/notifications/${encodePath(notificationId)}`));
     }
   );
 }

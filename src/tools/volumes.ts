@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export function registerVolumeTools(server: McpServer, client: DockhandClient): void {
 
@@ -22,7 +23,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
       volumeName: z.string().describe('Volume name'),
     },
     async ({ environmentId, volumeName }) => {
-      return jsonResponse(await client.get(`/api/volumes/${encodeURIComponent(volumeName)}`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/volumes/${encodePath(volumeName)}`, { env: environmentId }));
     }
   );
 
@@ -32,7 +33,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
       volumeName: z.string().describe('Volume name'),
     },
     async ({ environmentId, volumeName }) => {
-      return jsonResponse(await client.get(`/api/volumes/${encodeURIComponent(volumeName)}/inspect`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/volumes/${encodePath(volumeName)}/inspect`, { env: environmentId }));
     }
   );
 
@@ -43,7 +44,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
       path: z.string().optional().describe('Path inside the volume (default: /)'),
     },
     async ({ environmentId, volumeName, path }) => {
-      return jsonResponse(await client.get(`/api/volumes/${encodeURIComponent(volumeName)}/browse`, {
+      return jsonResponse(await client.get(`/api/volumes/${encodePath(volumeName)}/browse`, {
         env: environmentId,
         path: path ?? '/',
       }));
@@ -57,7 +58,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
       path: z.string().describe('File path inside the volume'),
     },
     async ({ environmentId, volumeName, path }) => {
-      const data = await client.get(`/api/volumes/${encodeURIComponent(volumeName)}/browse/content`, {
+      const data = await client.get(`/api/volumes/${encodePath(volumeName)}/browse/content`, {
         env: environmentId,
         path,
       });
@@ -71,7 +72,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
       volumeName: z.string().describe('Volume name'),
     },
     async ({ environmentId, volumeName }) => {
-      return jsonResponse(await client.post(`/api/volumes/${encodeURIComponent(volumeName)}/browse/release`, undefined, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/volumes/${encodePath(volumeName)}/browse/release`, undefined, { env: environmentId }));
     }
   );
 
@@ -84,7 +85,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
     async ({ environmentId, volumeName, newName }) => {
       const body: Record<string, unknown> = {};
       if (newName) body.newName = newName;
-      return jsonResponse(await client.post(`/api/volumes/${encodeURIComponent(volumeName)}/clone`, body, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/volumes/${encodePath(volumeName)}/clone`, body, { env: environmentId }));
     }
   );
 
@@ -94,7 +95,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
       volumeName: z.string().describe('Volume name'),
     },
     async ({ environmentId, volumeName }) => {
-      return jsonResponse(await client.post(`/api/volumes/${encodeURIComponent(volumeName)}/export`, undefined, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/volumes/${encodePath(volumeName)}/export`, undefined, { env: environmentId }));
     }
   );
 
@@ -104,7 +105,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
       volumeName: z.string().describe('Volume name'),
     },
     async ({ environmentId, volumeName }) => {
-      return jsonResponse(await client.delete(`/api/volumes/${encodeURIComponent(volumeName)}`, { env: environmentId }));
+      return jsonResponse(await client.delete(`/api/volumes/${encodePath(volumeName)}`, { env: environmentId }));
     }
   );
 }

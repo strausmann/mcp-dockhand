@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export function registerNetworkTools(server: McpServer, client: DockhandClient): void {
 
@@ -22,7 +23,7 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
       networkId: z.string().describe('Network ID'),
     },
     async ({ environmentId, networkId }) => {
-      return jsonResponse(await client.get(`/api/networks/${encodeURIComponent(String(networkId))}`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/networks/${encodePath(networkId)}`, { env: environmentId }));
     }
   );
 
@@ -32,7 +33,7 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
       networkId: z.string().describe('Network ID'),
     },
     async ({ environmentId, networkId }) => {
-      return jsonResponse(await client.get(`/api/networks/${networkId}/inspect`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/networks/${encodePath(networkId)}/inspect`, { env: environmentId }));
     }
   );
 
@@ -66,7 +67,7 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
       networkId: z.string().describe('Network ID'),
     },
     async ({ environmentId, networkId }) => {
-      return jsonResponse(await client.delete(`/api/networks/${encodeURIComponent(String(networkId))}`, { env: environmentId }));
+      return jsonResponse(await client.delete(`/api/networks/${encodePath(networkId)}`, { env: environmentId }));
     }
   );
 
@@ -77,7 +78,7 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
       containerId: z.string().describe('Container ID to connect'),
     },
     async ({ environmentId, networkId, containerId }) => {
-      return jsonResponse(await client.post(`/api/networks/${networkId}/connect`, { containerId }, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/networks/${encodePath(networkId)}/connect`, { containerId }, { env: environmentId }));
     }
   );
 
@@ -88,7 +89,7 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
       containerId: z.string().describe('Container ID to disconnect'),
     },
     async ({ environmentId, networkId, containerId }) => {
-      return jsonResponse(await client.post(`/api/networks/${networkId}/disconnect`, { containerId }, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/networks/${encodePath(networkId)}/disconnect`, { containerId }, { env: environmentId }));
     }
   );
 }

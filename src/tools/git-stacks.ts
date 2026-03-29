@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export function registerGitStackTools(server: McpServer, client: DockhandClient): void {
 
@@ -19,35 +20,35 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'get_git_stack', 'Get details of a specific Git stack',
     { stackId: z.number().describe('Git stack ID') },
     async ({ stackId }) => {
-      return jsonResponse(await client.get(`/api/git/stacks/${stackId}`));
+      return jsonResponse(await client.get(`/api/git/stacks/${encodePath(stackId)}`));
     }
   );
 
   registerTool(server, 'deploy_git_stack', 'Deploy a Git-based stack (pulls latest and deploys via SSE)',
     { stackId: z.number().describe('Git stack ID') },
     async ({ stackId }) => {
-      return jsonResponse(await client.postSSE(`/api/git/stacks/${stackId}/deploy`));
+      return jsonResponse(await client.postSSE(`/api/git/stacks/${encodePath(stackId)}/deploy`));
     }
   );
 
   registerTool(server, 'sync_git_stack', 'Synchronize a Git-based stack with its remote repository',
     { stackId: z.number().describe('Git stack ID') },
     async ({ stackId }) => {
-      return jsonResponse(await client.post(`/api/git/stacks/${stackId}/sync`));
+      return jsonResponse(await client.post(`/api/git/stacks/${encodePath(stackId)}/sync`));
     }
   );
 
   registerTool(server, 'test_git_stack', 'Test the Git connection for a stack',
     { stackId: z.number().describe('Git stack ID') },
     async ({ stackId }) => {
-      return jsonResponse(await client.post(`/api/git/stacks/${stackId}/test`));
+      return jsonResponse(await client.post(`/api/git/stacks/${encodePath(stackId)}/test`));
     }
   );
 
   registerTool(server, 'get_git_stack_env_files', 'Get environment files for a Git-based stack',
     { stackId: z.number().describe('Git stack ID') },
     async ({ stackId }) => {
-      return jsonResponse(await client.get(`/api/git/stacks/${stackId}/env-files`));
+      return jsonResponse(await client.get(`/api/git/stacks/${encodePath(stackId)}/env-files`));
     }
   );
 
@@ -57,14 +58,14 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       token: z.string().optional().describe('Webhook secret token'),
     },
     async ({ stackId, token }) => {
-      return jsonResponse(await client.post(`/api/git/stacks/${stackId}/webhook`, undefined, token ? { token } : undefined));
+      return jsonResponse(await client.post(`/api/git/stacks/${encodePath(stackId)}/webhook`, undefined, token ? { token } : undefined));
     }
   );
 
   registerTool(server, 'get_git_webhook', 'Get webhook details for a Git stack',
     { webhookId: z.number().describe('Webhook ID') },
     async ({ webhookId }) => {
-      return jsonResponse(await client.get(`/api/git/webhook/${webhookId}`));
+      return jsonResponse(await client.get(`/api/git/webhook/${encodePath(webhookId)}`));
     }
   );
 
@@ -91,7 +92,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'get_git_credential', 'Get details of a Git credential',
     { credentialId: z.number().describe('Credential ID') },
     async ({ credentialId }) => {
-      return jsonResponse(await client.get(`/api/git/credentials/${credentialId}`));
+      return jsonResponse(await client.get(`/api/git/credentials/${encodePath(credentialId)}`));
     }
   );
 
@@ -101,14 +102,14 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       config: z.record(z.unknown()).describe('Updated credential configuration'),
     },
     async ({ credentialId, config }) => {
-      return jsonResponse(await client.put(`/api/git/credentials/${credentialId}`, config));
+      return jsonResponse(await client.put(`/api/git/credentials/${encodePath(credentialId)}`, config));
     }
   );
 
   registerTool(server, 'delete_git_credential', 'Delete a Git credential',
     { credentialId: z.number().describe('Credential ID') },
     async ({ credentialId }) => {
-      return jsonResponse(await client.delete(`/api/git/credentials/${credentialId}`));
+      return jsonResponse(await client.delete(`/api/git/credentials/${encodePath(credentialId)}`));
     }
   );
 
@@ -133,28 +134,28 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'get_git_repository', 'Get details of a Git repository',
     { repositoryId: z.number().describe('Repository ID') },
     async ({ repositoryId }) => {
-      return jsonResponse(await client.get(`/api/git/repositories/${repositoryId}`));
+      return jsonResponse(await client.get(`/api/git/repositories/${encodePath(repositoryId)}`));
     }
   );
 
   registerTool(server, 'deploy_git_repository', 'Deploy a Git repository',
     { repositoryId: z.number().describe('Repository ID') },
     async ({ repositoryId }) => {
-      return jsonResponse(await client.postSSE(`/api/git/repositories/${repositoryId}/deploy`));
+      return jsonResponse(await client.postSSE(`/api/git/repositories/${encodePath(repositoryId)}/deploy`));
     }
   );
 
   registerTool(server, 'sync_git_repository', 'Synchronize a Git repository',
     { repositoryId: z.number().describe('Repository ID') },
     async ({ repositoryId }) => {
-      return jsonResponse(await client.post(`/api/git/repositories/${repositoryId}/sync`));
+      return jsonResponse(await client.post(`/api/git/repositories/${encodePath(repositoryId)}/sync`));
     }
   );
 
   registerTool(server, 'test_git_repository', 'Test connection to a Git repository',
     { repositoryId: z.number().describe('Repository ID') },
     async ({ repositoryId }) => {
-      return jsonResponse(await client.post(`/api/git/repositories/${repositoryId}/test`));
+      return jsonResponse(await client.post(`/api/git/repositories/${encodePath(repositoryId)}/test`));
     }
   );
 
