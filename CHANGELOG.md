@@ -5,6 +5,12 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0](https://github.com/strausmann/mcp-dockhand/compare/v1.1.1...v1.2.0) (2026-03-29)
+
+### Features
+
+* migrate to Zod v4 and TypeScript 6 ([#34](https://github.com/strausmann/mcp-dockhand/issues/34)) ([9efda1b](https://github.com/strausmann/mcp-dockhand/commit/9efda1b8d676cb9e7e58044fad36c9c5aa0f029d)), closes [#13](https://github.com/strausmann/mcp-dockhand/issues/13)
+
 ## [1.1.1](https://github.com/strausmann/mcp-dockhand/compare/v1.1.0...v1.1.1) (2026-03-29)
 
 ### Bug Fixes
