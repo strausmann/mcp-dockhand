@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `download_container_file`: Download files from containers (returns tar archive as base64)
 - `upload_container_file`: Upload files to containers (multipart form upload)
+- `upload_container_file`: Add `encoding` parameter (`utf-8` | `base64`) for binary file support (#30)
+- `update_environment`: Accept optional `connectionType` parameter to skip redundant GET request (#30)
 - Vitest test suite with path encoding validation and tool registration tests
 - CI: Tests run on every push and PR
 
@@ -19,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `create_environment`: Add `host` and `port` parameters for hawser-standard mode (#4, PR #15)
 - `update_environment`: Add `host` and `port` parameters
 - `test_environment_connection`: Add `host` and `port` parameters
+- `update_environment`: Skip GET request when `connectionType` is provided (performance, #30)
+- `upload_container_file`: Decode base64 content before upload for binary files (#30)
+- `validate-mcp-tools`: Per-interpolation `encodePath` check instead of string-level match (#30)
+- `create_git_credential`, `update_git_credential`, `create_git_repository`: Merge `additionalConfig` before explicit fields so explicit params always win (#30)
+- `extract-dockhand-api`: Deterministic schema output — skip write when only `generatedAt` changed (#30)
+- `dockhand-client`: Refactor `getRaw`/`postMultipart` to reuse shared `requestRaw()` auth logic (#30)
 
 ## [1.0.0] - 2026-03-29
 

@@ -200,6 +200,24 @@ function main() {
     endpoints,
   };
 
+  // Fix #30 (MEDIUM): Deterministic schema output (PR #25).
+  // Only write the file if endpoints actually changed — ignore generatedAt to avoid unnecessary commits.
+  if (existsSync(OUTPUT_FILE)) {
+    try {
+      const existing = JSON.parse(readFileSync(OUTPUT_FILE, 'utf8'));
+      const existingComparable = { ...existing, generatedAt: '' };
+      const newComparable = { ...schema, generatedAt: '' };
+      if (JSON.stringify(existingComparable) === JSON.stringify(newComparable)) {
+        console.error(`[extract] Schema unchanged (${endpoints.length} endpoints) — skipping write`);
+        rmSync(CLONE_DIR, { recursive: true, force: true });
+        console.error('[extract] Temporäres Verzeichnis aufgeräumt');
+        return;
+      }
+    } catch {
+      // If existing file is corrupt, overwrite it
+    }
+  }
+
   writeFileSync(OUTPUT_FILE, JSON.stringify(schema, null, 2) + '\n', 'utf8');
   console.error(`[extract] Schema geschrieben: ${OUTPUT_FILE}`);
   console.error(`[extract] ${endpoints.length} Endpunkte extrahiert`);
