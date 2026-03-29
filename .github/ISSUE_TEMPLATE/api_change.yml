@@ -1,0 +1,35 @@
+name: Dockhand API Änderung
+description: Eine Änderung in der Dockhand API dokumentieren die angepasst werden muss
+title: "[API Change]: "
+labels: ["api-change", "priority: high"]
+body:
+  - type: input
+    id: dockhand-version
+    attributes:
+      label: Betroffene Dockhand Version
+      placeholder: "z.B. 3.3.0"
+    validations:
+      required: true
+  - type: textarea
+    id: changes
+    attributes:
+      label: API Änderungen
+      description: Welche Endpunkte haben sich geändert?
+    validations:
+      required: true
+  - type: textarea
+    id: affected-tools
+    attributes:
+      label: Betroffene MCP Tools
+      description: Welche MCP Tools müssen angepasst werden?
+    validations:
+      required: true
+  - type: dropdown
+    id: breaking
+    attributes:
+      label: Breaking Change?
+      options:
+        - "Ja"
+        - "Nein"
+    validations:
+      required: true

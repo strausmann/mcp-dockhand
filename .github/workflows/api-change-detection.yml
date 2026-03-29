@@ -1,0 +1,55 @@
+name: Dockhand API Change Detection
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Jeden Montag um 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  check-api-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Aktuelle Dockhand OpenAPI Spec herunterladen
+        run: |
+          # Dockhand OpenAPI Spec von der API holen
+          # Anpassen auf die tatsächliche Dockhand API URL
+          curl -sf "https://dock.strausmann.cloud/api/docs/openapi.json" \
+            -o /tmp/current-openapi.json || echo "API nicht erreichbar"
+
+      - name: Gespeicherte Spec vergleichen
+        id: diff
+        run: |
+          if [ -f docs/dockhand-openapi.json ] && [ -f /tmp/current-openapi.json ]; then
+            if ! diff -q docs/dockhand-openapi.json /tmp/current-openapi.json > /dev/null 2>&1; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+              echo "API hat sich geändert!"
+              diff docs/dockhand-openapi.json /tmp/current-openapi.json > /tmp/api-diff.txt 2>&1 || true
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+              echo "Keine Änderungen"
+            fi
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Keine Baseline-Spec vorhanden"
+          fi
+
+      - name: Issue erstellen bei Änderungen
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const diff = fs.readFileSync('/tmp/api-diff.txt', 'utf8').substring(0, 3000);
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[API Change]: Dockhand API Änderung erkannt (${new Date().toISOString().split('T')[0]})`,
+              labels: ['api-change', 'priority: high', 'status: needs-triage'],
+              body: `## Automatisch erkannte API-Änderung\n\nDer wöchentliche API-Check hat Unterschiede in der Dockhand OpenAPI-Spezifikation festgestellt.\n\n### Diff (gekürzt)\n\`\`\`diff\n${diff}\n\`\`\`\n\n### Nächste Schritte\n\n- [ ] Änderungen analysieren\n- [ ] Betroffene MCP Tools identifizieren\n- [ ] Anpassungen implementieren\n- [ ] Tests aktualisieren`
+            });

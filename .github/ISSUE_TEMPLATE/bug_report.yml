@@ -1,0 +1,61 @@
+name: Bug Report
+description: Einen Fehler im MCP-Dockhand Server melden
+title: "[Bug]: "
+labels: ["bug", "status: needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für den Bug Report! Bitte fülle die folgenden Felder aus.
+  - type: input
+    id: version
+    attributes:
+      label: MCP-Dockhand Version
+      description: Welche Version nutzt du?
+      placeholder: "z.B. 1.2.0 oder latest"
+    validations:
+      required: true
+  - type: input
+    id: dockhand-version
+    attributes:
+      label: Dockhand Server Version
+      description: Welche Dockhand-Version läuft?
+      placeholder: "z.B. 3.2.1"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Beschreibung
+      description: Was ist passiert?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Erwartetes Verhalten
+      description: Was hättest du erwartet?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduktion
+      description: Schritte um den Fehler zu reproduzieren
+    validations:
+      required: true
+  - type: dropdown
+    id: transport
+    attributes:
+      label: MCP Transport
+      options:
+        - Streamable HTTP
+        - stdio
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevante Logs
+      description: Fehlermeldungen, Stack Traces etc.
+      render: shell
