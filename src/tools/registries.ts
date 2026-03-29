@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export function registerRegistryTools(server: McpServer, client: DockhandClient): void {
 
@@ -28,7 +29,7 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'get_registry', 'Get details of a Docker registry',
     { registryId: z.number().describe('Registry ID') },
     async ({ registryId }) => {
-      return jsonResponse(await client.get(`/api/registries/${registryId}`));
+      return jsonResponse(await client.get(`/api/registries/${encodePath(registryId)}`));
     }
   );
 
@@ -38,21 +39,21 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
       config: z.record(z.unknown()).describe('Updated registry configuration'),
     },
     async ({ registryId, config }) => {
-      return jsonResponse(await client.put(`/api/registries/${registryId}`, config));
+      return jsonResponse(await client.put(`/api/registries/${encodePath(registryId)}`, config));
     }
   );
 
   registerTool(server, 'delete_registry', 'Delete a Docker registry',
     { registryId: z.number().describe('Registry ID') },
     async ({ registryId }) => {
-      return jsonResponse(await client.delete(`/api/registries/${registryId}`));
+      return jsonResponse(await client.delete(`/api/registries/${encodePath(registryId)}`));
     }
   );
 
   registerTool(server, 'set_default_registry', 'Set a registry as the default',
     { registryId: z.number().describe('Registry ID') },
     async ({ registryId }) => {
-      return jsonResponse(await client.post(`/api/registries/${registryId}/default`));
+      return jsonResponse(await client.post(`/api/registries/${encodePath(registryId)}/default`));
     }
   );
 

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export function registerStackTools(server: McpServer, client: DockhandClient): void {
 
@@ -22,7 +23,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      return jsonResponse(await client.get(`/api/stacks/${encodeURIComponent(name)}`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/stacks/${encodePath(name)}`, { env: environmentId }));
     }
   );
 
@@ -55,7 +56,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      return jsonResponse(await client.postSSE(`/api/stacks/${encodeURIComponent(name)}/start`, undefined, { env: environmentId }));
+      return jsonResponse(await client.postSSE(`/api/stacks/${encodePath(name)}/start`, undefined, { env: environmentId }));
     }
   );
 
@@ -65,7 +66,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      return jsonResponse(await client.postSSE(`/api/stacks/${encodeURIComponent(name)}/stop`, undefined, { env: environmentId }));
+      return jsonResponse(await client.postSSE(`/api/stacks/${encodePath(name)}/stop`, undefined, { env: environmentId }));
     }
   );
 
@@ -75,7 +76,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      return jsonResponse(await client.postSSE(`/api/stacks/${encodeURIComponent(name)}/restart`, undefined, { env: environmentId }));
+      return jsonResponse(await client.postSSE(`/api/stacks/${encodePath(name)}/restart`, undefined, { env: environmentId }));
     }
   );
 
@@ -87,7 +88,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     },
     async ({ environmentId, name, removeVolumes }) => {
       const body = removeVolumes !== undefined ? { removeVolumes } : undefined;
-      return jsonResponse(await client.postSSE(`/api/stacks/${encodeURIComponent(name)}/down`, body, { env: environmentId }));
+      return jsonResponse(await client.postSSE(`/api/stacks/${encodePath(name)}/down`, body, { env: environmentId }));
     }
   );
 
@@ -98,7 +99,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       force: z.boolean().optional().describe('Force deletion'),
     },
     async ({ environmentId, name, force }) => {
-      return jsonResponse(await client.delete(`/api/stacks/${encodeURIComponent(name)}`, {
+      return jsonResponse(await client.delete(`/api/stacks/${encodePath(name)}`, {
         env: environmentId,
         force: force ? 'true' : undefined,
       }));
@@ -111,7 +112,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      return jsonResponse(await client.get(`/api/stacks/${encodeURIComponent(name)}/compose`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/stacks/${encodePath(name)}/compose`, { env: environmentId }));
     }
   );
 
@@ -127,10 +128,10 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       if (restart !== undefined) body.restart = restart;
 
       if (restart) {
-        return jsonResponse(await client.putSSE(`/api/stacks/${encodeURIComponent(name)}/compose`, body, { env: environmentId }));
+        return jsonResponse(await client.putSSE(`/api/stacks/${encodePath(name)}/compose`, body, { env: environmentId }));
       }
 
-      return jsonResponse(await client.put(`/api/stacks/${encodeURIComponent(name)}/compose`, body, { env: environmentId }));
+      return jsonResponse(await client.put(`/api/stacks/${encodePath(name)}/compose`, body, { env: environmentId }));
     }
   );
 
@@ -140,7 +141,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      return jsonResponse(await client.get(`/api/stacks/${encodeURIComponent(name)}/env`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/stacks/${encodePath(name)}/env`, { env: environmentId }));
     }
   );
 
@@ -159,7 +160,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       const body: Record<string, unknown> = {};
       if (variables) body.variables = variables;
       if (rawContent) body.rawContent = rawContent;
-      return jsonResponse(await client.put(`/api/stacks/${encodeURIComponent(name)}/env`, body, { env: environmentId }));
+      return jsonResponse(await client.put(`/api/stacks/${encodePath(name)}/env`, body, { env: environmentId }));
     }
   );
 
@@ -169,7 +170,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      return textResponse(await client.get(`/api/stacks/${encodeURIComponent(name)}/env/raw`, { env: environmentId }));
+      return textResponse(await client.get(`/api/stacks/${encodePath(name)}/env/raw`, { env: environmentId }));
     }
   );
 
@@ -179,7 +180,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      return jsonResponse(await client.post(`/api/stacks/${encodeURIComponent(name)}/env/validate`, undefined, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/stacks/${encodePath(name)}/env/validate`, undefined, { env: environmentId }));
     }
   );
 
@@ -210,7 +211,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       newPath: z.string().describe('New filesystem path'),
     },
     async ({ environmentId, name, newPath }) => {
-      return jsonResponse(await client.post(`/api/stacks/${encodeURIComponent(name)}/relocate`, { path: newPath }, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/stacks/${encodePath(name)}/relocate`, { path: newPath }, { env: environmentId }));
     }
   );
 
@@ -261,7 +262,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       newPath: z.string().describe('New filesystem path to check'),
     },
     async ({ environmentId, name, newPath }) => {
-      return jsonResponse(await client.post(`/api/stacks/${encodeURIComponent(name)}/check-path-change`, { path: newPath }, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/stacks/${encodePath(name)}/check-path-change`, { path: newPath }, { env: environmentId }));
     }
   );
 }

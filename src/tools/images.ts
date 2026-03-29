@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export function registerImageTools(server: McpServer, client: DockhandClient): void {
 
@@ -22,7 +23,7 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
       imageId: z.string().describe('Image ID'),
     },
     async ({ environmentId, imageId }) => {
-      return jsonResponse(await client.get(`/api/images/${encodeURIComponent(String(imageId))}`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/images/${encodePath(imageId)}`, { env: environmentId }));
     }
   );
 
@@ -32,7 +33,7 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
       imageId: z.string().describe('Image ID'),
     },
     async ({ environmentId, imageId }) => {
-      return jsonResponse(await client.get(`/api/images/${imageId}/history`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/images/${encodePath(imageId)}/history`, { env: environmentId }));
     }
   );
 
@@ -44,7 +45,7 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
       tag: z.string().describe('Tag name'),
     },
     async ({ environmentId, imageId, repo, tag }) => {
-      return jsonResponse(await client.post(`/api/images/${imageId}/tag`, { repo, tag }, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/images/${encodePath(imageId)}/tag`, { repo, tag }, { env: environmentId }));
     }
   );
 
@@ -54,7 +55,7 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
       imageId: z.string().describe('Image ID'),
     },
     async ({ environmentId, imageId }) => {
-      return jsonResponse(await client.delete(`/api/images/${encodeURIComponent(String(imageId))}`, { env: environmentId }));
+      return jsonResponse(await client.delete(`/api/images/${encodePath(imageId)}`, { env: environmentId }));
     }
   );
 
@@ -94,7 +95,7 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
       imageId: z.string().describe('Image ID'),
     },
     async ({ environmentId, imageId }) => {
-      return jsonResponse(await client.post(`/api/images/${imageId}/export`, undefined, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/images/${encodePath(imageId)}/export`, undefined, { env: environmentId }));
     }
   );
 }

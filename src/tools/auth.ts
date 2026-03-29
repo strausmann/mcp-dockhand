@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export function registerAuthTools(server: McpServer, client: DockhandClient): void {
 
@@ -40,21 +41,21 @@ export function registerAuthTools(server: McpServer, client: DockhandClient): vo
   registerTool(server, 'get_oidc_provider', 'Get details of an OIDC provider',
     { providerId: z.number().describe('OIDC provider ID') },
     async ({ providerId }) => {
-      return jsonResponse(await client.get(`/api/auth/oidc/${providerId}`));
+      return jsonResponse(await client.get(`/api/auth/oidc/${encodePath(providerId)}`));
     }
   );
 
   registerTool(server, 'test_oidc_provider', 'Test an OIDC provider connection',
     { providerId: z.number().describe('OIDC provider ID') },
     async ({ providerId }) => {
-      return jsonResponse(await client.post(`/api/auth/oidc/${providerId}/test`));
+      return jsonResponse(await client.post(`/api/auth/oidc/${encodePath(providerId)}/test`));
     }
   );
 
   registerTool(server, 'initiate_oidc_login', 'Initiate an OIDC login flow',
     { providerId: z.number().describe('OIDC provider ID') },
     async ({ providerId }) => {
-      return jsonResponse(await client.post(`/api/auth/oidc/${providerId}/initiate`));
+      return jsonResponse(await client.post(`/api/auth/oidc/${encodePath(providerId)}/initiate`));
     }
   );
 
@@ -68,14 +69,14 @@ export function registerAuthTools(server: McpServer, client: DockhandClient): vo
   registerTool(server, 'get_ldap_provider', 'Get details of a LDAP provider',
     { providerId: z.number().describe('LDAP provider ID') },
     async ({ providerId }) => {
-      return jsonResponse(await client.get(`/api/auth/ldap/${providerId}`));
+      return jsonResponse(await client.get(`/api/auth/ldap/${encodePath(providerId)}`));
     }
   );
 
   registerTool(server, 'test_ldap_provider', 'Test a LDAP provider connection',
     { providerId: z.number().describe('LDAP provider ID') },
     async ({ providerId }) => {
-      return jsonResponse(await client.post(`/api/auth/ldap/${providerId}/test`));
+      return jsonResponse(await client.post(`/api/auth/ldap/${encodePath(providerId)}/test`));
     }
   );
 

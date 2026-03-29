@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export function registerContainerTools(server: McpServer, client: DockhandClient): void {
 
@@ -22,7 +23,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      return jsonResponse(await client.get(`/api/containers/${encodeURIComponent(String(containerId))}`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/containers/${encodePath(containerId)}`, { env: environmentId }));
     }
   );
 
@@ -32,7 +33,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      return jsonResponse(await client.get(`/api/containers/${containerId}/inspect`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/containers/${encodePath(containerId)}/inspect`, { env: environmentId }));
     }
   );
 
@@ -43,7 +44,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       tail: z.number().optional().describe('Number of lines from the end (default: 100)'),
     },
     async ({ environmentId, containerId, tail }) => {
-      const data = await client.get(`/api/containers/${containerId}/logs`, {
+      const data = await client.get(`/api/containers/${encodePath(containerId)}/logs`, {
         env: environmentId,
         tail: tail ?? 100,
       });
@@ -57,7 +58,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      return jsonResponse(await client.get(`/api/containers/${containerId}/stats`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/containers/${encodePath(containerId)}/stats`, { env: environmentId }));
     }
   );
 
@@ -67,7 +68,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      return jsonResponse(await client.get(`/api/containers/${containerId}/top`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/containers/${encodePath(containerId)}/top`, { env: environmentId }));
     }
   );
 
@@ -77,7 +78,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      return jsonResponse(await client.post(`/api/containers/${containerId}/start`, undefined, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/start`, undefined, { env: environmentId }));
     }
   );
 
@@ -87,7 +88,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      return jsonResponse(await client.post(`/api/containers/${containerId}/stop`, undefined, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/stop`, undefined, { env: environmentId }));
     }
   );
 
@@ -97,7 +98,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      return jsonResponse(await client.post(`/api/containers/${containerId}/restart`, undefined, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/restart`, undefined, { env: environmentId }));
     }
   );
 
@@ -107,7 +108,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      return jsonResponse(await client.post(`/api/containers/${containerId}/pause`, undefined, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/pause`, undefined, { env: environmentId }));
     }
   );
 
@@ -117,7 +118,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      return jsonResponse(await client.post(`/api/containers/${containerId}/unpause`, undefined, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/unpause`, undefined, { env: environmentId }));
     }
   );
 
@@ -128,7 +129,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       name: z.string().describe('New container name'),
     },
     async ({ environmentId, containerId, name }) => {
-      return jsonResponse(await client.post(`/api/containers/${containerId}/rename`, { name }, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/rename`, { name }, { env: environmentId }));
     }
   );
 
@@ -139,7 +140,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       settings: z.record(z.unknown()).optional().describe('Container settings to update'),
     },
     async ({ environmentId, containerId, settings }) => {
-      return jsonResponse(await client.post(`/api/containers/${containerId}/update`, settings, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/update`, settings, { env: environmentId }));
     }
   );
 
@@ -178,7 +179,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       containerId: z.string().describe('Container ID'),
     },
     async ({ environmentId, containerId }) => {
-      return jsonResponse(await client.get(`/api/containers/${containerId}/shells`, { env: environmentId }));
+      return jsonResponse(await client.get(`/api/containers/${encodePath(containerId)}/shells`, { env: environmentId }));
     }
   );
 
@@ -191,7 +192,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       path: z.string().optional().describe('Path inside container (default: /)'),
     },
     async ({ environmentId, containerId, path }) => {
-      return jsonResponse(await client.get(`/api/containers/${containerId}/files`, {
+      return jsonResponse(await client.get(`/api/containers/${encodePath(containerId)}/files`, {
         env: environmentId,
         path: path ?? '/',
       }));
@@ -205,7 +206,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       path: z.string().describe('File path inside container'),
     },
     async ({ environmentId, containerId, path }) => {
-      const data = await client.get(`/api/containers/${containerId}/files/content`, {
+      const data = await client.get(`/api/containers/${encodePath(containerId)}/files/content`, {
         env: environmentId,
         path,
       });
@@ -221,7 +222,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       content: z.string().describe('File content'),
     },
     async ({ environmentId, containerId, path, content }) => {
-      return jsonResponse(await client.post(`/api/containers/${containerId}/files/create`, { path, content }, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/files/create`, { path, content }, { env: environmentId }));
     }
   );
 
@@ -232,7 +233,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       path: z.string().describe('File path inside container'),
     },
     async ({ environmentId, containerId, path }) => {
-      return jsonResponse(await client.post(`/api/containers/${containerId}/files/delete`, { path }, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/files/delete`, { path }, { env: environmentId }));
     }
   );
 
@@ -244,7 +245,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       newPath: z.string().describe('New file path'),
     },
     async ({ environmentId, containerId, oldPath, newPath }) => {
-      return jsonResponse(await client.post(`/api/containers/${containerId}/files/rename`, { oldPath, newPath }, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/files/rename`, { oldPath, newPath }, { env: environmentId }));
     }
   );
 
@@ -256,7 +257,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       mode: z.string().describe('Permission mode (e.g. 0755)'),
     },
     async ({ environmentId, containerId, path, mode }) => {
-      return jsonResponse(await client.post(`/api/containers/${containerId}/files/chmod`, { path, mode }, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/files/chmod`, { path, mode }, { env: environmentId }));
     }
   );
 
