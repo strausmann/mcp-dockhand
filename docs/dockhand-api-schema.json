@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-03-29T22:13:35.700Z",
+  "generatedAt": "2026-04-04T05:28:31.837Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "4a7c971cf88be58643fbf7aa833a5581b8087f5d",
-  "endpointCount": 192,
+  "sourceCommit": "059267739ac191583ddf1c934fbc6d70627316cb",
+  "endpointCount": 194,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -1399,6 +1399,12 @@
       ]
     },
     {
+      "path": "/api/settings/scanner/cache",
+      "methods": [
+        "DELETE"
+      ]
+    },
+    {
       "path": "/api/settings/theme",
       "methods": [
         "GET"
@@ -1437,6 +1443,15 @@
       "methods": [
         "GET",
         "PUT"
+      ],
+      "pathParams": [
+        "name"
+      ]
+    },
+    {
+      "path": "/api/stacks/{name}/deploy",
+      "methods": [
+        "POST"
       ],
       "pathParams": [
         "name"
@@ -1496,6 +1511,9 @@
       ],
       "pathParams": [
         "name"
+      ],
+      "queryParams": [
+        "mode"
       ]
     },
     {
