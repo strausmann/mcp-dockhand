@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-04-04T05:28:31.837Z",
+  "generatedAt": "2026-04-19T05:43:19.771Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "059267739ac191583ddf1c934fbc6d70627316cb",
-  "endpointCount": 194,
+  "sourceCommit": "c44f244b1d37d5dc09700fe8e567658b30e8d1bf",
+  "endpointCount": 196,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -201,6 +201,22 @@
       "methods": [
         "GET",
         "PUT"
+      ]
+    },
+    {
+      "path": "/api/auth/tokens",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/auth/tokens/{id}",
+      "methods": [
+        "DELETE"
+      ],
+      "pathParams": [
+        "id"
       ]
     },
     {
