@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-04-19T05:43:19.771Z",
+  "generatedAt": "2026-04-20T05:52:39.405Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "c44f244b1d37d5dc09700fe8e567658b30e8d1bf",
+  "sourceCommit": "ccfda4c054c806fb74c99586b36c3c14fb46113a",
   "endpointCount": 196,
   "endpoints": [
     {
@@ -1442,7 +1442,8 @@
         "name"
       ],
       "queryParams": [
-        "force"
+        "force",
+        "volumes"
       ]
     },
     {
