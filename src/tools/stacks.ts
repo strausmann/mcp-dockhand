@@ -135,7 +135,8 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'update_stack_env', 'Update environment variables of a stack',
+  registerTool(server, 'update_stack_env',
+    'Update secret environment variables (database-backed, encrypted at rest). Variables flagged isSecret:true are stored in the Dockhand database and injected into containers via shell-env at deploy time — they are NEVER written to the .env file. For non-secret variables that Docker Compose reads from the .env file at container start, use update_stack_env_raw.',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -143,14 +144,10 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         key: z.string(),
         value: z.string(),
         isSecret: z.boolean().optional(),
-      })).optional().describe('Environment variables'),
-      rawContent: z.string().optional().describe('Raw .env file content'),
+      })).describe('Environment variables — flag secrets with isSecret:true'),
     },
-    async ({ environmentId, name, variables, rawContent }) => {
-      const body: Record<string, unknown> = {};
-      if (variables) body.variables = variables;
-      if (rawContent) body.rawContent = rawContent;
-      return jsonResponse(await client.put(`/api/stacks/${encodePath(name)}/env`, body, { env: environmentId }));
+    async ({ environmentId, name, variables }) => {
+      return jsonResponse(await client.put(`/api/stacks/${encodePath(name)}/env`, { variables }, { env: environmentId }));
     }
   );
 

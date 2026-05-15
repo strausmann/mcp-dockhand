@@ -59,3 +59,31 @@ describe('update_stack_env_raw (new tool)', () => {
     expect(block).toMatch(/\{\s*content\s*\}/);
   });
 });
+
+describe('update_stack_env (rawContent cleanup)', () => {
+  it('no longer declares the rawContent parameter', () => {
+    const block = extractToolBlock(stacksSource, 'update_stack_env');
+    expect(block).not.toContain('rawContent');
+  });
+
+  it('no longer maps rawContent into the request body', () => {
+    const block = extractToolBlock(stacksSource, 'update_stack_env');
+    expect(block).not.toMatch(/body\.rawContent/);
+  });
+
+  it('sends {variables} directly as the request body', () => {
+    const block = extractToolBlock(stacksSource, 'update_stack_env');
+    expect(block).toMatch(/\{\s*variables\s*\}/);
+  });
+
+  it('declares variables as a required parameter', () => {
+    const block = extractToolBlock(stacksSource, 'update_stack_env');
+    // variables array should NOT have .optional() chained
+    expect(block).not.toMatch(/variables:\s*z\.array\([\s\S]*?\}\)\s*\)\.optional/);
+  });
+
+  it('description references update_stack_env_raw for non-secret writes', () => {
+    const block = extractToolBlock(stacksSource, 'update_stack_env');
+    expect(block).toMatch(/update_stack_env_raw/);
+  });
+});
