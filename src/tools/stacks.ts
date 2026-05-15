@@ -164,6 +164,18 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
+  registerTool(server, 'update_stack_env_raw',
+    'Write the raw .env file of a stack to disk. Use this for non-secret variables that Docker Compose reads at container start. For secrets that should be encrypted in the Dockhand database and injected via shell-env at deploy time, use update_stack_env with isSecret:true on each variable.',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      name: z.string().describe('Stack name'),
+      content: z.string().describe('Full .env file content. Empty string deletes the .env file on disk.'),
+    },
+    async ({ environmentId, name, content }) => {
+      return jsonResponse(await client.put(`/api/stacks/${encodePath(name)}/env/raw`, { content }, { env: environmentId }));
+    }
+  );
+
   registerTool(server, 'validate_stack_env', 'Validate environment variables of a stack',
     {
       environmentId: z.number().describe('Environment ID'),
