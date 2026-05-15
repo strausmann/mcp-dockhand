@@ -1,6 +1,7 @@
 /**
  * HTTP Client for the Dockhand REST API.
- * Handles cookie-based auth, auto-relogin, SSE parsing, and env parameter injection.
+ * Handles auth (cookie or Bearer token), auto-relogin for cookie sessions,
+ * SSE parsing, and env parameter injection.
  */
 
 import { SessionManager } from '../auth/session.js';
@@ -86,10 +87,10 @@ export class DockhandClient {
    */
   async postSSE(path: string, body?: unknown, params?: Record<string, string | number | undefined>): Promise<SSEResult> {
     const url = this.buildUrl(path, params);
-    const cookie = await this.session.getCookie();
+    const authHeaders = await this.session.getAuthHeaders();
 
     const headers: Record<string, string> = {
-      'Cookie': cookie,
+      ...authHeaders,
       'Accept': 'text/event-stream',
     };
 
@@ -106,9 +107,8 @@ export class DockhandClient {
 
     if (response.status === 401) {
       this.session.invalidate();
-      // Retry once after re-login
-      const retryCookie = await this.session.getCookie();
-      headers['Cookie'] = retryCookie;
+      // Retry once after re-login (no-op in token mode — invalidate is a no-op there too).
+      Object.assign(headers, await this.session.getAuthHeaders());
       const retryResponse = await fetch(url, {
         method: 'POST',
         headers,
@@ -126,10 +126,10 @@ export class DockhandClient {
    */
   async putSSE(path: string, body?: unknown, params?: Record<string, string | number | undefined>): Promise<SSEResult> {
     const url = this.buildUrl(path, params);
-    const cookie = await this.session.getCookie();
+    const authHeaders = await this.session.getAuthHeaders();
 
     const headers: Record<string, string> = {
-      'Cookie': cookie,
+      ...authHeaders,
       'Accept': 'text/event-stream',
       'Content-Type': 'application/json',
     };
@@ -143,8 +143,7 @@ export class DockhandClient {
 
     if (response.status === 401) {
       this.session.invalidate();
-      const retryCookie = await this.session.getCookie();
-      headers['Cookie'] = retryCookie;
+      Object.assign(headers, await this.session.getAuthHeaders());
       const retryResponse = await fetch(url, {
         method: 'PUT',
         headers,
@@ -182,15 +181,14 @@ export class DockhandClient {
     body?: FormData | Buffer | string,
     extraHeaders?: Record<string, string>,
   ): Promise<Response> {
-    const cookie = await this.session.getCookie();
-    const headers: Record<string, string> = { 'Cookie': cookie, ...extraHeaders };
+    const authHeaders = await this.session.getAuthHeaders();
+    const headers: Record<string, string> = { ...authHeaders, ...extraHeaders };
 
     let response = await fetch(url, { method, headers, body });
 
     if (response.status === 401) {
       this.session.invalidate();
-      const retryCookie = await this.session.getCookie();
-      headers['Cookie'] = retryCookie;
+      Object.assign(headers, await this.session.getAuthHeaders());
       response = await fetch(url, { method, headers, body });
     }
 
@@ -205,10 +203,10 @@ export class DockhandClient {
   }
 
   private async request<T>(method: string, url: string, body?: unknown): Promise<T> {
-    const cookie = await this.session.getCookie();
+    const authHeaders = await this.session.getAuthHeaders();
 
     const headers: Record<string, string> = {
-      'Cookie': cookie,
+      ...authHeaders,
       'Accept': 'application/json',
     };
 
@@ -222,11 +220,10 @@ export class DockhandClient {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
-    // Auto-relogin on 401
+    // Auto-relogin on 401 (no-op in token mode — invalidate is a no-op there too)
     if (response.status === 401) {
       this.session.invalidate();
-      const retryCookie = await this.session.getCookie();
-      headers['Cookie'] = retryCookie;
+      Object.assign(headers, await this.session.getAuthHeaders());
       response = await fetch(url, {
         method,
         headers,

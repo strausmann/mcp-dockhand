@@ -4,8 +4,11 @@
 
 export interface DockhandConfig {
   url: string;
-  username: string;
-  password: string;
+  /** Personal API token (`dh_…`) used as Bearer auth. When set, session
+   * login is skipped — username/password are not required. */
+  apiToken?: string;
+  username?: string;
+  password?: string;
 }
 
 export interface SessionInfo {

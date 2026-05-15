@@ -17,19 +17,28 @@ function getEnvOrThrow(name: string): string {
   return value;
 }
 
+const apiToken = process.env['DOCKHAND_API_TOKEN'];
+
 const config = {
-  dockhand: {
-    url: getEnvOrThrow('DOCKHAND_URL'),
-    username: getEnvOrThrow('DOCKHAND_USERNAME'),
-    password: getEnvOrThrow('DOCKHAND_PASSWORD'),
-  },
+  dockhand: apiToken
+    ? {
+        url: getEnvOrThrow('DOCKHAND_URL'),
+        apiToken,
+      }
+    : {
+        url: getEnvOrThrow('DOCKHAND_URL'),
+        username: getEnvOrThrow('DOCKHAND_USERNAME'),
+        password: getEnvOrThrow('DOCKHAND_PASSWORD'),
+      },
   port: parseInt(process.env['MCP_PORT'] ?? '8080', 10),
   host: process.env['MCP_HOST'] || '0.0.0.0',
 };
 
 console.error('[config] Starting MCP Dockhand server...');
 console.error(`[config] Dockhand URL: ${config.dockhand.url}`);
-console.error(`[config] Dockhand User: ${config.dockhand.username}`);
+console.error(
+  `[config] Auth: ${apiToken ? 'API token (Bearer)' : `session (user ${config.dockhand.username})`}`,
+);
 console.error(`[config] MCP Port: ${config.port}`);
 
 createServer(config).catch((error) => {
