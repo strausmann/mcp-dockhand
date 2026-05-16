@@ -5,6 +5,12 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0](https://github.com/strausmann/mcp-dockhand/compare/v1.2.0...v1.3.0) (2026-05-16)
+
+### Features
+
+* **stacks:** add update_stack_env_raw + remove non-functional rawContent param ([#58](https://github.com/strausmann/mcp-dockhand/issues/58)) ([9166310](https://github.com/strausmann/mcp-dockhand/commit/9166310690dc30fdc42a9919d1dc0a11642b2986)), closes [#57](https://github.com/strausmann/mcp-dockhand/issues/57) [#56](https://github.com/strausmann/mcp-dockhand/issues/56) [#25](https://github.com/strausmann/mcp-dockhand/issues/25)
+
 ## [1.2.0](https://github.com/strausmann/mcp-dockhand/compare/v1.1.1...v1.2.0) (2026-03-29)
 
 ### Features
