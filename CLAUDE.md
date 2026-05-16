@@ -95,4 +95,4 @@ server.tool(
 - **Auth:** Cookie-basiert (`dockhand_session`)
 - **Base URL:** Konfigurierbar via `DOCKHAND_URL` env var
 - **Alle Endpoints:** Environment-scoped via `?env=<id>` Query-Parameter
-- **API Baseline:** `docs/dockhand-api-baseline.json` (173 Endpunkte)
+- **API Schema:** `docs/dockhand-api-schema.json` (auto-refreshed daily by `scripts/extract-dockhand-api.mjs`)
