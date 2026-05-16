@@ -10,14 +10,14 @@ import { encodePath } from '../utils/encode-path.js';
 
 export function registerRegistryTools(server: McpServer, client: DockhandClient): void {
 
-  registerTool(server, 'list_registries', 'List all configured Docker registries',
+  registerTool(server, 'list_registries', 'List all configured Docker registries; use `get_registry` to fetch a single entry or `create_registry` to add one.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/registries'));
     }
   );
 
-  registerTool(server, 'create_registry', 'Add a new Docker registry',
+  registerTool(server, 'create_registry', 'Add a new Docker registry with credentials; verify the result with `get_registry` or browse all via `list_registries`.',
     {
       config: z.record(z.string(), z.unknown()).describe('Registry configuration (name, url, username, password, etc.)'),
     },
@@ -26,14 +26,14 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'get_registry', 'Get details of a Docker registry',
+  registerTool(server, 'get_registry', 'Get full details of a single Docker registry by ID; see `list_registries` for all IDs or `update_registry` to modify.',
     { registryId: z.number().describe('Registry ID') },
     async ({ registryId }) => {
       return jsonResponse(await client.get(`/api/registries/${encodePath(registryId)}`));
     }
   );
 
-  registerTool(server, 'update_registry', 'Update a Docker registry configuration',
+  registerTool(server, 'update_registry', 'Update an existing Docker registry configuration (URL, credentials, name); use `get_registry` to read the current state first.',
     {
       registryId: z.number().describe('Registry ID'),
       config: z.record(z.string(), z.unknown()).describe('Updated registry configuration'),
@@ -43,14 +43,14 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'delete_registry', 'Delete a Docker registry',
+  registerTool(server, 'delete_registry', 'Permanently delete a Docker registry configuration; verify the ID with `get_registry` before removing.',
     { registryId: z.number().describe('Registry ID') },
     async ({ registryId }) => {
       return jsonResponse(await client.delete(`/api/registries/${encodePath(registryId)}`));
     }
   );
 
-  registerTool(server, 'set_default_registry', 'Set a registry as the default',
+  registerTool(server, 'set_default_registry', 'Mark a registry as the default so it is used when no explicit registry is specified; see `list_registries` for available IDs.',
     { registryId: z.number().describe('Registry ID') },
     async ({ registryId }) => {
       return jsonResponse(await client.post(`/api/registries/${encodePath(registryId)}/default`));
@@ -59,7 +59,7 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
 
   // --- Registry Search ---
 
-  registerTool(server, 'search_registry', 'Search a Docker registry for images',
+  registerTool(server, 'search_registry', 'Search the configured registry for images matching a query; use `get_registry_catalog` for a full image list or `get_registry_tags` for available tags.',
     {
       query: z.string().describe('Search query'),
       environmentId: z.number().optional().describe('Environment ID'),
@@ -69,7 +69,7 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'get_registry_catalog', 'Get the catalog of a Docker registry',
+  registerTool(server, 'get_registry_catalog', 'Retrieve the full image catalog of the configured Docker registry; use `search_registry` for filtered results or `get_registry_tags` for image tags.',
     {
       environmentId: z.number().optional().describe('Environment ID'),
     },
@@ -78,7 +78,7 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'get_registry_tags', 'Get available tags for an image in a registry',
+  registerTool(server, 'get_registry_tags', 'List all available tags for a specific image in the configured registry; use `get_registry_catalog` to discover image names or `search_registry` to search.',
     {
       image: z.string().describe('Image name'),
       environmentId: z.number().optional().describe('Environment ID'),
