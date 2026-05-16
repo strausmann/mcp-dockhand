@@ -60,7 +60,7 @@ export function registerDashboardTools(server: McpServer, client: DockhandClient
     }
   );
 
-  registerTool(server, 'get_merged_logs', 'Fetch and interleave log lines from multiple containers into a single chronological stream, useful for debugging interactions across containers in the same stack.',
+  registerTool(server, 'get_merged_logs', 'Fetch and interleave log lines from multiple containers into a single chronological stream, useful for debugging interactions across containers in the same stack; use `get_container_logs` to retrieve logs from a single container, or `get_container_top` to inspect live processes.',
     {
       environmentId: z.number().describe('Environment ID'),
       containers: z.string().describe('Comma-separated container names or IDs'),

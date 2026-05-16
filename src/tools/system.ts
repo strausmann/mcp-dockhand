@@ -187,7 +187,7 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   // --- Batch ---
 
-  registerTool(server, 'list_batch_operations', 'Get available batch operations',
+  registerTool(server, 'list_batch_operations', 'List the batch operations that have been submitted or completed, providing a history view of bulk container actions; use `batch_update_containers` to start a new batch update, or `start_container` / `stop_container` for single-container lifecycle actions.',
     {},
     async () => {
       return jsonResponse(await client.post('/api/batch'));
