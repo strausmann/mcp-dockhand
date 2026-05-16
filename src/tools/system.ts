@@ -11,14 +11,14 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   // --- Health ---
 
-  registerTool(server, 'health_check', 'Check Dockhand server health',
+  registerTool(server, 'health_check', 'Probe the MCP server liveness endpoint and return its overall health status; use `health_check_database` to probe the Dockhand backend database connection separately.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/health'));
     }
   );
 
-  registerTool(server, 'health_check_database', 'Check Dockhand database health',
+  registerTool(server, 'health_check_database', 'Probe the Dockhand backend database connection and return its health status; use `health_check` to check overall MCP server liveness instead.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/health/database'));
@@ -27,28 +27,28 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   // --- System Info ---
 
-  registerTool(server, 'get_host_info', 'Get host information of the Dockhand server',
+  registerTool(server, 'get_host_info', 'Retrieve OS-level host details (hostname, OS, CPU, memory) of the Dockhand server; pair with `get_system_info` for application-level data or `get_system_disk` for storage capacity.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/host'));
     }
   );
 
-  registerTool(server, 'get_system_info', 'Get Dockhand system information',
+  registerTool(server, 'get_system_info', 'Retrieve Dockhand application system information such as version, build, and runtime details; use `get_host_info` for underlying OS/hardware data or `get_system_disk` for disk usage.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/system'));
     }
   );
 
-  registerTool(server, 'get_system_disk', 'Get disk usage on the Dockhand server',
+  registerTool(server, 'get_system_disk', 'Retrieve disk usage statistics for the Dockhand server host; use `get_host_info` for OS-level details or `get_general_settings` to read application-level configuration.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/system/disk'));
     }
   );
 
-  registerTool(server, 'list_system_files', 'List system files on the Dockhand server',
+  registerTool(server, 'list_system_files', 'List the file and directory entries at a given path on the Dockhand server host; use `get_system_file_content` to read the contents of a specific file.',
     {
       path: z.string().optional().describe('Directory path'),
     },
@@ -57,7 +57,7 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'get_system_file_content', 'Read a system file on the Dockhand server',
+  registerTool(server, 'get_system_file_content', 'Read and return the raw text content of a specific file on the Dockhand server host; use `list_system_files` to discover available files and paths first.',
     {
       path: z.string().describe('File path'),
     },
@@ -66,14 +66,14 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'get_changelog', 'Get the Dockhand changelog',
+  registerTool(server, 'get_changelog', 'Retrieve the Dockhand release changelog, listing version history, new features, and bug fixes for the running instance.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/changelog'));
     }
   );
 
-  registerTool(server, 'get_dependencies', 'Get Dockhand dependencies',
+  registerTool(server, 'get_dependencies', 'Retrieve the list of third-party software dependencies bundled with the running Dockhand instance, including versions and licenses.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/dependencies'));
@@ -82,14 +82,14 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   // --- Settings ---
 
-  registerTool(server, 'get_general_settings', 'Get general Dockhand settings',
+  registerTool(server, 'get_general_settings', 'Read the current general application settings for Dockhand; use `update_general_settings` to modify them, or `get_system_info` for read-only runtime/version data.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/settings/general'));
     }
   );
 
-  registerTool(server, 'update_general_settings', 'Update general Dockhand settings',
+  registerTool(server, 'update_general_settings', 'Write updated general application settings to Dockhand; use `get_general_settings` to read the current values before making changes.',
     {
       settings: z.record(z.string(), z.unknown()).describe('Settings to update'),
     },
@@ -98,21 +98,21 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'get_theme_settings', 'Get Dockhand theme settings',
+  registerTool(server, 'get_theme_settings', 'Retrieve the current UI theme configuration for the Dockhand dashboard, including color scheme and appearance preferences.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/settings/theme'));
     }
   );
 
-  registerTool(server, 'get_scanner_settings', 'Get vulnerability scanner settings (Trivy/Grype)',
+  registerTool(server, 'get_scanner_settings', 'Read the current vulnerability scanner configuration (Trivy/Grype) for Dockhand; use `update_scanner_settings` to change scanner behaviour or database paths.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/settings/scanner'));
     }
   );
 
-  registerTool(server, 'update_scanner_settings', 'Update vulnerability scanner settings',
+  registerTool(server, 'update_scanner_settings', 'Write updated vulnerability scanner settings (Trivy/Grype) to Dockhand; use `get_scanner_settings` to read the current configuration before applying changes.',
     {
       settings: z.record(z.string(), z.unknown()).describe('Scanner settings to update'),
     },
@@ -123,14 +123,14 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   // --- License ---
 
-  registerTool(server, 'get_license', 'Get Dockhand license information',
+  registerTool(server, 'get_license', 'Read the current operational license information for Dockhand (tier, expiry, seat count); use `activate_license` to register a new key or `get_legal_license` for open-source license text.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/license'));
     }
   );
 
-  registerTool(server, 'activate_license', 'Activate a Dockhand license',
+  registerTool(server, 'activate_license', 'Activate a new Dockhand license key, registering it with the backend to unlock the corresponding feature tier; use `get_license` to verify the result after activation.',
     {
       licenseKey: z.string().describe('License key'),
     },
@@ -141,7 +141,7 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   // --- Metrics ---
 
-  registerTool(server, 'get_prometheus_metrics', 'Get Prometheus metrics from Dockhand',
+  registerTool(server, 'get_prometheus_metrics', 'Retrieve the Prometheus metrics exposition from Dockhand in text/plain format, suitable for scraping by a Prometheus server or quick manual inspection.',
     {},
     async () => {
       return textResponse(await client.get('/api/metrics'));
@@ -150,35 +150,35 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   // --- Pruning ---
 
-  registerTool(server, 'prune_all', 'Prune all unused Docker resources (containers, images, networks, volumes) - DESTRUCTIVE!',
+  registerTool(server, 'prune_all', 'Delete all unused Docker resources in one operation — combines `prune_containers`, `prune_images`, `prune_volumes`, and `prune_networks`; DESTRUCTIVE and cannot be undone.',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
       return jsonResponse(await client.post('/api/prune/all', undefined, { env: environmentId }));
     }
   );
 
-  registerTool(server, 'prune_containers', 'Prune stopped containers - DESTRUCTIVE!',
+  registerTool(server, 'prune_containers', 'Remove all stopped Docker containers to reclaim disk space; DESTRUCTIVE — use `prune_all` to delete containers together with images, volumes, and networks in one call.',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
       return jsonResponse(await client.post('/api/prune/containers', undefined, { env: environmentId }));
     }
   );
 
-  registerTool(server, 'prune_images', 'Prune unused Docker images - DESTRUCTIVE!',
+  registerTool(server, 'prune_images', 'Delete unused (dangling and unreferenced) Docker images to reclaim disk space; DESTRUCTIVE — use `prune_all` to also remove stopped containers, volumes, and networks in one call.',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
       return jsonResponse(await client.post('/api/prune/images', undefined, { env: environmentId }));
     }
   );
 
-  registerTool(server, 'prune_networks', 'Prune unused Docker networks',
+  registerTool(server, 'prune_networks', 'Remove unused Docker networks that are not referenced by any container; DESTRUCTIVE — use `prune_all` to also prune containers, images, and volumes in a single operation.',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
       return jsonResponse(await client.post('/api/prune/networks', undefined, { env: environmentId }));
     }
   );
 
-  registerTool(server, 'prune_volumes', 'Prune unused Docker volumes - DESTRUCTIVE! Data will be lost!',
+  registerTool(server, 'prune_volumes', 'Delete unused Docker volumes and permanently destroy their stored data; DESTRUCTIVE and unrecoverable — use `prune_all` to also remove stopped containers, images, and networks in one call.',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
       return jsonResponse(await client.post('/api/prune/volumes', undefined, { env: environmentId }));
@@ -196,14 +196,14 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   // --- Legal ---
 
-  registerTool(server, 'get_legal_license', 'Get legal license information',
+  registerTool(server, 'get_legal_license', 'Retrieve the full open-source legal license text for Dockhand; for operational license tier and expiry see `get_license`, or use `activate_license` to register a key.',
     {},
     async () => {
       return textResponse(await client.get('/api/legal/license'));
     }
   );
 
-  registerTool(server, 'get_privacy_policy', 'Get privacy policy',
+  registerTool(server, 'get_privacy_policy', 'Retrieve the full privacy policy text describing how Dockhand collects and handles user data.',
     {},
     async () => {
       return textResponse(await client.get('/api/legal/privacy'));
