@@ -216,17 +216,30 @@ const CLUSTERS: Record<string, string[]> = {
     'update_git_credential',
   ],
   // auth.ts
-  'Auth-LDAP': ['create_ldap_provider', 'get_ldap_provider', 'test_ldap_provider'],
+  'Auth-LDAP': [
+    'list_ldap_providers',
+    'create_ldap_provider',
+    'get_ldap_provider',
+    'update_ldap_provider',
+    'delete_ldap_provider',
+    'test_ldap_provider',
+  ],
   'Auth-OIDC': [
+    'list_oidc_providers',
     'create_oidc_provider',
     'get_oidc_provider',
+    'update_oidc_provider',
+    'delete_oidc_provider',
     'test_oidc_provider',
     'initiate_oidc_login',
+    'get_oidc_login_url',
     'get_auth_providers',
     'get_auth_session',
     'get_auth_settings',
+    'update_auth_settings',
   ],
   'Hawser-Tokens': ['list_hawser_tokens', 'create_hawser_token', 'revoke_hawser_token'],
+  'Access-Tokens': ['list_auth_tokens', 'create_auth_token', 'revoke_auth_token'],
   // users.ts
   Users: [
     'create_user',
