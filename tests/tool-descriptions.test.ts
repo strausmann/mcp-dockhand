@@ -55,9 +55,20 @@ const ALL_TOOLS = extractAllTools();
  * Clusters that require C2 cross-references. Every member's description
  * MUST mention at least one sibling member by name in backticks.
  *
- * Keep this in sync with the §Tool clusters table in
- * docs/designs/2026-05-16-tool-description-audit-design.md.
+ * This file is the authoritative cluster definition. The §Tool clusters
+ * table in docs/designs/2026-05-16-tool-description-audit-design.md is
+ * the historical proposal; the test file may diverge as cluster
+ * boundaries get refined during implementation. When in doubt, trust
+ * this file.
  */
+// Tools intentionally outside every cluster — C1, C3, C4 still apply,
+// but C2 does not (no semantic siblings to cross-reference):
+//   logout, get_changelog, get_dependencies, get_privacy_policy,
+//   get_prometheus_metrics, get_theme_settings
+//
+// If a new tool is added to src/tools/*.ts that does not fit any
+// existing cluster and is not in this list, the audit has a coverage
+// gap — either add it to a cluster or extend this list.
 const CLUSTERS: Record<string, string[]> = {
   // stacks.ts
   'Stack-Env': [
@@ -65,6 +76,7 @@ const CLUSTERS: Record<string, string[]> = {
     'get_stack_env_raw',
     'update_stack_env',
     'update_stack_env_raw',
+    'validate_stack_env',
   ],
   'Stack-Compose': ['get_stack_compose', 'update_stack_compose'],
   'Stack-Lifecycle': ['start_stack', 'stop_stack', 'restart_stack', 'down_stack'],
@@ -76,9 +88,10 @@ const CLUSTERS: Record<string, string[]> = {
     'validate_stack_path',
     'relocate_stack',
   ],
-  'Stack-Source': ['get_stack_sources', 'list_stacks', 'scan_stacks', 'adopt_stack'],
+  'Stack-Source': ['create_stack', 'delete_stack', 'get_stack_sources', 'list_stacks', 'scan_stacks', 'adopt_stack'],
   // containers.ts
   'Container-Lifecycle': [
+    'create_container',
     'start_container',
     'stop_container',
     'restart_container',
@@ -87,15 +100,19 @@ const CLUSTERS: Record<string, string[]> = {
     'rename_container',
     'update_container',
     'batch_update_containers',
+    'list_batch_operations',
   ],
   'Container-Inspect': [
     'get_container',
     'inspect_container',
+    'list_containers',
     'get_container_logs',
     'get_container_stats',
+    'get_containers_stats',
     'get_container_top',
     'get_container_sizes',
     'get_container_shells',
+    'get_merged_logs',
   ],
   'Container-Files': [
     'list_container_files',
@@ -306,6 +323,8 @@ const CLUSTERS: Record<string, string[]> = {
     'get_container_auto_update',
     'set_container_auto_update',
     'get_auto_update_settings',
+    'check_container_updates',
+    'get_pending_updates',
   ],
 };
 
