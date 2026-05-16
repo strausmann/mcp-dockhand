@@ -271,7 +271,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      return jsonResponse(await client.post(`/api/stacks/${encodePath(name)}/deploy`, undefined, { env: environmentId }));
+      return jsonResponse(await client.postSSE(`/api/stacks/${encodePath(name)}/deploy`, undefined, { env: environmentId }));
     }
   );
 }

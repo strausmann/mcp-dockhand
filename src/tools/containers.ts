@@ -343,17 +343,15 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
 
   // --- Destructive / advanced ops ---
 
-  registerTool(server, 'delete_container', 'Permanently delete a container (with optional volume removal and force flag); contrast with `stop_container` which leaves the container around for inspection. Use `list_containers` to find the ID first; for batch removal across multiple containers, see `batch_update_containers` (recreate cycle).',
+  registerTool(server, 'delete_container', 'Permanently delete a container (optionally force-killing it first); contrast with `stop_container` which leaves the container around for inspection. Use `list_containers` to find the ID first; for batch removal across multiple containers, see `batch_update_containers` (recreate cycle).',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID to delete'),
-      force: z.boolean().optional().describe('Force-kill if running'),
-      removeVolumes: z.boolean().optional().describe('Also remove anonymous volumes attached to the container'),
+      force: z.boolean().optional().describe('Force-kill the container first if it is running'),
     },
-    async ({ environmentId, containerId, force, removeVolumes }) => {
+    async ({ environmentId, containerId, force }) => {
       const query: Record<string, string | number | undefined> = { env: environmentId };
-      if (force !== undefined) query.force = String(force);
-      if (removeVolumes !== undefined) query.removeVolumes = String(removeVolumes);
+      if (force) query.force = 'true';
       return jsonResponse(await client.delete(`/api/containers/${encodePath(containerId)}`, query));
     }
   );
@@ -372,7 +370,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       if (workingDir) body.workingDir = workingDir;
       if (user) body.user = user;
       if (tty !== undefined) body.tty = tty;
-      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/exec`, body, { env: environmentId }));
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/exec`, body, { envId: environmentId }));
     }
   );
 
@@ -384,7 +382,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       content: z.string().describe('Plain-text content to write'),
     },
     async ({ environmentId, containerId, path, content }) => {
-      return jsonResponse(await client.put(`/api/containers/${encodePath(containerId)}/files/content`, { path, content }, { env: environmentId }));
+      return jsonResponse(await client.put(`/api/containers/${encodePath(containerId)}/files/content`, { content }, { env: environmentId, path }));
     }
   );
 

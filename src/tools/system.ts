@@ -223,7 +223,7 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
       content: z.string().describe('File content to write'),
     },
     async ({ path, content }) => {
-      return jsonResponse(await client.post('/api/system/files', { path, content }));
+      return jsonResponse(await client.post('/api/system/files', { content }, { path }));
     }
   );
 

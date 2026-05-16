@@ -81,7 +81,7 @@ export function registerDashboardTools(server: McpServer, client: DockhandClient
       environmentId: z.number().describe('Environment ID'),
     },
     async ({ environmentId }) => {
-      return jsonResponse(await client.delete('/api/activity', { env: environmentId }));
+      return jsonResponse(await client.delete('/api/activity', { environmentId }));
     }
   );
 }
