@@ -10,14 +10,14 @@ import { encodePath } from '../utils/encode-path.js';
 
 export function registerNotificationTools(server: McpServer, client: DockhandClient): void {
 
-  registerTool(server, 'list_notifications', 'List all notification configurations',
+  registerTool(server, 'list_notifications', 'List all saved notification configurations; use `get_notification` to fetch a single entry by ID.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/notifications'));
     }
   );
 
-  registerTool(server, 'create_notification', 'Create a new notification configuration',
+  registerTool(server, 'create_notification', 'Create and persist a new notification configuration; use `test_notification` to verify it after saving.',
     {
       config: z.record(z.string(), z.unknown()).describe('Notification configuration (name, type, settings)'),
     },
@@ -26,14 +26,14 @@ export function registerNotificationTools(server: McpServer, client: DockhandCli
     }
   );
 
-  registerTool(server, 'get_notification', 'Get details of a notification configuration',
+  registerTool(server, 'get_notification', 'Retrieve full details of a single saved notification configuration by ID; use `list_notifications` to discover IDs.',
     { notificationId: z.number().describe('Notification ID') },
     async ({ notificationId }) => {
       return jsonResponse(await client.get(`/api/notifications/${encodePath(notificationId)}`));
     }
   );
 
-  registerTool(server, 'update_notification', 'Update a notification configuration',
+  registerTool(server, 'update_notification', 'Update an existing saved notification configuration by ID; use `get_notification` to inspect the current values first.',
     {
       notificationId: z.number().describe('Notification ID'),
       config: z.record(z.string(), z.unknown()).describe('Updated notification configuration'),
@@ -43,21 +43,21 @@ export function registerNotificationTools(server: McpServer, client: DockhandCli
     }
   );
 
-  registerTool(server, 'delete_notification', 'Delete a notification configuration',
+  registerTool(server, 'delete_notification', 'Permanently delete a saved notification configuration by ID (destructive); use `list_notifications` to confirm the ID before deleting.',
     { notificationId: z.number().describe('Notification ID') },
     async ({ notificationId }) => {
       return jsonResponse(await client.delete(`/api/notifications/${encodePath(notificationId)}`));
     }
   );
 
-  registerTool(server, 'test_notification', 'Send a test notification using a saved configuration',
+  registerTool(server, 'test_notification', 'Fire a test message through a saved notification configuration identified by ID; use `test_notification_config` to test an unsaved config blob instead.',
     { notificationId: z.number().describe('Notification ID') },
     async ({ notificationId }) => {
       return jsonResponse(await client.post(`/api/notifications/${encodePath(notificationId)}/test`));
     }
   );
 
-  registerTool(server, 'test_notification_config', 'Send a test notification without saving the configuration first',
+  registerTool(server, 'test_notification_config', 'Send a test message using a raw config blob without saving it first; use `test_notification` to test an already-saved configuration by ID.',
     {
       config: z.record(z.string(), z.unknown()).describe('Notification configuration to test'),
     },
@@ -66,7 +66,7 @@ export function registerNotificationTools(server: McpServer, client: DockhandCli
     }
   );
 
-  registerTool(server, 'trigger_test_notification', 'Trigger a test notification event',
+  registerTool(server, 'trigger_test_notification', 'Fire the standard test-event payload to all configured notification channels; use `test_notification` to target a single saved configuration instead.',
     {},
     async () => {
       return jsonResponse(await client.post('/api/notifications/trigger-test'));
