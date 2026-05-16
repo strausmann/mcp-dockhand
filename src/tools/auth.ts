@@ -10,70 +10,70 @@ import { encodePath } from '../utils/encode-path.js';
 
 export function registerAuthTools(server: McpServer, client: DockhandClient): void {
 
-  registerTool(server, 'get_auth_session', 'Check the current authentication session status',
+  registerTool(server, 'get_auth_session', 'Retrieve the current authentication session status; pair with `get_auth_providers` and `get_auth_settings` to inspect the full org-wide auth state.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/auth/session'));
     }
   );
 
-  registerTool(server, 'get_auth_providers', 'List available authentication providers',
+  registerTool(server, 'get_auth_providers', 'List all authentication providers configured for the organisation; use alongside `get_auth_session` and `get_auth_settings` to audit org-wide auth state.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/auth/providers'));
     }
   );
 
-  registerTool(server, 'get_auth_settings', 'Get authentication settings',
+  registerTool(server, 'get_auth_settings', 'Fetch global authentication settings for the organisation; complement with `get_auth_session` and `get_auth_providers` for a complete auth overview.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/auth/settings'));
     }
   );
 
-  registerTool(server, 'create_oidc_provider', 'Create a new OIDC authentication provider',
+  registerTool(server, 'create_oidc_provider', 'Create a new OIDC authentication provider; use `get_oidc_provider` to inspect it and `test_oidc_provider` to validate connectivity before going live.',
     { config: z.record(z.string(), z.unknown()).describe('OIDC provider configuration') },
     async ({ config }) => {
       return jsonResponse(await client.post('/api/auth/oidc', config));
     }
   );
 
-  registerTool(server, 'get_oidc_provider', 'Get details of an OIDC provider',
+  registerTool(server, 'get_oidc_provider', 'Retrieve configuration details of an existing OIDC provider; run `test_oidc_provider` afterwards to verify the connection, or `create_oidc_provider` to add a new one.',
     { providerId: z.number().describe('OIDC provider ID') },
     async ({ providerId }) => {
       return jsonResponse(await client.get(`/api/auth/oidc/${encodePath(providerId)}`));
     }
   );
 
-  registerTool(server, 'test_oidc_provider', 'Test an OIDC provider connection',
+  registerTool(server, 'test_oidc_provider', 'Test connectivity for an OIDC provider to confirm it is reachable and correctly configured; pair with `create_oidc_provider` or `get_oidc_provider` in the setup workflow.',
     { providerId: z.number().describe('OIDC provider ID') },
     async ({ providerId }) => {
       return jsonResponse(await client.post(`/api/auth/oidc/${encodePath(providerId)}/test`));
     }
   );
 
-  registerTool(server, 'initiate_oidc_login', 'Initiate an OIDC login flow',
+  registerTool(server, 'initiate_oidc_login', 'Start the OAuth 2.0 / OIDC login flow for a configured provider, returning the redirect URL; call `test_oidc_provider` first to ensure the provider is reachable.',
     { providerId: z.number().describe('OIDC provider ID') },
     async ({ providerId }) => {
       return jsonResponse(await client.post(`/api/auth/oidc/${encodePath(providerId)}/initiate`));
     }
   );
 
-  registerTool(server, 'create_ldap_provider', 'Create a new LDAP authentication provider',
+  registerTool(server, 'create_ldap_provider', 'Create a new LDAP authentication provider; use `get_ldap_provider` to inspect the result and `test_ldap_provider` to validate the directory connection.',
     { config: z.record(z.string(), z.unknown()).describe('LDAP provider configuration') },
     async ({ config }) => {
       return jsonResponse(await client.post('/api/auth/ldap', config));
     }
   );
 
-  registerTool(server, 'get_ldap_provider', 'Get details of a LDAP provider',
+  registerTool(server, 'get_ldap_provider', 'Retrieve configuration details for an existing LDAP provider; use `test_ldap_provider` to verify connectivity or `create_ldap_provider` to register a new directory.',
     { providerId: z.number().describe('LDAP provider ID') },
     async ({ providerId }) => {
       return jsonResponse(await client.get(`/api/auth/ldap/${encodePath(providerId)}`));
     }
   );
 
-  registerTool(server, 'test_ldap_provider', 'Test a LDAP provider connection',
+  registerTool(server, 'test_ldap_provider', 'Test the LDAP directory connection for a configured provider to confirm bind credentials and reachability; pair with `create_ldap_provider` or `get_ldap_provider` in the setup workflow.',
     { providerId: z.number().describe('LDAP provider ID') },
     async ({ providerId }) => {
       return jsonResponse(await client.post(`/api/auth/ldap/${encodePath(providerId)}/test`));
@@ -82,14 +82,14 @@ export function registerAuthTools(server: McpServer, client: DockhandClient): vo
 
   // --- Hawser Token Management ---
 
-  registerTool(server, 'list_hawser_tokens', 'List all Hawser agent tokens',
+  registerTool(server, 'list_hawser_tokens', 'List all Hawser agent tokens across environments; use `create_hawser_token` to add a new token or `revoke_hawser_token` to permanently remove one.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/hawser/tokens'));
     }
   );
 
-  registerTool(server, 'create_hawser_token', 'Create a new Hawser agent token for an environment',
+  registerTool(server, 'create_hawser_token', 'Create a new Hawser agent token scoped to a specific environment; use `list_hawser_tokens` to audit existing tokens or `revoke_hawser_token` to remove one.',
     {
       name: z.string().describe('Token name'),
       environmentId: z.number().describe('Environment ID to associate'),
@@ -102,7 +102,7 @@ export function registerAuthTools(server: McpServer, client: DockhandClient): vo
     }
   );
 
-  registerTool(server, 'revoke_hawser_token', 'Revoke (delete) a Hawser agent token',
+  registerTool(server, 'revoke_hawser_token', 'Permanently revoke and delete a Hawser agent token, immediately disabling any agent using it; use `list_hawser_tokens` to find the token ID before revoking.',
     { tokenId: z.string().describe('Token ID to revoke') },
     async ({ tokenId }) => {
       return jsonResponse(await client.delete('/api/hawser/tokens', { id: tokenId }));
@@ -110,7 +110,7 @@ export function registerAuthTools(server: McpServer, client: DockhandClient): vo
   );
 
   // Logout (session cleanup)
-  registerTool(server, 'logout', 'Logout and invalidate the current session',
+  registerTool(server, 'logout', 'Log out the current user and invalidate the active session token on the server.',
     {},
     async () => {
       return jsonResponse(await client.post('/api/auth/logout', {}));
