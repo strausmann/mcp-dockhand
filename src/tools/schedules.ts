@@ -73,4 +73,21 @@ export function registerScheduleTools(server: McpServer, client: DockhandClient)
       return jsonResponse(await client.post(`/api/schedules/system/${encodePath(scheduleId)}/toggle`));
     }
   );
+
+  registerTool(server, 'delete_schedule', 'Permanently delete a scheduled task by type and ID; use `list_schedules` to find the schedule first, or `toggle_schedule` to disable without deleting.',
+    {
+      type: z.string().describe('Schedule type identifier'),
+      scheduleId: z.number().describe('Schedule ID'),
+    },
+    async ({ type, scheduleId }) => {
+      return jsonResponse(await client.delete(`/api/schedules/${encodePath(type)}/${encodePath(scheduleId)}`));
+    }
+  );
+
+  registerTool(server, 'delete_schedule_execution', 'Permanently delete a single recorded schedule execution from the history; use `get_schedule_executions` to find the execution ID, or `get_schedule_execution` for detail on one row before deleting.',
+    { executionId: z.number().describe('Schedule execution ID') },
+    async ({ executionId }) => {
+      return jsonResponse(await client.delete(`/api/schedules/executions/${encodePath(executionId)}`));
+    }
+  );
 }

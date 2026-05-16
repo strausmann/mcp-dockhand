@@ -90,7 +90,7 @@ const CLUSTERS: Record<string, string[]> = {
     'validate_stack_env',
   ],
   'Stack-Compose': ['get_stack_compose', 'update_stack_compose'],
-  'Stack-Lifecycle': ['start_stack', 'stop_stack', 'restart_stack', 'down_stack'],
+  'Stack-Lifecycle': ['start_stack', 'stop_stack', 'restart_stack', 'down_stack', 'deploy_stack'],
   'Stack-Path': [
     'get_stack_base_path',
     'get_stack_default_path',
@@ -173,6 +173,7 @@ const CLUSTERS: Record<string, string[]> = {
   'Volume-Lifecycle': [
     'browse_volume',
     'clone_volume',
+    'create_volume',
     'export_volume',
     'get_volume',
     'inspect_volume',
@@ -327,6 +328,8 @@ const CLUSTERS: Record<string, string[]> = {
     'run_schedule_now',
     'toggle_schedule',
     'toggle_system_schedule',
+    'delete_schedule',
+    'delete_schedule_execution',
     'get_schedule_settings',
     'update_schedule_settings',
   ],

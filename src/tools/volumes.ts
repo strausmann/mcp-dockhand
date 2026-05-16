@@ -108,4 +108,14 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
       return jsonResponse(await client.delete(`/api/volumes/${encodePath(volumeName)}`, { env: environmentId }));
     }
   );
+
+  registerTool(server, 'create_volume', 'Create a new Docker volume with the supplied name, driver, and driver options; use `list_volumes` to verify the result, `inspect_volume` for full details, or `remove_volume` to delete it later.',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      config: z.record(z.string(), z.unknown()).describe('Volume creation payload (e.g. {name, driver, driverOpts, labels})'),
+    },
+    async ({ environmentId, config }) => {
+      return jsonResponse(await client.post('/api/volumes', config, { env: environmentId }));
+    }
+  );
 }
