@@ -297,11 +297,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       const blob = new Blob([bytes], { type: 'application/octet-stream' });
       formData.append('files', blob, filename);
 
-      return jsonResponse(await client.postMultipart(
-        `/api/containers/${encodePath(containerId)}/files/upload`,
-        formData,
-        { env: environmentId, path },
-      ));
+      return jsonResponse(await client.postMultipart(`/api/containers/${encodePath(containerId)}/files/upload`, formData, { env: environmentId, path }));
     }
   );
 
@@ -342,6 +338,68 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
       return jsonResponse(await client.get('/api/containers/stats', { env: environmentId }));
+    }
+  );
+
+  // --- Destructive / advanced ops ---
+
+  registerTool(server, 'delete_container', 'Permanently delete a container (optionally force-killing it first); contrast with `stop_container` which leaves the container around for inspection. Use `list_containers` to find the ID first; for batch removal across multiple containers, see `batch_update_containers` (recreate cycle).',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      containerId: z.string().describe('Container ID to delete'),
+      force: z.boolean().optional().describe('Force-kill the container first if it is running'),
+    },
+    async ({ environmentId, containerId, force }) => {
+      const query: Record<string, string | number | undefined> = { env: environmentId };
+      if (force) query.force = 'true';
+      return jsonResponse(await client.delete(`/api/containers/${encodePath(containerId)}`, query));
+    }
+  );
+
+  registerTool(server, 'exec_container', 'Execute a one-shot command inside a running container and return its output (similar to `docker exec`); pair with `get_container_shells` to discover available shells, or `get_container_logs` if you only need to inspect already-emitted output rather than run something new.',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      containerId: z.string().describe('Container ID'),
+      command: z.array(z.string()).describe('Command as argv array (e.g. ["sh", "-c", "ls /app"])'),
+      workingDir: z.string().optional().describe('Working directory inside the container'),
+      user: z.string().optional().describe('User to exec as (e.g. "root" or "1000:1000")'),
+      tty: z.boolean().optional().describe('Allocate a TTY'),
+    },
+    async ({ environmentId, containerId, command, workingDir, user, tty }) => {
+      const body: Record<string, unknown> = { command };
+      if (workingDir) body.workingDir = workingDir;
+      if (user) body.user = user;
+      if (tty !== undefined) body.tty = tty;
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/exec`, body, { envId: environmentId }));
+    }
+  );
+
+  registerTool(server, 'write_container_file_content', 'Overwrite or create a file inside a container with plain-text content via PUT (idempotent compared to `create_container_file` which uses POST and may fail if the file exists). Use `get_container_file_content` to read the file back, `upload_container_file` for binary content, or `delete_container_file` to remove it.',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      containerId: z.string().describe('Container ID'),
+      path: z.string().describe('Absolute path to the target file inside the container'),
+      content: z.string().describe('Plain-text content to write'),
+    },
+    async ({ environmentId, containerId, path, content }) => {
+      return jsonResponse(await client.put(`/api/containers/${encodePath(containerId)}/files/content`, { content }, { env: environmentId, path }));
+    }
+  );
+
+  registerTool(server, 'batch_update_containers_stream', 'Streaming variant of `batch_update_containers` — pulls latest images and recreates multiple containers while emitting progress events via Server-Sent Events; use this when you want incremental log output, otherwise `batch_update_containers` returns the same result without the stream. Discover candidates first via `check_container_updates` and `get_pending_updates`.',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      containerIds: z.array(z.string()).describe('Array of container IDs to update'),
+    },
+    async ({ environmentId, containerIds }) => {
+      return jsonResponse(await client.postSSE('/api/containers/batch-update-stream', { containerIds }, { env: environmentId }));
+    }
+  );
+
+  registerTool(server, 'clear_pending_updates', 'Permanently clear the cached pending-updates list for an environment, forcing the next `check_container_updates` call to re-probe the registry from scratch; use `get_pending_updates` to inspect the cache before clearing.',
+    { environmentId: z.number().describe('Environment ID') },
+    async ({ environmentId }) => {
+      return jsonResponse(await client.delete('/api/containers/pending-updates', { env: environmentId }));
     }
   );
 }

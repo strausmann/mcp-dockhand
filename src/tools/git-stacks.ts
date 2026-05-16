@@ -214,4 +214,92 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       return jsonResponse(await client.post('/api/git/preview-env'));
     }
   );
+
+  // --- Git-Stack CRUD completion ---
+
+  registerTool(server, 'create_git_stack', 'Register a new Git-based stack from a repository URL + branch + optional credential, ready to deploy with `deploy_git_stack`; use `list_git_stacks` to verify or `update_git_stack` to amend afterwards.',
+    {
+      config: z.record(z.string(), z.unknown()).describe('Git stack configuration (url, branch, credentialId, composePath, environmentId, etc.)'),
+    },
+    async ({ config }) => {
+      return jsonResponse(await client.post('/api/git/stacks', config));
+    }
+  );
+
+  registerTool(server, 'update_git_stack', 'Update an existing Git-based stack (URL, branch, credential, compose path, etc.); read current values with `get_git_stack` first and re-run `test_git_stack` after to confirm connectivity.',
+    {
+      stackId: z.number().describe('Git stack ID'),
+      config: z.record(z.string(), z.unknown()).describe('Git stack configuration to merge'),
+    },
+    async ({ stackId, config }) => {
+      return jsonResponse(await client.put(`/api/git/stacks/${encodePath(stackId)}`, config));
+    }
+  );
+
+  registerTool(server, 'delete_git_stack', 'Permanently delete a Git-based stack registration; the deployed containers continue to run, but the Git linkage is removed. Use `list_git_stacks` to confirm the ID first, or `update_git_stack` to amend the config instead.',
+    { stackId: z.number().describe('Git stack ID') },
+    async ({ stackId }) => {
+      return jsonResponse(await client.delete(`/api/git/stacks/${encodePath(stackId)}`));
+    }
+  );
+
+  registerTool(server, 'deploy_git_stack_stream', 'Streaming variant of `deploy_git_stack` — performs a full Git pull + redeploy and emits progress via Server-Sent Events; use this when you want to surface live deploy logs, otherwise the plain `deploy_git_stack` returns the same end state without the stream.',
+    { stackId: z.number().describe('Git stack ID') },
+    async ({ stackId }) => {
+      return jsonResponse(await client.postSSE(`/api/git/stacks/${encodePath(stackId)}/deploy-stream`));
+    }
+  );
+
+  registerTool(server, 'set_git_stack_env_files', 'Upload or replace the environment files (`.env` content + overrides) used by a Git-based stack on its next deploy; read current files with `get_git_stack_env_files` and trigger the deploy via `deploy_git_stack` or `sync_git_stack`.',
+    {
+      stackId: z.number().describe('Git stack ID'),
+      envFiles: z.record(z.string(), z.string()).describe('Map of filename to file contents (e.g. {".env": "FOO=bar\\n"})'),
+    },
+    async ({ stackId, envFiles }) => {
+      return jsonResponse(await client.post(`/api/git/stacks/${encodePath(stackId)}/env-files`, { envFiles }));
+    }
+  );
+
+  registerTool(server, 'get_git_stack_webhook', 'Retrieve the inbound webhook URL and secret configured on a Git-based stack (used by GitHub/GitLab/etc. to POST deploy notifications); use `trigger_git_webhook` to fire the webhook manually, or `get_git_webhook` for the equivalent on the generic webhook endpoint.',
+    { stackId: z.number().describe('Git stack ID') },
+    async ({ stackId }) => {
+      return jsonResponse(await client.get(`/api/git/stacks/${encodePath(stackId)}/webhook`));
+    }
+  );
+
+  // --- Git-Repository CRUD completion ---
+
+  registerTool(server, 'update_git_repository', 'Update a saved Git repository configuration (URL, branch, credential, etc.); read current values with `get_git_repository` first and re-verify connectivity afterwards with `test_git_repository`.',
+    {
+      repositoryId: z.number().describe('Git repository ID'),
+      config: z.record(z.string(), z.unknown()).describe('Git repository configuration to merge'),
+    },
+    async ({ repositoryId, config }) => {
+      return jsonResponse(await client.put(`/api/git/repositories/${encodePath(repositoryId)}`, config));
+    }
+  );
+
+  registerTool(server, 'delete_git_repository', 'Permanently delete a saved Git repository configuration; deployed stacks linked from it continue to run, but future syncs will fail. Use `list_git_repositories` to confirm the ID first, or `update_git_repository` to amend the config instead.',
+    { repositoryId: z.number().describe('Git repository ID') },
+    async ({ repositoryId }) => {
+      return jsonResponse(await client.delete(`/api/git/repositories/${encodePath(repositoryId)}`));
+    }
+  );
+
+  registerTool(server, 'get_git_repository_sync_status', 'Read the current sync status for a saved Git repository (last fetched commit, last sync timestamp, error state) without triggering a new pull; use `sync_git_repository` to actually pull changes, or `deploy_git_repository` for a full pull + redeploy.',
+    { repositoryId: z.number().describe('Git repository ID') },
+    async ({ repositoryId }) => {
+      return jsonResponse(await client.get(`/api/git/repositories/${encodePath(repositoryId)}/sync`));
+    }
+  );
+
+  registerTool(server, 'receive_git_webhook', 'POST a webhook payload to the generic Git receive endpoint (the URL external Git hosters call when pushing — exposing this as a tool lets you simulate the trigger). Use `trigger_git_webhook` for the per-stack equivalent, or `get_git_webhook` to inspect the receive URL configuration.',
+    {
+      webhookId: z.string().describe('Webhook identifier in the URL'),
+      payload: z.record(z.string(), z.unknown()).optional().describe('Webhook payload body (provider-specific)'),
+    },
+    async ({ webhookId, payload }) => {
+      return jsonResponse(await client.post(`/api/git/webhook/${encodePath(webhookId)}`, payload ?? {}));
+    }
+  );
 }

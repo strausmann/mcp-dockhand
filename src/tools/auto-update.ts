@@ -37,4 +37,14 @@ export function registerAutoUpdateTools(server: McpServer, client: DockhandClien
       return jsonResponse(await client.post(`/api/auto-update/${encodePath(containerName)}`, { policy }, { env: environmentId }));
     }
   );
+
+  registerTool(server, 'clear_container_auto_update', 'Permanently delete the per-container auto-update policy override, falling back to the environment-wide defaults (see `get_auto_update_settings`); read the override first with `get_container_auto_update`, or use `set_container_auto_update` to replace it instead of clearing.',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      containerName: z.string().describe('Container name'),
+    },
+    async ({ environmentId, containerName }) => {
+      return jsonResponse(await client.delete(`/api/auto-update/${encodePath(containerName)}`, { env: environmentId }));
+    }
+  );
 }

@@ -90,7 +90,7 @@ const CLUSTERS: Record<string, string[]> = {
     'validate_stack_env',
   ],
   'Stack-Compose': ['get_stack_compose', 'update_stack_compose'],
-  'Stack-Lifecycle': ['start_stack', 'stop_stack', 'restart_stack', 'down_stack'],
+  'Stack-Lifecycle': ['start_stack', 'stop_stack', 'restart_stack', 'down_stack', 'deploy_stack'],
   'Stack-Path': [
     'get_stack_base_path',
     'get_stack_default_path',
@@ -111,7 +111,9 @@ const CLUSTERS: Record<string, string[]> = {
     'rename_container',
     'update_container',
     'batch_update_containers',
+    'batch_update_containers_stream',
     'list_batch_operations',
+    'delete_container',
   ],
   'Container-Inspect': [
     'get_container',
@@ -124,11 +126,13 @@ const CLUSTERS: Record<string, string[]> = {
     'get_container_sizes',
     'get_container_shells',
     'get_merged_logs',
+    'exec_container',
   ],
   'Container-Files': [
     'list_container_files',
     'get_container_file_content',
     'create_container_file',
+    'write_container_file_content',
     'delete_container_file',
     'rename_container_file',
     'chmod_container_file',
@@ -143,7 +147,7 @@ const CLUSTERS: Record<string, string[]> = {
     'prune_volumes',
     'prune_networks',
   ],
-  'System-Files': ['list_system_files', 'get_system_file_content'],
+  'System-Files': ['list_system_files', 'get_system_file_content', 'write_system_file'],
   'System-Info': [
     'get_system_info',
     'get_system_disk',
@@ -152,8 +156,13 @@ const CLUSTERS: Record<string, string[]> = {
     'update_general_settings',
   ],
   Health: ['health_check', 'health_check_database'],
-  License: ['get_license', 'activate_license', 'get_legal_license'],
-  'Scanner-Settings': ['get_scanner_settings', 'update_scanner_settings'],
+  License: ['get_license', 'activate_license', 'deactivate_license', 'get_legal_license'],
+  'Scanner-Settings': [
+    'get_scanner_settings',
+    'update_scanner_settings',
+    'reset_scanner_settings',
+    'clear_scanner_cache',
+  ],
   // images.ts
   'Image-Lifecycle': [
     'pull_image',
@@ -163,12 +172,14 @@ const CLUSTERS: Record<string, string[]> = {
     'list_images',
     'get_image_history',
     'scan_image',
+    'list_image_scans',
     'export_image',
   ],
   // volumes.ts
   'Volume-Lifecycle': [
     'browse_volume',
     'clone_volume',
+    'create_volume',
     'export_volume',
     'get_volume',
     'inspect_volume',
@@ -192,20 +203,30 @@ const CLUSTERS: Record<string, string[]> = {
     'create_git_repository',
     'get_git_repository',
     'list_git_repositories',
+    'update_git_repository',
+    'delete_git_repository',
     'deploy_git_repository',
     'test_git_repository',
     'test_git_repository_connection',
     'sync_git_repository',
+    'get_git_repository_sync_status',
   ],
   'Git-Stack': [
     'list_git_stacks',
     'get_git_stack',
+    'create_git_stack',
+    'update_git_stack',
+    'delete_git_stack',
     'deploy_git_stack',
+    'deploy_git_stack_stream',
     'test_git_stack',
     'sync_git_stack',
     'get_git_stack_env_files',
+    'set_git_stack_env_files',
+    'get_git_stack_webhook',
     'get_git_webhook',
     'trigger_git_webhook',
+    'receive_git_webhook',
     'request_git_preview_env',
   ],
   'Git-Credentials': [
@@ -216,17 +237,30 @@ const CLUSTERS: Record<string, string[]> = {
     'update_git_credential',
   ],
   // auth.ts
-  'Auth-LDAP': ['create_ldap_provider', 'get_ldap_provider', 'test_ldap_provider'],
+  'Auth-LDAP': [
+    'list_ldap_providers',
+    'create_ldap_provider',
+    'get_ldap_provider',
+    'update_ldap_provider',
+    'delete_ldap_provider',
+    'test_ldap_provider',
+  ],
   'Auth-OIDC': [
+    'list_oidc_providers',
     'create_oidc_provider',
     'get_oidc_provider',
+    'update_oidc_provider',
+    'delete_oidc_provider',
     'test_oidc_provider',
     'initiate_oidc_login',
+    'get_oidc_login_url',
     'get_auth_providers',
     'get_auth_session',
     'get_auth_settings',
+    'update_auth_settings',
   ],
   'Hawser-Tokens': ['list_hawser_tokens', 'create_hawser_token', 'revoke_hawser_token'],
+  'Access-Tokens': ['list_auth_tokens', 'create_auth_token', 'revoke_auth_token'],
   // users.ts
   Users: [
     'create_user',
@@ -238,6 +272,7 @@ const CLUSTERS: Record<string, string[]> = {
     'disable_user_mfa',
     'get_user_roles',
     'set_user_roles',
+    'clear_user_roles',
   ],
   Roles: ['create_role', 'delete_role', 'get_role', 'list_roles', 'update_role'],
   Profile: ['get_profile', 'update_profile', 'get_profile_preferences', 'update_profile_preferences'],
@@ -248,6 +283,7 @@ const CLUSTERS: Record<string, string[]> = {
     'set_favorite_groups',
     'get_grid_preferences',
     'set_grid_preferences',
+    'reset_grid_preferences',
   ],
   'Config-Sets': [
     'create_config_set',
@@ -266,6 +302,7 @@ const CLUSTERS: Record<string, string[]> = {
     'test_notification',
     'test_notification_config',
     'trigger_test_notification',
+    'get_test_notification_payload',
   ],
   // environments.ts
   Environments: [
@@ -283,6 +320,7 @@ const CLUSTERS: Record<string, string[]> = {
     'get_environment_notification',
     'list_environment_notifications',
     'delete_environment_notification',
+    'update_environment_notification',
   ],
   'Env-Settings': [
     'get_environment_timezone',
@@ -291,6 +329,7 @@ const CLUSTERS: Record<string, string[]> = {
     'set_environment_update_check',
     'get_environment_image_prune',
     'set_environment_image_prune',
+    'trigger_environment_image_prune',
   ],
   // schedules.ts
   Schedules: [
@@ -300,6 +339,8 @@ const CLUSTERS: Record<string, string[]> = {
     'run_schedule_now',
     'toggle_schedule',
     'toggle_system_schedule',
+    'delete_schedule',
+    'delete_schedule_execution',
     'get_schedule_settings',
     'update_schedule_settings',
   ],
@@ -314,6 +355,7 @@ const CLUSTERS: Record<string, string[]> = {
     'get_registry_catalog',
     'get_registry_tags',
     'set_default_registry',
+    'delete_registry_image',
   ],
   // audit.ts
   Audit: ['get_audit_events', 'get_audit_log', 'get_audit_users', 'export_audit_log'],
@@ -323,6 +365,7 @@ const CLUSTERS: Record<string, string[]> = {
     'get_activity_events',
     'get_activity_stats',
     'get_container_activity',
+    'clear_activity',
   ],
   'Dashboard-Prefs': [
     'get_dashboard_preferences',
@@ -333,9 +376,11 @@ const CLUSTERS: Record<string, string[]> = {
   'Auto-Update': [
     'get_container_auto_update',
     'set_container_auto_update',
+    'clear_container_auto_update',
     'get_auto_update_settings',
     'check_container_updates',
     'get_pending_updates',
+    'clear_pending_updates',
   ],
 };
 

@@ -256,4 +256,24 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       return jsonResponse(await client.delete(`/api/environments/${encodePath(environmentId)}/notifications/${encodePath(notificationId)}`));
     }
   );
+
+  registerTool(server, 'update_environment_notification', 'Update an existing notification channel on an environment (URL, type, filters, etc.); read the current values first with `get_environment_notification`, or use `delete_environment_notification` to remove instead of amending.',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      notificationId: z.number().describe('Notification ID'),
+      config: z.record(z.string(), z.unknown()).describe('Notification configuration to merge'),
+    },
+    async ({ environmentId, notificationId, config }) => {
+      return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}/notifications/${encodePath(notificationId)}`, config));
+    }
+  );
+
+  registerTool(server, 'trigger_environment_image_prune', 'Trigger an immediate image-prune sweep for an environment using the configured retention policy (separate from the GET/PUT pair `get_environment_image_prune` and `set_environment_image_prune` which read and modify the schedule/retention settings).',
+    {
+      environmentId: z.number().describe('Environment ID'),
+    },
+    async ({ environmentId }) => {
+      return jsonResponse(await client.post(`/api/environments/${encodePath(environmentId)}/image-prune`, undefined));
+    }
+  );
 }

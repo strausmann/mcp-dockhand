@@ -88,4 +88,13 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
       return jsonResponse(await client.get(`/api/images/${encodePath(imageId)}/export`, { env: environmentId }));
     }
   );
+
+  registerTool(server, 'list_image_scans', 'List the cached vulnerability-scan results across all images in an environment (read-only summary view); contrast with `scan_image` (POST) which actually runs a fresh scan for a single image, or `get_image_history` for layer provenance instead of CVE data.',
+    {
+      environmentId: z.number().describe('Environment ID'),
+    },
+    async ({ environmentId }) => {
+      return jsonResponse(await client.get('/api/images/scan', { env: environmentId }));
+    }
+  );
 }

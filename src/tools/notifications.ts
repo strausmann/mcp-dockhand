@@ -72,4 +72,11 @@ export function registerNotificationTools(server: McpServer, client: DockhandCli
       return jsonResponse(await client.post('/api/notifications/trigger-test'));
     }
   );
+
+  registerTool(server, 'get_test_notification_payload', 'Retrieve the canonical test-event payload that `trigger_test_notification` would POST without actually firing it (useful for previewing the shape before sending); use `trigger_test_notification` (POST) to actually deliver it, or `test_notification_config` to dry-run against a specific config blob.',
+    {},
+    async () => {
+      return jsonResponse(await client.get('/api/notifications/trigger-test'));
+    }
+  );
 }
