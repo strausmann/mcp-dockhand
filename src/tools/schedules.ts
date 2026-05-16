@@ -10,21 +10,21 @@ import { encodePath } from '../utils/encode-path.js';
 
 export function registerScheduleTools(server: McpServer, client: DockhandClient): void {
 
-  registerTool(server, 'list_schedules', 'List all user-defined scheduled tasks; use `get_schedule_settings` to read env-level config or `get_schedule_executions` to browse run history.',
+  registerTool(server, 'list_schedules', 'List all user-defined scheduled tasks; use `get_schedule_settings` for the global schedule configuration or `get_schedule_executions` to browse run history.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/schedules'));
     }
   );
 
-  registerTool(server, 'get_schedule_settings', 'Read the environment-scoped schedule configuration; use `update_schedule_settings` to persist changes or `list_schedules` to enumerate defined schedules.',
+  registerTool(server, 'get_schedule_settings', 'Read the global Dockhand schedule configuration (`GET /api/schedules/settings`, instance-wide — not per-environment); use `update_schedule_settings` to persist changes or `list_schedules` to enumerate defined schedules.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/schedules/settings'));
     }
   );
 
-  registerTool(server, 'update_schedule_settings', 'Write environment-scoped schedule configuration; use `get_schedule_settings` to read the current values before updating.',
+  registerTool(server, 'update_schedule_settings', 'Write the global Dockhand schedule configuration (`PUT /api/schedules/settings`, instance-wide — not per-environment); use `get_schedule_settings` to read the current values before updating.',
     {
       settings: z.record(z.string(), z.unknown()).describe('Schedule settings to update'),
     },

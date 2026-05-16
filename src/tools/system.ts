@@ -11,14 +11,14 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   // --- Health ---
 
-  registerTool(server, 'health_check', 'Probe the MCP server liveness endpoint and return its overall health status; use `health_check_database` to probe the Dockhand backend database connection separately.',
+  registerTool(server, 'health_check', 'Probe the Dockhand backend overall health endpoint (`GET /api/health`) and return its status; use `health_check_database` to specifically test database-layer connectivity inside the backend.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/health'));
     }
   );
 
-  registerTool(server, 'health_check_database', 'Probe the Dockhand backend database connection and return its health status; use `health_check` to check overall MCP server liveness instead.',
+  registerTool(server, 'health_check_database', 'Probe specifically the Dockhand backend database connection (`GET /api/health/database`) and return its health status; use `health_check` for the broader backend health check across all subsystems.',
     {},
     async () => {
       return jsonResponse(await client.get('/api/health/database'));
