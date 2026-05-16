@@ -50,6 +50,67 @@ jobs:
         run: node scripts/validate-mcp-tools.mjs
         continue-on-error: true
 
+      - name: Update sticky coverage tracker
+        if: always() && hashFiles('validation-report.md') != ''
+        uses: actions/github-script@v8
+        env:
+          REPORT_PATH: validation-report.md
+          MARKER_START: '<!-- validator-report:start -->'
+          MARKER_END: '<!-- validator-report:end -->'
+        with:
+          script: |
+            const fs = require('fs');
+
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'coverage-tracker',
+              state: 'open',
+              per_page: 5,
+            });
+
+            if (issues.data.length === 0) {
+              core.warning('No open issue with label "coverage-tracker" found — skipping sticky update.');
+              return;
+            }
+            if (issues.data.length > 1) {
+              const nums = issues.data.map(i => `#${i.number}`).join(', ');
+              core.warning(`Multiple issues carry label "coverage-tracker" (${nums}). Skipping update to avoid clobbering.`);
+              return;
+            }
+
+            const issue = issues.data[0];
+            const body = issue.body || '';
+            const startMarker = process.env.MARKER_START;
+            const endMarker = process.env.MARKER_END;
+            const pattern = new RegExp(`${startMarker}[\\s\\S]*?${endMarker}`);
+
+            if (!pattern.test(body)) {
+              core.warning(`Issue #${issue.number} has no validator-report markers — skipping update.`);
+              return;
+            }
+
+            const report = fs.readFileSync(process.env.REPORT_PATH, 'utf8');
+            const today = new Date().toISOString().split('T')[0];
+            const runLink = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const stamp = `> _Last sync: ${today} — [run log](${runLink})_\n\n`;
+            const replacement = `${startMarker}\n${stamp}${report}\n${endMarker}`;
+            const newBody = body.replace(pattern, replacement);
+
+            if (newBody === body) {
+              core.info(`Issue #${issue.number} already up to date — no change.`);
+              return;
+            }
+
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: newBody,
+            });
+
+            core.info(`Updated sticky coverage tracker issue #${issue.number}`);
+
       - name: Create issue on validation failure
         if: steps.validate.outcome == 'failure'
         uses: actions/github-script@v8
