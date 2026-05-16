@@ -79,7 +79,9 @@ describe('update_stack_env (rawContent cleanup)', () => {
   it('declares variables as a required parameter', () => {
     const block = extractToolBlock(stacksSource, 'update_stack_env');
     // variables array should NOT have .optional() chained
-    expect(block).not.toMatch(/variables:\s*z\.array\([\s\S]*?\}\)\s*\)\.optional/);
+    // Whitespace allowed at every junction so the test stays robust against
+    // formatter changes (e.g. prettier adding/removing space between brackets).
+    expect(block).not.toMatch(/variables:\s*z\.array\([\s\S]*?\}\s*\)\s*\)\s*\.optional/);
   });
 
   it('description references update_stack_env_raw for non-secret writes', () => {

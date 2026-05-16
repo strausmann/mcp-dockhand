@@ -141,9 +141,9 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
       variables: z.array(z.object({
-        key: z.string(),
-        value: z.string(),
-        isSecret: z.boolean().optional(),
+        key: z.string().describe('Environment variable name (UPPER_SNAKE_CASE convention)'),
+        value: z.string().describe('Variable value as string'),
+        isSecret: z.boolean().optional().describe('When true, store value in the Dockhand database (encrypted at rest) and inject via shell-env at deploy. When false/omitted, value is written to the .env file as plain text — DO NOT use for credentials.'),
       })).describe('Environment variables — flag secrets with isSecret:true'),
     },
     async ({ environmentId, name, variables }) => {
