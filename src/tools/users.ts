@@ -259,4 +259,18 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
       return jsonResponse(await client.delete(`/api/config-sets/${encodePath(configSetId)}`));
     }
   );
+
+  registerTool(server, 'clear_user_roles', 'Permanently remove every role assignment from a user (the user remains, but loses all permissions until reassigned); pair with `get_user_roles` to inspect first, or `set_user_roles` to re-assign roles afterwards.',
+    { userId: z.number().describe('User ID') },
+    async ({ userId }) => {
+      return jsonResponse(await client.delete(`/api/users/${encodePath(userId)}/roles`));
+    }
+  );
+
+  registerTool(server, 'reset_grid_preferences', 'Permanently delete the current user\'s grid layout preferences, falling back to defaults; read the current state with `get_grid_preferences` or set new values via `set_grid_preferences` instead of a full reset.',
+    {},
+    async () => {
+      return jsonResponse(await client.delete('/api/preferences/grid'));
+    }
+  );
 }

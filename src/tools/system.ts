@@ -209,4 +209,35 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
       return textResponse(await client.get('/api/legal/privacy'));
     }
   );
+
+  registerTool(server, 'deactivate_license', 'Permanently deactivate the currently activated Dockhand license, returning the instance to its unlicensed state; read the current license info first with `get_license`, and use `activate_license` to re-register a key afterwards.',
+    {},
+    async () => {
+      return jsonResponse(await client.delete('/api/license'));
+    }
+  );
+
+  registerTool(server, 'write_system_file', 'Create or overwrite a file on the Dockhand server filesystem (not inside a container — use `write_container_file_content` for that). Pair with `list_system_files` to discover the path namespace and `get_system_file_content` to read back the result.',
+    {
+      path: z.string().describe('Absolute path on the Dockhand server'),
+      content: z.string().describe('File content to write'),
+    },
+    async ({ path, content }) => {
+      return jsonResponse(await client.post('/api/system/files', { path, content }));
+    }
+  );
+
+  registerTool(server, 'reset_scanner_settings', 'Permanently reset the vulnerability-scanner settings (Trivy/Grype) to their defaults; read the current values first with `get_scanner_settings`, or use `update_scanner_settings` for targeted changes instead of a full reset.',
+    {},
+    async () => {
+      return jsonResponse(await client.delete('/api/settings/scanner'));
+    }
+  );
+
+  registerTool(server, 'clear_scanner_cache', 'Permanently delete the scanner result cache so the next `scan_image` call re-runs the scanner from scratch; settings are unaffected (use `reset_scanner_settings` if you want to wipe configuration too).',
+    {},
+    async () => {
+      return jsonResponse(await client.delete('/api/settings/scanner/cache'));
+    }
+  );
 }

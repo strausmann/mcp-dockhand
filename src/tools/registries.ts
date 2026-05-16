@@ -87,4 +87,18 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
       return jsonResponse(await client.get('/api/registry/tags', { image, env: environmentId }));
     }
   );
+
+  registerTool(server, 'delete_registry_image', 'Permanently delete a specific image from a remote registry (destructive — the registry copy is removed). Pair with `search_registry` to find the image first, or `get_registry_catalog` and `get_registry_tags` to verify what is available before deleting.',
+    {
+      image: z.string().describe('Image name (e.g. "library/nginx")'),
+      tag: z.string().optional().describe('Tag to delete; omit to remove the default tag/digest'),
+      environmentId: z.number().optional().describe('Environment ID (uses default registry if omitted)'),
+    },
+    async ({ image, tag, environmentId }) => {
+      const query: Record<string, string | number | undefined> = { image };
+      if (tag !== undefined) query.tag = tag;
+      if (environmentId !== undefined) query.env = environmentId;
+      return jsonResponse(await client.delete('/api/registry/image', query));
+    }
+  );
 }
