@@ -111,7 +111,9 @@ const CLUSTERS: Record<string, string[]> = {
     'rename_container',
     'update_container',
     'batch_update_containers',
+    'batch_update_containers_stream',
     'list_batch_operations',
+    'delete_container',
   ],
   'Container-Inspect': [
     'get_container',
@@ -124,11 +126,13 @@ const CLUSTERS: Record<string, string[]> = {
     'get_container_sizes',
     'get_container_shells',
     'get_merged_logs',
+    'exec_container',
   ],
   'Container-Files': [
     'list_container_files',
     'get_container_file_content',
     'create_container_file',
+    'write_container_file_content',
     'delete_container_file',
     'rename_container_file',
     'chmod_container_file',
@@ -346,9 +350,11 @@ const CLUSTERS: Record<string, string[]> = {
   'Auto-Update': [
     'get_container_auto_update',
     'set_container_auto_update',
+    'clear_container_auto_update',
     'get_auto_update_settings',
     'check_container_updates',
     'get_pending_updates',
+    'clear_pending_updates',
   ],
 };
 
