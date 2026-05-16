@@ -61,14 +61,25 @@ const ALL_TOOLS = extractAllTools();
  * boundaries get refined during implementation. When in doubt, trust
  * this file.
  */
-// Tools intentionally outside every cluster — C1, C3, C4 still apply,
-// but C2 does not (no semantic siblings to cross-reference):
-//   logout, get_changelog, get_dependencies, get_privacy_policy,
-//   get_prometheus_metrics, get_theme_settings
-//
-// If a new tool is added to src/tools/*.ts that does not fit any
-// existing cluster and is not in this list, the audit has a coverage
-// gap — either add it to a cluster or extend this list.
+/**
+ * Tools intentionally outside every cluster — C1, C3, C4 still apply,
+ * but C2 does not (no semantic siblings to cross-reference).
+ *
+ * The coverage-completeness test below asserts that every extracted
+ * tool is either listed in a CLUSTERS array or in this STANDALONES
+ * set. Adding a new tool to src/tools/*.ts without putting it in one
+ * of the two will fail that test — the right fix is to add it to a
+ * cluster (preferred) or to extend this list with rationale.
+ */
+const STANDALONES: ReadonlySet<string> = new Set([
+  'logout',
+  'get_changelog',
+  'get_dependencies',
+  'get_privacy_policy',
+  'get_prometheus_metrics',
+  'get_theme_settings',
+]);
+
 const CLUSTERS: Record<string, string[]> = {
   // stacks.ts
   'Stack-Env': [
@@ -347,7 +358,14 @@ describe('Tool description audit', () => {
     });
   });
 
-  describe('C1 — destructive verb hygiene', () => {
+  // Partial C1 enforcement: this block only checks the *destructive-verb*
+  // half of the criterion. The "action-verb first sentence" half of C1
+  // is judgement-based (an LLM that opens with "Retrieve" satisfies the
+  // intent; one that opens with "This is a tool that retrieves..." does
+  // not — but a regex cannot reliably tell them apart). Code review
+  // catches the action-verb part during PR review, similar to how C3
+  // (scope-marker) is review-only.
+  describe('destructive verb hygiene (partial C1)', () => {
     it('every destructive-named tool names a destructive action', () => {
       const violators = ALL_TOOLS.filter(
         (t) =>
@@ -355,6 +373,51 @@ describe('Tool description audit', () => {
           !DESTRUCTIVE_VERBS.test(t.description),
       ).map((t) => `${t.file}::${t.name}: "${t.description}"`);
       expect(violators, `\n${violators.join('\n')}`).toEqual([]);
+    });
+  });
+
+  // Closes the audit-coverage loophole: a new tool that lands in
+  // src/tools/*.ts without a cluster home AND without explicit
+  // standalone declaration will fail this test, surfacing the gap
+  // before the PR merges instead of silently bypassing C2.
+  describe('coverage completeness', () => {
+    it('every extracted tool is in a CLUSTERS array or in STANDALONES', () => {
+      const clusterMembers = new Set(
+        Object.values(CLUSTERS).flatMap((arr) => arr),
+      );
+      const uncovered = ALL_TOOLS.filter(
+        (t) => !clusterMembers.has(t.name) && !STANDALONES.has(t.name),
+      ).map(
+        (t) =>
+          `${t.file}::${t.name} — neither in any CLUSTERS array nor in STANDALONES`,
+      );
+      expect(uncovered, `\n${uncovered.join('\n')}`).toEqual([]);
+    });
+
+    it('every CLUSTERS member maps to an actually-registered tool', () => {
+      const allNames = new Set(ALL_TOOLS.map((t) => t.name));
+      const dangling: string[] = [];
+      for (const [clusterName, members] of Object.entries(CLUSTERS)) {
+        for (const member of members) {
+          if (!allNames.has(member)) {
+            dangling.push(
+              `${clusterName}::${member} — listed in CLUSTERS but not found in any src/tools/*.ts`,
+            );
+          }
+        }
+      }
+      expect(dangling, `\n${dangling.join('\n')}`).toEqual([]);
+    });
+
+    it('every STANDALONES entry maps to an actually-registered tool', () => {
+      const allNames = new Set(ALL_TOOLS.map((t) => t.name));
+      const dangling = [...STANDALONES]
+        .filter((name) => !allNames.has(name))
+        .map(
+          (name) =>
+            `${name} — listed in STANDALONES but not found in any src/tools/*.ts`,
+        );
+      expect(dangling, `\n${dangling.join('\n')}`).toEqual([]);
     });
   });
 

@@ -48,7 +48,7 @@
 - `src/tools/users.ts` (29 tools)
 - `src/tools/volumes.ts` (9 tools)
 
-Total: 222 tool registrations across 16 files. (The spec said 223; the extractor counts 222 due to a single tool whose description spans an unusual brace pattern — does not affect the plan.)
+Total: 222 tool registrations across 16 files.
 
 ---
 
@@ -1117,12 +1117,4 @@ AI reviewers (Copilot, Gemini) run automatically. Address any findings in follow
 
 ## Execution
 
-Plan complete and committed will be at `docs/plans/2026-05-16-tool-description-audit.md`. Two execution options:
-
-1. **Subagent-Driven (recommended)** — one implementer subagent per task (17 tasks). Spec-compliance reviewer + code-quality reviewer between tasks. Fresh context per file keeps each subagent focused on its ~10–30 description rewrites.
-
-2. **Inline Execution** — `superpowers:executing-plans` for batch execution. Works but burns the orchestrator's context across all 17 files in one session — likely hits context pressure during the large files (containers.ts, users.ts, system.ts).
-
-Recommended approach: subagent-driven. Each implementer gets the spec doc, the plan doc, this file's CLUSTERS membership, and the per-file task text — that is sufficient context for a single file.
-
-Which approach?
+This plan was executed via **subagent-driven development**: one implementer subagent per task (17 tasks), with a combined spec-compliance + code-quality reviewer between tasks. Fresh context per file kept each implementer focused on its ~10–30 description rewrites. Final code review and PR creation are Task 17 (orchestrator-run).

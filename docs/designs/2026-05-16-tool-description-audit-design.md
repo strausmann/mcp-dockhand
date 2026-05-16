@@ -7,7 +7,7 @@
 
 ## Problem
 
-223 MCP tools are exposed through `src/tools/*.ts`. Each registration carries a `description` string that an AI client reads to decide *whether* and *which* tool to invoke. The current corpus has three recurring quality issues:
+222 MCP tools are exposed through `src/tools/*.ts`. Each registration carries a `description` string that an AI client reads to decide *whether* and *which* tool to invoke. The current corpus has three recurring quality issues:
 
 1. **Too terse to disambiguate.** Examples on `main`:
    - `get_stack_env` — `"Read environment variables of a stack"` (38 chars)
@@ -43,12 +43,12 @@ The description opens with a verb that names the operation and the noun it acts 
 
 | Bad | Good |
 |-----|------|
-| `Stack-Down-Operation auf einem Stack` | `Tear down a stack (stops containers, removes them, and removes the project networks — volumes persist).` |
-| `Remove an image` | `Delete an image from the environment. Fails if any container references the image; pass `force:true` to override.` |
+| `Stack-Down-Operation auf einem Stack` | Tear down a stack (stops containers, removes them, and removes the project networks — volumes persist). |
+| `Remove an image` | Delete an image from the environment. Fails if any container references the image; pass `force:true` to override. |
 
 ### C2 — Cross-reference inside cluster
 
-If a tool belongs to a cluster (see §Tool clusters below), its description names at least one sibling tool *by name in backticks* with a `"For X use `<sibling>`."` phrase. The two siblings reference each other, three+ siblings reference at least one other.
+If a tool belongs to a cluster (see §Tool clusters below), its description names at least one sibling tool *by name in backticks* with a "For X use `<sibling>`." phrase. The two siblings reference each other, three+ siblings reference at least one other.
 
 Example anchor (already on `main`, PR #58):
 
@@ -138,7 +138,7 @@ function extractAllTools(): ToolMeta[] {
 1. **Length floor (C4):** every `description.length >= 60`.
 2. **Destructive verb:** for every tool whose name matches `/^(delete_|remove_|prune_|down_|stop_|revoke_|disable_|disconnect_)/`, description contains `\b(delete|remove|prune|destroy|stop|tear down|drop|revoke|disable|disconnect)\b` case-insensitive.
 3. **Ends with sentence:** description ends with `.`, `?`, `!`, or `)` (last grapheme).
-4. **Per-cluster cross-refs:** for each cluster in `CLUSTERS` (table above, mirrored as a `const CLUSTERS: Record<string, string[]>` in the test file), every member's description contains at least one sibling member name verbatim in backticks (`` `sibling_name` ``).
+4. **Per-cluster cross-refs:** for each cluster defined in the test file's `const CLUSTERS: Record<string, string[]>`, every member's description contains at least one sibling member name verbatim in backticks (`` `sibling_name` ``). The §Tool clusters table in this design doc is the historical proposal; the test file is the authoritative source and may diverge as cluster boundaries get refined during implementation.
 
 Tests are intentionally strict on the cross-reference format. The backtick requirement guarantees AI clients see the sibling as a code-style identifier rather than free text.
 
@@ -186,7 +186,7 @@ Spec-compliance reviewer and code-quality reviewer dispatch after each implement
 
 ## Acceptance criteria
 
-1. All 223 tools meet C1–C4 (verified by `tests/tool-descriptions.test.ts`).
+1. All 222 tools meet C1–C4 (verified by `tests/tool-descriptions.test.ts`).
 2. `npm test`, `npm run typecheck`, `npm run lint` pass on the branch.
 3. `node scripts/validate-mcp-tools.mjs` continues to pass with the same MISSING_TOOL / ORPHANED_TOOL / PARAM_MISMATCH / MISSING_ENCODE counts as `main`.
 4. PR description summarises changes by cluster.
