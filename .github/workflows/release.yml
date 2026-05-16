@@ -111,6 +111,7 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ needs.release.outputs.new_release_version }}
             org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
             org.opencontainers.image.licenses=MIT
 
       - name: Export digest
@@ -180,10 +181,18 @@ jobs:
           MINOR: ${{ steps.version.outputs.minor }}
         run: |
           set -euo pipefail
+          # nullglob: empty directory expands to nothing instead of literal '*'
+          # — guards against artifact-download failure producing an invalid
+          # digest reference like "ghcr.io/...@sha256:*".
+          shopt -s nullglob
           src_args=()
           for d in *; do
             src_args+=( "${IMAGE_REF}@sha256:${d}" )
           done
+          if [ ${#src_args[@]} -eq 0 ]; then
+            echo "::error::No digest files found in /tmp/digests — both build legs must have uploaded their artefacts."
+            exit 1
+          fi
           tag_args=(
             -t "${IMAGE_REF}:latest"
             -t "${IMAGE_REF}:${VERSION}"
@@ -203,8 +212,12 @@ jobs:
           fail=0
           for TAG in latest "${VERSION}" "${MAJOR}.${MINOR}" "${MAJOR}"; do
             echo "Inspecting ${IMAGE_REF}:${TAG}..."
+            # `.manifests // []` keeps the pipeline resilient if the registry
+            # returned a single-arch manifest instead of an index — the grep
+            # below will then report "Missing linux/amd64" with a clear
+            # message rather than failing on a jq null-traversal error.
             archs=$(docker buildx imagetools inspect "${IMAGE_REF}:${TAG}" --raw \
-              | jq -r '.manifests[].platform | "\(.os)/\(.architecture)"' \
+              | jq -r '(.manifests // []) | .[].platform | "\(.os)/\(.architecture)"' \
               | sort -u)
             echo "  architectures: $(echo "$archs" | tr '\n' ' ')"
             if ! echo "$archs" | grep -q "linux/amd64"; then
