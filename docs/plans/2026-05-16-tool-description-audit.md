@@ -75,6 +75,8 @@ This task adds the enforcement mechanism. After this commit lands, `npx vitest r
 
 - [ ] **Step 1: Create `tests/tool-descriptions.test.ts` with extractor and assertions**
 
+> **Note for future readers:** the `CLUSTERS` snapshot below is the *initial* version. During Task 0 execution it was refined (see commit `3423abc`) to add 10 more tools (`validate_stack_env`, `create_container`, `list_batch_operations`, `list_containers`, `get_containers_stats`, `get_merged_logs`, `check_container_updates`, `get_pending_updates`, `create_stack`, `delete_stack`) and to add a `STANDALONES` set for intentionally non-clustered tools. The authoritative cluster definition lives in `tests/tool-descriptions.test.ts` itself — this code block is the *first-draft starting point*, not the final state.
+
 ```typescript
 /**
  * Tool description audit — static-analysis assertions over src/tools/*.ts.
