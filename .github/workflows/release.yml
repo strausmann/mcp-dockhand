@@ -51,10 +51,20 @@ jobs:
             echo "No new release"
           fi
 
-  docker:
+  docker-build:
     needs: release
     if: needs.release.outputs.new_release_published == 'true'
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+            arch: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -64,6 +74,83 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: v${{ needs.release.outputs.new_release_version }}
+
+      - name: Compute lowercase image ref
+        id: image
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          repo_lc="${REPO,,}"
+          echo "ref=ghcr.io/${repo_lc}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into registry ghcr.io
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: true
+          outputs: type=image,name=${{ steps.image.outputs.ref }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+          labels: |
+            org.opencontainers.image.title=MCP-Dockhand
+            org.opencontainers.image.description=Model Context Protocol (MCP) Server for Dockhand Docker Management — 130+ tools for container, stack, image, network, and volume management.
+            org.opencontainers.image.authors=Bjoern Strausmann
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.release.outputs.new_release_version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+            org.opencontainers.image.licenses=MIT
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-merge:
+    needs: [release, docker-build]
+    if: needs.release.outputs.new_release_published == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Download digest artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digest-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Compute lowercase image ref
+        id: image
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          repo_lc="${REPO,,}"
+          echo "ref=ghcr.io/${repo_lc}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -79,31 +166,67 @@ jobs:
         id: version
         run: |
           VERSION="${{ needs.release.outputs.new_release_version }}"
-          MAJOR=$(echo $VERSION | cut -d. -f1)
-          MINOR=$(echo $VERSION | cut -d. -f2)
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "major=${MAJOR}" >> $GITHUB_OUTPUT
-          echo "minor=${MINOR}" >> $GITHUB_OUTPUT
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "major=${MAJOR}" >> "$GITHUB_OUTPUT"
+          echo "minor=${MINOR}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.major }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          labels: |
-            org.opencontainers.image.title=MCP-Dockhand
-            org.opencontainers.image.description=Model Context Protocol (MCP) Server for Dockhand Docker Management — 130+ tools for container, stack, image, network, and volume management.
-            org.opencontainers.image.authors=Bjoern Strausmann
-            org.opencontainers.image.url=https://github.com/${{ github.repository }}
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.version=${{ steps.version.outputs.version }}
-            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.licenses=MIT
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        env:
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
+          VERSION: ${{ steps.version.outputs.version }}
+          MAJOR: ${{ steps.version.outputs.major }}
+          MINOR: ${{ steps.version.outputs.minor }}
+        run: |
+          set -euo pipefail
+          # nullglob: empty directory expands to nothing instead of literal '*'
+          # — guards against artifact-download failure producing an invalid
+          # digest reference like "ghcr.io/...@sha256:*".
+          shopt -s nullglob
+          src_args=()
+          for d in *; do
+            src_args+=( "${IMAGE_REF}@sha256:${d}" )
+          done
+          if [ ${#src_args[@]} -eq 0 ]; then
+            echo "::error::No digest files found in /tmp/digests — both build legs must have uploaded their artefacts."
+            exit 1
+          fi
+          tag_args=(
+            -t "${IMAGE_REF}:latest"
+            -t "${IMAGE_REF}:${VERSION}"
+            -t "${IMAGE_REF}:${MAJOR}.${MINOR}"
+            -t "${IMAGE_REF}:${MAJOR}"
+          )
+          docker buildx imagetools create "${tag_args[@]}" "${src_args[@]}"
+
+      - name: Verify multi-arch manifest
+        env:
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
+          VERSION: ${{ steps.version.outputs.version }}
+          MAJOR: ${{ steps.version.outputs.major }}
+          MINOR: ${{ steps.version.outputs.minor }}
+        run: |
+          set -euo pipefail
+          fail=0
+          for TAG in latest "${VERSION}" "${MAJOR}.${MINOR}" "${MAJOR}"; do
+            echo "Inspecting ${IMAGE_REF}:${TAG}..."
+            # `.manifests // []` keeps the pipeline resilient if the registry
+            # returned a single-arch manifest instead of an index — the grep
+            # below will then report "Missing linux/amd64" with a clear
+            # message rather than failing on a jq null-traversal error.
+            archs=$(docker buildx imagetools inspect "${IMAGE_REF}:${TAG}" --raw \
+              | jq -r '(.manifests // []) | .[].platform | "\(.os)/\(.architecture)"' \
+              | sort -u)
+            echo "  architectures: $(echo "$archs" | tr '\n' ' ')"
+            if ! echo "$archs" | grep -q "linux/amd64"; then
+              echo "::error::Missing linux/amd64 in ${TAG}"
+              fail=1
+            fi
+            if ! echo "$archs" | grep -q "linux/arm64"; then
+              echo "::error::Missing linux/arm64 in ${TAG}"
+              fail=1
+            fi
+          done
+          exit "$fail"
