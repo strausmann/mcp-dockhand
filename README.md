@@ -66,6 +66,8 @@ DOCKHAND_URL=https://your-server.com DOCKHAND_USERNAME=admin DOCKHAND_PASSWORD=s
 | `DOCKHAND_PASSWORD` | Yes | - | Dockhand password |
 | `MCP_PORT` | No | `8080` | Port for the MCP server |
 | `LOG_LEVEL` | No | `info` | Log level |
+| `SESSION_INACTIVITY_TIMEOUT_MS` | No | `14400000` (4h) | Idle time before an MCP session is reaped. Long-lived Claude Code clients see fewer stale-session errors with a higher value. |
+| `SESSION_CLEANUP_INTERVAL_MS` | No | `300000` (5m) | How often expired sessions are swept. |
 
 ## MCP Client Configuration
 

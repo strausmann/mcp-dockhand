@@ -18,11 +18,23 @@ import type { DockhandConfig } from './types/dockhand.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
 
-/** Inactivity timeout before a session is cleaned up (30 minutes). */
-const SESSION_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
+/**
+ * Inactivity timeout before a session is cleaned up.
+ * Override with env `SESSION_INACTIVITY_TIMEOUT_MS` (milliseconds).
+ * Default: 4 hours — long enough that idle Claude Code sessions across
+ * a typical work block don't churn through fresh session IDs and the
+ * accompanying error log spam on the client side.
+ */
+const SESSION_INACTIVITY_TIMEOUT_MS =
+  Number(process.env.SESSION_INACTIVITY_TIMEOUT_MS) || 4 * 60 * 60 * 1000;
 
-/** Interval for checking expired sessions (5 minutes). */
-const SESSION_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+/**
+ * Interval for checking expired sessions.
+ * Override with env `SESSION_CLEANUP_INTERVAL_MS` (milliseconds).
+ * Default: 5 minutes.
+ */
+const SESSION_CLEANUP_INTERVAL_MS =
+  Number(process.env.SESSION_CLEANUP_INTERVAL_MS) || 5 * 60 * 1000;
 
 export interface ServerConfig {
   dockhand: DockhandConfig;
