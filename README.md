@@ -131,7 +131,7 @@ Add to your MCP settings:
 | `get_stack_compose` | Read compose file |
 | `update_stack_compose` | Update compose file |
 | `get_stack_env` | Read environment variables |
-| `update_stack_env` | Update environment variables |
+| `update_stack_env` | Update environment variables (**merge** by default — safe for partial updates; use `mode="replace"` to overwrite all) |
 | `get_stack_env_raw` | Read raw .env file |
 | `validate_stack_env` | Validate env variables |
 | `scan_stacks` | Scan filesystem for stacks |
@@ -364,6 +364,26 @@ Add to your MCP settings:
 | `set_container_auto_update` | Set auto-update policy |
 
 ## Important Notes
+
+### update_stack_env — Merge vs Replace Semantics
+
+The Dockhand REST endpoint `PUT /api/stacks/{name}/env` has **replace-semantics**: submitting a partial list of variables silently deletes all other variables from the stack. A single-variable update would wipe everything else.
+
+To prevent accidental data loss, this MCP tool defaults to **merge mode**:
+
+1. It fetches the current variable list via `GET /api/stacks/{name}/env`.
+2. It merges the incoming variables by key (new values overwrite existing ones on key collision).
+3. It writes the full combined list back via `PUT`.
+
+```
+# Safe partial update — only PRINTER_HUB_SSO_TRUST_TOKEN changes, all others preserved
+update_stack_env(environmentId=1, name="my-stack", variables=[{key: "MY_VAR", value: "new"}])
+
+# Explicit full replacement — all other variables are deleted
+update_stack_env(environmentId=1, name="my-stack", variables=[...], mode="replace")
+```
+
+Use `mode="replace"` only when you intentionally want to replace the entire variable set.
 
 ### Environment ID is Required
 
