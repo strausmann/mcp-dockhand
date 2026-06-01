@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
+import type { StackEnv, EnvVariable } from '../types/dockhand.js';
 import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
 import { encodePath } from '../utils/encode-path.js';
 
@@ -136,7 +137,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
   );
 
   registerTool(server, 'update_stack_env',
-    'Update secret environment variables (database-backed, encrypted at rest). Variables flagged isSecret:true are stored in the Dockhand database and injected into containers via shell-env at deploy time — they are NEVER written to the .env file. For non-secret variables that Docker Compose reads from the .env file at container start, use `update_stack_env_raw`.',
+    'Update secret environment variables (database-backed, encrypted at rest). Variables flagged isSecret:true are stored in the Dockhand database and injected into containers via shell-env at deploy time — they are NEVER written to the .env file. For non-secret variables that Docker Compose reads from the .env file at container start, use `update_stack_env_raw`.\n\n**IMPORTANT — merge vs replace semantics:** The underlying Dockhand REST endpoint (`PUT /api/stacks/{name}/env`) has replace-semantics: sending a partial list silently deletes all other variables. This tool therefore defaults to `mode="merge"`: it fetches the current variables first, merges your payload by key (new values win on collision), and then writes the full combined list. Use `mode="replace"` only when you intentionally want to wipe all existing variables and set exactly the provided list.',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -145,9 +146,35 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         value: z.string().describe('Variable value as string'),
         isSecret: z.boolean().optional().describe('When true, store value in the Dockhand database (encrypted at rest) and inject via shell-env at deploy. When false/omitted, value is written to the .env file as plain text — DO NOT use for credentials.'),
       })).describe('Environment variables — flag secrets with isSecret:true'),
+      mode: z.enum(['merge', 'replace']).optional().describe('How to handle existing variables. "merge" (default): fetch existing vars, update/add the provided ones, preserve all others. "replace": overwrite the entire variable list with exactly the provided variables — all others are deleted.'),
     },
-    async ({ environmentId, name, variables }) => {
-      return jsonResponse(await client.put(`/api/stacks/${encodePath(name)}/env`, { variables }, { env: environmentId }));
+    async ({ environmentId, name, variables, mode = 'merge' }) => {
+      let finalVariables: EnvVariable[];
+
+      if (mode === 'merge') {
+        const existing = await client.get<StackEnv>(
+          `/api/stacks/${encodePath(name)}/env`,
+          { env: environmentId },
+        );
+        const existingVars: EnvVariable[] = existing?.variables ?? [];
+        const mergedByKey = new Map<string, EnvVariable>(
+          existingVars.map((v) => [v.key, v]),
+        );
+        for (const v of variables) {
+          mergedByKey.set(v.key, v);
+        }
+        finalVariables = Array.from(mergedByKey.values());
+      } else {
+        finalVariables = variables;
+      }
+
+      return jsonResponse(
+        await client.put(
+          `/api/stacks/${encodePath(name)}/env`,
+          { variables: finalVariables },
+          { env: environmentId },
+        ),
+      );
     }
   );
 
