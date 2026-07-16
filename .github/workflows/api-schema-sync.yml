@@ -52,7 +52,7 @@ jobs:
 
       - name: Update sticky coverage tracker
         if: always() && hashFiles('validation-report.md') != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           REPORT_PATH: validation-report.md
           MARKER_START: '<!-- validator-report:start -->'
@@ -113,7 +113,7 @@ jobs:
 
       - name: Create issue on validation failure
         if: steps.validate.outcome == 'failure'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
