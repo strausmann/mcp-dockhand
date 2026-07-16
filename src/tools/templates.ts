@@ -16,12 +16,13 @@ export function registerTemplateTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'create_template_compose', 'Render/create a Docker Compose definition from a template payload so it can be deployed as a stack; browse the available templates first with `list_templates`.',
+  registerTool(server, 'create_template_compose', 'Render a Docker Compose definition from a full template object (as returned by `list_templates`) so it can be deployed as a stack; browse the available templates first with `list_templates`.',
     {
-      config: z.record(z.string(), z.unknown()).describe('Template payload (e.g. template id/reference and variable values)'),
+      template: z.record(z.string(), z.unknown()).describe('The full template object (title, image/repository, ports, volumes, env, restartPolicy, network) as returned by list_templates'),
     },
-    async ({ config }) => {
-      return jsonResponse(await client.post('/api/templates/compose', config));
+    async ({ template }) => {
+      // The handler reads `const { template } = await request.json()` — send the object under a `template` key.
+      return jsonResponse(await client.post('/api/templates/compose', { template }));
     }
   );
 

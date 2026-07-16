@@ -405,7 +405,7 @@ const CLUSTERS: Record<string, string[]> = {
   // labels.ts
   Labels: [
     'list_labels',
-    'create_label',
+    'add_label',
   ],
   // preferences.ts
   'Sidebar-Preferences': [
