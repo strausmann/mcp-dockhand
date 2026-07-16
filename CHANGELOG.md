@@ -5,6 +5,12 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1](https://github.com/strausmann/mcp-dockhand/compare/v1.6.0...v1.6.1) (2026-07-16)
+
+### Bug Fixes
+
+* **ci:** amd64-only docker smoke build to stop 6h QEMU hangs ([#93](https://github.com/strausmann/mcp-dockhand/issues/93)) ([737e367](https://github.com/strausmann/mcp-dockhand/commit/737e367b0e4700404a3e366fdd27ebde81b7e52e)), closes [#82](https://github.com/strausmann/mcp-dockhand/issues/82) [#61](https://github.com/strausmann/mcp-dockhand/issues/61) [#76](https://github.com/strausmann/mcp-dockhand/issues/76) [#77](https://github.com/strausmann/mcp-dockhand/issues/77) [#66](https://github.com/strausmann/mcp-dockhand/issues/66)
+
 ## [1.6.0](https://github.com/strausmann/mcp-dockhand/compare/v1.5.0...v1.6.0) (2026-05-16)
 
 ### Features

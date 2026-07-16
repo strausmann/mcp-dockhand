@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-05-31T06:29:22.706Z",
+  "generatedAt": "2026-07-12T06:00:31.777Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "00bd09df551e0251dfd59d674bae22498b38aba2",
-  "endpointCount": 197,
+  "sourceCommit": "c718ac9a84fd222a4ec0da625d305bad93827937",
+  "endpointCount": 208,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -519,6 +519,15 @@
       ]
     },
     {
+      "path": "/api/containers/{id}/update-runtime",
+      "methods": [
+        "POST"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
       "path": "/api/containers/batch-update",
       "methods": [
         "POST"
@@ -533,6 +542,7 @@
     {
       "path": "/api/containers/check-updates",
       "methods": [
+        "GET",
         "POST"
       ]
     },
@@ -994,8 +1004,20 @@
       ]
     },
     {
+      "path": "/api/images/scan/export",
+      "methods": [
+        "GET"
+      ],
+      "queryParams": [
+        "format",
+        "image",
+        "imageId"
+      ]
+    },
+    {
       "path": "/api/jobs/{id}",
       "methods": [
+        "DELETE",
         "GET"
       ],
       "pathParams": [
@@ -1157,6 +1179,14 @@
       ]
     },
     {
+      "path": "/api/preferences/sidebar",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST"
+      ]
+    },
+    {
       "path": "/api/profile",
       "methods": [
         "GET",
@@ -1235,6 +1265,12 @@
       ],
       "pathParams": [
         "id"
+      ]
+    },
+    {
+      "path": "/api/registries/test",
+      "methods": [
+        "POST"
       ]
     },
     {
@@ -1645,6 +1681,30 @@
       ]
     },
     {
+      "path": "/api/templates",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/templates/compose",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/templates/sources",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST",
+        "PUT"
+      ],
+      "queryParams": [
+        "id"
+      ]
+    },
+    {
       "path": "/api/users",
       "methods": [
         "GET",
@@ -1768,6 +1828,33 @@
       ],
       "pathParams": [
         "name"
+      ]
+    },
+    {
+      "path": "/api/vulnerabilities",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/vulnerabilities/count",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/vulnerabilities/export",
+      "methods": [
+        "GET"
+      ],
+      "queryParams": [
+        "format"
+      ]
+    },
+    {
+      "path": "/api/vulnerabilities/scan-all",
+      "methods": [
+        "POST"
       ]
     }
   ]
