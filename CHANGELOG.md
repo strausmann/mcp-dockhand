@@ -5,6 +5,12 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2](https://github.com/strausmann/mcp-dockhand/compare/v1.6.1...v1.6.2) (2026-07-16)
+
+### Bug Fixes
+
+* **stacks:** update_stack_env defaults to merge-semantic to prevent variable data loss ([#82](https://github.com/strausmann/mcp-dockhand/issues/82)) ([1544621](https://github.com/strausmann/mcp-dockhand/commit/15446219c568c6cc691ed5a15fb6de124fd03fd8))
+
 ## [1.6.1](https://github.com/strausmann/mcp-dockhand/compare/v1.6.0...v1.6.1) (2026-07-16)
 
 ### Bug Fixes
