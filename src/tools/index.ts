@@ -20,6 +20,10 @@ import { registerSystemTools } from './system.js';
 import { registerUserTools } from './users.js';
 import { registerScheduleTools } from './schedules.js';
 import { registerAutoUpdateTools } from './auto-update.js';
+import { registerVulnerabilityTools } from './vulnerabilities.js';
+import { registerTemplateTools } from './templates.js';
+import { registerLabelTools } from './labels.js';
+import { registerPreferenceTools } from './preferences.js';
 
 export function registerAllTools(server: McpServer, client: DockhandClient): void {
   registerContainerTools(server, client);
@@ -38,6 +42,10 @@ export function registerAllTools(server: McpServer, client: DockhandClient): voi
   registerUserTools(server, client);
   registerScheduleTools(server, client);
   registerAutoUpdateTools(server, client);
+  registerVulnerabilityTools(server, client);
+  registerTemplateTools(server, client);
+  registerLabelTools(server, client);
+  registerPreferenceTools(server, client);
 
   console.error('[tools] All Dockhand tools registered');
 }

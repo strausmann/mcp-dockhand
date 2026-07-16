@@ -97,4 +97,16 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
       return jsonResponse(await client.get('/api/images/scan', { env: environmentId }));
     }
   );
+
+  registerTool(server, 'export_image_scan', 'Export a container image vulnerability-scan report in the requested format for offline use; run a fresh scan first with `scan_image` or list past results via `list_image_scans`.',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      format: z.string().optional().describe('Export format, e.g. "json" or "csv"'),
+      image: z.string().optional().describe('Image name/reference to export the scan for'),
+      imageId: z.string().optional().describe('Image ID to export the scan for'),
+    },
+    async ({ environmentId, format, image, imageId }) => {
+      return jsonResponse(await client.get('/api/images/scan/export', { env: environmentId, format, image, imageId }));
+    }
+  );
 }

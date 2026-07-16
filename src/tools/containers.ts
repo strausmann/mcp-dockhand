@@ -402,4 +402,22 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
       return jsonResponse(await client.delete('/api/containers/pending-updates', { env: environmentId }));
     }
   );
+
+  registerTool(server, 'update_container_runtime', 'Update the runtime configuration (e.g. resource limits, restart policy) of an existing container in place; for image or environment changes use `update_container`, and for lifecycle actions see `restart_container`.',
+    {
+      containerId: z.string().describe('Container ID or name'),
+      environmentId: z.number().describe('Environment ID'),
+      config: z.record(z.string(), z.unknown()).describe('Runtime configuration to apply'),
+    },
+    async ({ containerId, environmentId, config }) => {
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/update-runtime`, config, { env: environmentId }));
+    }
+  );
+
+  registerTool(server, 'get_container_update_check', 'Read the current image-update-check result for containers without re-probing the registry; run `check_container_updates` to refresh it or `get_pending_updates` for the pending list.',
+    { environmentId: z.number().describe('Environment ID') },
+    async ({ environmentId }) => {
+      return jsonResponse(await client.get('/api/containers/check-updates', { env: environmentId }));
+    }
+  );
 }

@@ -110,6 +110,7 @@ const CLUSTERS: Record<string, string[]> = {
     'unpause_container',
     'rename_container',
     'update_container',
+    'update_container_runtime',
     'batch_update_containers',
     'batch_update_containers_stream',
     'list_batch_operations',
@@ -173,6 +174,7 @@ const CLUSTERS: Record<string, string[]> = {
     'get_image_history',
     'scan_image',
     'list_image_scans',
+    'export_image_scan',
     'export_image',
   ],
   // volumes.ts
@@ -347,6 +349,7 @@ const CLUSTERS: Record<string, string[]> = {
   // registries.ts
   Registries: [
     'create_registry',
+    'test_registry',
     'delete_registry',
     'get_registry',
     'list_registries',
@@ -379,8 +382,36 @@ const CLUSTERS: Record<string, string[]> = {
     'clear_container_auto_update',
     'get_auto_update_settings',
     'check_container_updates',
+    'get_container_update_check',
     'get_pending_updates',
     'clear_pending_updates',
+  ],
+  // vulnerabilities.ts
+  Vulnerabilities: [
+    'list_vulnerabilities',
+    'get_vulnerability_count',
+    'export_vulnerabilities',
+    'scan_all_vulnerabilities',
+  ],
+  // templates.ts
+  Templates: [
+    'list_templates',
+    'create_template_compose',
+    'list_template_sources',
+    'create_template_source',
+    'update_template_source',
+    'delete_template_source',
+  ],
+  // labels.ts
+  Labels: [
+    'list_labels',
+    'create_label',
+  ],
+  // preferences.ts
+  'Sidebar-Preferences': [
+    'get_sidebar_preferences',
+    'set_sidebar_preferences',
+    'reset_sidebar_preferences',
   ],
 };
 
