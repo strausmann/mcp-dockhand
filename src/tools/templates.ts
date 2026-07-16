@@ -44,10 +44,11 @@ export function registerTemplateTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'update_template_source', 'Update an existing template source feed by id; list current feeds with `list_template_sources` or remove one with `delete_template_source`.',
     {
       id: z.number().describe('Template source ID'),
-      config: z.record(z.string(), z.unknown()).describe('Updated template source configuration'),
+      config: z.record(z.string(), z.unknown()).describe('Fields to update, e.g. enabled, name, url'),
     },
     async ({ id, config }) => {
-      return jsonResponse(await client.put('/api/templates/sources', config, { id }));
+      // The PUT handler reads id + fields from the JSON body (not a query/path param).
+      return jsonResponse(await client.put('/api/templates/sources', { id, ...config }));
     }
   );
 
