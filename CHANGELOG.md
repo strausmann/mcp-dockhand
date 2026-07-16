@@ -5,6 +5,12 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0](https://github.com/strausmann/mcp-dockhand/compare/v1.6.2...v1.7.0) (2026-07-16)
+
+### Features
+
+* **ci:** auto-update sticky coverage tracker on every schema sync ([#61](https://github.com/strausmann/mcp-dockhand/issues/61)) ([2ca6254](https://github.com/strausmann/mcp-dockhand/commit/2ca62548625d9c26abb8364fb03e277fa5a19862)), closes [#60](https://github.com/strausmann/mcp-dockhand/issues/60)
+
 ## [1.6.2](https://github.com/strausmann/mcp-dockhand/compare/v1.6.1...v1.6.2) (2026-07-16)
 
 ### Bug Fixes
