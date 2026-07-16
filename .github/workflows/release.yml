@@ -1,9 +1,12 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
+  # Releases run once nightly (batching the day's commits into a single release)
+  # or on demand — NOT on every push to main. semantic-release evaluates all
+  # commits since the last tag, so a nightly cadence still releases everything.
+  schedule:
+    - cron: '0 3 * * *'  # 03:00 UTC nightly
+  workflow_dispatch:
 
 permissions:
   contents: write
