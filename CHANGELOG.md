@@ -5,6 +5,18 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0](https://github.com/strausmann/mcp-dockhand/compare/v1.7.0...v1.8.0) (2026-07-16)
+
+### Features
+
+* **tools:** close MCP API coverage gap — 19 new tools (MISSING_TOOL: 20 → 0) ([#94](https://github.com/strausmann/mcp-dockhand/issues/94)) ([a31c4e0](https://github.com/strausmann/mcp-dockhand/commit/a31c4e06ed89462918c2b7c4269469bc8c4f7490)), closes [#82](https://github.com/strausmann/mcp-dockhand/issues/82)
+
+### Bug Fixes
+
+* **ci:** align upload-artifact to v8 to match download-artifact ([#100](https://github.com/strausmann/mcp-dockhand/issues/100)) ([d499a5f](https://github.com/strausmann/mcp-dockhand/commit/d499a5fae867364b5ac26f2db8e581352449d389)), closes [#68](https://github.com/strausmann/mcp-dockhand/issues/68)
+* **ci:** event-agnostic timestamp for OCI image.created label ([#98](https://github.com/strausmann/mcp-dockhand/issues/98)) ([048a650](https://github.com/strausmann/mcp-dockhand/commit/048a6505c1b3f86a1b65f80087ed26aaa57dabcb)), closes [#97](https://github.com/strausmann/mcp-dockhand/issues/97)
+* **ci:** run releases nightly + on demand, not on every push to main ([#97](https://github.com/strausmann/mcp-dockhand/issues/97)) ([d896927](https://github.com/strausmann/mcp-dockhand/commit/d89692789d9dbbe1ae72826ee6f0be4636c61993))
+
 ## [1.7.0](https://github.com/strausmann/mcp-dockhand/compare/v1.6.2...v1.7.0) (2026-07-16)
 
 ### Features
