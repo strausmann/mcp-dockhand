@@ -376,7 +376,7 @@ To prevent accidental data loss, this MCP tool defaults to **merge mode**:
 3. It writes the full combined list back via `PUT`.
 
 ```
-# Safe partial update — only PRINTER_HUB_SSO_TRUST_TOKEN changes, all others preserved
+# Safe partial update — only MY_VAR changes, all others preserved
 update_stack_env(environmentId=1, name="my-stack", variables=[{key: "MY_VAR", value: "new"}])
 
 # Explicit full replacement — all other variables are deleted

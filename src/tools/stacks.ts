@@ -156,12 +156,26 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
           `/api/stacks/${encodePath(name)}/env`,
           { env: environmentId },
         );
-        const existingVars: EnvVariable[] = existing?.variables ?? [];
-        const mergedByKey = new Map<string, EnvVariable>(
-          existingVars.map((v) => [v.key, v]),
-        );
+        const existingVars = existing?.variables;
+        const mergedByKey = new Map<string, EnvVariable>();
+
+        // Guard against a malformed API response (variables null / not an array).
+        if (Array.isArray(existingVars)) {
+          for (const v of existingVars) {
+            if (v && typeof v.key === 'string') {
+              mergedByKey.set(v.key, v);
+            }
+          }
+        }
+
         for (const v of variables) {
-          mergedByKey.set(v.key, v);
+          const existingVar = mergedByKey.get(v.key);
+          // Preserve the existing isSecret flag when the caller omits it, so a
+          // value-only update never silently demotes a secret to plaintext.
+          mergedByKey.set(v.key, {
+            ...v,
+            isSecret: v.isSecret !== undefined ? v.isSecret : existingVar?.isSecret,
+          });
         }
         finalVariables = Array.from(mergedByKey.values());
       } else {

@@ -6,7 +6,6 @@
  * other variables. This test suite verifies that the MCP tool wrapper adds a
  * merge layer so that partial updates do not cause data loss.
  *
- * See: https://github.com/strausmann/mcp-dockhand/issues/<issue>
  * Incident: hangar-print-hub stack (2026-06-01), 7 of 8 variables deleted by
  * a single-key update_stack_env call.
  */
@@ -82,8 +81,8 @@ describe('update_stack_env — merge-semantic implementation', () => {
     });
 
     it('iterates over incoming variables and sets them in the Map', () => {
-      // mergedByKey.set(v.key, v) pattern
-      expect(block).toMatch(/mergedByKey\.set\s*\(\s*v\.key\s*,\s*v\s*\)/);
+      // mergedByKey.set(v.key, ...) pattern (value is a merged object)
+      expect(block).toMatch(/mergedByKey\.set\s*\(\s*v\.key\s*,/);
     });
 
     it('converts the Map back to an array for the PUT body', () => {

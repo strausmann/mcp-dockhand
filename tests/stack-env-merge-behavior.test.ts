@@ -131,4 +131,28 @@ describe('update_stack_env — merge behaviour (mocked client)', () => {
     expect(client.get).toHaveBeenCalledTimes(1);
     expect(client.put).not.toHaveBeenCalled();
   });
+
+  it('merge preserves an existing secret flag on a value-only update (no isSecret) — never demotes a secret to plaintext', async () => {
+    const { handler, client } = setup();
+    client.get.mockResolvedValue({
+      variables: [{ key: 'TOKEN', value: 'old', isSecret: true }],
+    });
+
+    // caller rotates the value but omits isSecret
+    await handler({ environmentId: 1, name: 's', variables: [{ key: 'TOKEN', value: 'rotated' }] });
+
+    expect(putBody(client).variables).toEqual([
+      { key: 'TOKEN', value: 'rotated', isSecret: true },
+    ]);
+  });
+
+  it('merge tolerates a malformed GET response (variables not an array) without crashing', async () => {
+    const { handler, client } = setup();
+    client.get.mockResolvedValue({ variables: null });
+
+    await handler({ environmentId: 1, name: 's', variables: [{ key: 'X', value: 'y' }] });
+
+    expect(client.put).toHaveBeenCalledTimes(1);
+    expect(putBody(client).variables).toEqual([{ key: 'X', value: 'y' }]);
+  });
 });
