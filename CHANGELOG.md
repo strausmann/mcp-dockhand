@@ -5,6 +5,12 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1](https://github.com/strausmann/mcp-dockhand/compare/v1.8.0...v1.8.1) (2026-07-16)
+
+### Bug Fixes
+
+* **ci:** pin artifact actions to v7 (upload-artifact has no v8) ([#101](https://github.com/strausmann/mcp-dockhand/issues/101)) ([9b9ed9f](https://github.com/strausmann/mcp-dockhand/commit/9b9ed9f636445be6ddaacece01048d02d4f5a857)), closes [#100](https://github.com/strausmann/mcp-dockhand/issues/100)
+
 ## [1.8.0](https://github.com/strausmann/mcp-dockhand/compare/v1.7.0...v1.8.0) (2026-07-16)
 
 ### Features
