@@ -30,7 +30,7 @@
     "url": "https://github.com/strausmann/mcp-dockhand.git"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.12.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
