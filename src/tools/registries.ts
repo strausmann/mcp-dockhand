@@ -100,4 +100,13 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
       return jsonResponse(await client.delete('/api/registry/image', query));
     }
   );
+
+  registerTool(server, 'test_registry', 'Test connectivity and credentials of a registry configuration before saving it; add the verified registry with `create_registry` or update an existing one via `update_registry`.',
+    {
+      config: z.record(z.string(), z.unknown()).describe('Registry configuration to test (url, username, password, etc.)'),
+    },
+    async ({ config }) => {
+      return jsonResponse(await client.post('/api/registries/test', config));
+    }
+  );
 }

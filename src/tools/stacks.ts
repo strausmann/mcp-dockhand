@@ -182,13 +182,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         finalVariables = variables;
       }
 
-      return jsonResponse(
-        await client.put(
-          `/api/stacks/${encodePath(name)}/env`,
-          { variables: finalVariables },
-          { env: environmentId },
-        ),
-      );
+      return jsonResponse(await client.put(`/api/stacks/${encodePath(name)}/env`, { variables: finalVariables }, { env: environmentId }));
     }
   );
 
