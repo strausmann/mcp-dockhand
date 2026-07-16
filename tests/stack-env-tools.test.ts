@@ -71,9 +71,11 @@ describe('update_stack_env (rawContent cleanup)', () => {
     expect(block).not.toMatch(/body\.rawContent/);
   });
 
-  it('sends {variables} directly as the request body', () => {
+  it('sends variables as the "variables" key in the PUT request body', () => {
     const block = extractToolBlock(stacksSource, 'update_stack_env');
-    expect(block).toMatch(/\{\s*variables\s*\}/);
+    // After the merge-semantic refactor the PUT body uses finalVariables,
+    // not the raw input — but the JSON key sent to the API is still "variables".
+    expect(block).toMatch(/variables:\s*finalVariables/);
   });
 
   it('declares variables as a required parameter', () => {
