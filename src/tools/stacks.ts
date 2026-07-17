@@ -231,6 +231,58 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
+  registerTool(server, 'remove_stack_env_vars',
+    'Remove environment variables from a stack across BOTH stores. Secret keys are dropped from the encrypted database set (remaining secrets are preserved via masked "***" values); non-secret keys are removed from the .env file. Keys present in neither are returned in not_found. This is the safe way to delete variables — update_stack_env in the default merge mode cannot remove keys.',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      name: z.string().describe('Stack name'),
+      keys: z.array(z.string()).describe('Variable names to remove'),
+    },
+    async ({ environmentId, name, keys }) => {
+      const keySet = new Set(keys);
+      const structured = await client.get<StackEnv>(
+        `/api/stacks/${encodePath(name)}/env`, { env: environmentId });
+      const vars = Array.isArray(structured?.variables) ? structured.variables : [];
+      const secretKeys = new Set(vars.filter((v) => v.isSecret).map((v) => v.key));
+
+      const raw = await client.get<string>(
+        `/api/stacks/${encodePath(name)}/env/raw`, { env: environmentId });
+      const rawStr = typeof raw === 'string' ? raw : '';
+      const envKeys = new Set(parseDotEnvKeys(rawStr));
+
+      const secretTargets = keys.filter((k) => secretKeys.has(k));
+      const envTargets = keys.filter((k) => envKeys.has(k));
+      const notFound = keys.filter((k) => !secretKeys.has(k) && !envKeys.has(k));
+
+      if (secretTargets.length > 0) {
+        const remainingSecrets = vars
+          .filter((v) => v.isSecret && !keySet.has(v.key))
+          .map((v) => ({ key: v.key, value: '***', isSecret: true }));
+        await client.put(`/api/stacks/${encodePath(name)}/env`,
+          { variables: remainingSecrets }, { env: environmentId });
+      }
+
+      let removedEnv: string[] = [];
+      if (envTargets.length > 0) {
+        try {
+          const newContent = removeKeysFromDotEnv(rawStr, envTargets);
+          await client.put(`/api/stacks/${encodePath(name)}/env/raw`,
+            { content: newContent }, { env: environmentId });
+          removedEnv = envTargets;
+        } catch (e) {
+          return jsonResponse({
+            removed_secrets: secretTargets,
+            removed_env: [],
+            not_found: notFound,
+            error: `Secrets removed, but .env rewrite failed: ${e instanceof Error ? e.message : String(e)}`,
+          });
+        }
+      }
+
+      return jsonResponse({ removed_secrets: secretTargets, removed_env: removedEnv, not_found: notFound });
+    }
+  );
+
   registerTool(server, 'validate_stack_env', 'Validate the environment variables of a stack for completeness and correctness without mutating; use `update_stack_env` or `update_stack_env_raw` to fix any reported issues.',
     {
       environmentId: z.number().describe('Environment ID'),
