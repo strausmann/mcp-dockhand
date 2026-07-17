@@ -45,8 +45,9 @@ export function diffEnvVars(
 export function parseDotEnvKeys(content: string): string[] {
   const keys: string[] = [];
   for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
+    let line = rawLine.trim();
     if (!line || line.startsWith('#')) continue;
+    if (line.startsWith('export ')) line = line.slice(7).trim();
     const eq = line.indexOf('=');
     if (eq <= 0) continue;
     keys.push(line.slice(0, eq).trim());
@@ -58,8 +59,9 @@ export function parseDotEnvKeys(content: string): string[] {
 export function removeKeysFromDotEnv(content: string, keys: string[]): string {
   const drop = new Set(keys);
   const kept = content.split(/\r?\n/).filter((rawLine) => {
-    const line = rawLine.trim();
+    let line = rawLine.trim();
     if (!line || line.startsWith('#')) return true;
+    if (line.startsWith('export ')) line = line.slice(7).trim();
     const eq = line.indexOf('=');
     if (eq <= 0) return true;
     return !drop.has(line.slice(0, eq).trim());
