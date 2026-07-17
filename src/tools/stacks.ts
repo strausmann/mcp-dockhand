@@ -232,17 +232,20 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
   );
 
   registerTool(server, 'remove_stack_env_vars',
-    'Remove environment variables from a stack across BOTH stores. Secret keys are dropped from the encrypted database set (remaining secrets are preserved via masked "***" values); non-secret keys are removed from the .env file. Keys present in neither are returned in not_found. This is the safe way to delete variables — `update_stack_env` in the default merge mode cannot remove keys.',
+    'Remove environment variables from a stack across BOTH stores. Database-backed keys (secrets, and non-secrets that live in the database for git stacks) are dropped by rebuilding the full remaining database set — remaining secrets stay masked as "***"; .env-backed non-secret keys are removed by rewriting the .env file. Result reports `removed` (all keys actually removed, from either store) and `not_found` (keys present in neither). This is the safe way to delete variables — `update_stack_env` in the default merge mode cannot remove keys.',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
       keys: z.array(z.string()).describe('Variable names to remove'),
     },
     async ({ environmentId, name, keys }) => {
-      const keySet = new Set(keys);
+      const uniqueKeys = [...new Set(keys)];
+      const keySet = new Set(uniqueKeys);
+
       const structured = await client.get<StackEnv>(
         `/api/stacks/${encodePath(name)}/env`, { env: environmentId });
       const vars = Array.isArray(structured?.variables) ? structured.variables : [];
+      const structuredKeys = new Set(vars.map((v) => v.key));
       const secretKeys = new Set(vars.filter((v) => v.isSecret).map((v) => v.key));
 
       const raw = await client.get<string>(
@@ -250,36 +253,44 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       const rawStr = typeof raw === 'string' ? raw : '';
       const envKeys = new Set(parseDotEnvKeys(rawStr));
 
-      const secretTargets = keys.filter((k) => secretKeys.has(k));
-      const envTargets = keys.filter((k) => envKeys.has(k));
-      const notFound = keys.filter((k) => !secretKeys.has(k) && !envKeys.has(k));
+      const removed = uniqueKeys.filter((k) => structuredKeys.has(k) || envKeys.has(k));
+      const notFound = uniqueKeys.filter((k) => !structuredKeys.has(k) && !envKeys.has(k));
 
-      if (secretTargets.length > 0) {
-        const remainingSecrets = vars
-          .filter((v) => v.isSecret && !keySet.has(v.key))
-          .map((v) => ({ key: v.key, value: '***', isSecret: true }));
+      // A target changes the DB store if it is a secret, or a non-secret that lives
+      // in the DB (git stacks: present in the structured view but NOT in .env).
+      const dbManagedTargets = uniqueKeys.filter(
+        (k) => secretKeys.has(k) || (structuredKeys.has(k) && !envKeys.has(k)));
+
+      if (dbManagedTargets.length > 0) {
+        // Rebuild the FULL remaining DB-backed set minus targets — never drop
+        // untouched vars. Keep secrets (masked '***'; the backend preserves the real
+        // value) and DB-managed non-secrets (not in .env). .env-backed non-secrets are
+        // handled by the raw rewrite below, so they are excluded here to avoid creating
+        // a DB/.env duplicate.
+        const remaining = vars
+          .filter((v) => !keySet.has(v.key))
+          .filter((v) => v.isSecret || !envKeys.has(v.key))
+          .map((v) => ({ key: v.key, value: v.isSecret ? '***' : v.value, isSecret: v.isSecret ?? false }));
         await client.put(`/api/stacks/${encodePath(name)}/env`,
-          { variables: remainingSecrets }, { env: environmentId });
+          { variables: remaining }, { env: environmentId });
       }
 
-      let removedEnv: string[] = [];
+      const envTargets = uniqueKeys.filter((k) => envKeys.has(k));
       if (envTargets.length > 0) {
         try {
           const newContent = removeKeysFromDotEnv(rawStr, envTargets);
           await client.put(`/api/stacks/${encodePath(name)}/env/raw`,
             { content: newContent }, { env: environmentId });
-          removedEnv = envTargets;
         } catch (e) {
           return jsonResponse({
-            removed_secrets: secretTargets,
-            removed_env: [],
+            removed: removed.filter((k) => !envTargets.includes(k)),
             not_found: notFound,
-            error: `Secrets removed, but .env rewrite failed: ${e instanceof Error ? e.message : String(e)}`,
+            error: `DB entries removed, but .env rewrite failed: ${e instanceof Error ? e.message : String(e)}`,
           });
         }
       }
 
-      return jsonResponse({ removed_secrets: secretTargets, removed_env: removedEnv, not_found: notFound });
+      return jsonResponse({ removed, not_found: notFound });
     }
   );
 
