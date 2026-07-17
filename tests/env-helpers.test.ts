@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { diffEnvVars } from '../src/utils/env-helpers.js';
+import { diffEnvVars, parseDotEnvKeys, removeKeysFromDotEnv } from '../src/utils/env-helpers.js';
 
 describe('diffEnvVars', () => {
   const existing = [
@@ -30,5 +30,23 @@ describe('diffEnvVars', () => {
   it('isSecret flip counts as updated', () => {
     const d = diffEnvVars(existing, [{ key: 'A', value: 'a', isSecret: true }], 'merge');
     expect(d.updated).toEqual(['A']);
+  });
+});
+
+describe('parseDotEnvKeys', () => {
+  it('returns keys, skipping comments and blank lines', () => {
+    const content = '# comment\nA=1\n\nB=two=with=eq\n  C = 3 \n';
+    expect(parseDotEnvKeys(content)).toEqual(['A', 'B', 'C']);
+  });
+});
+
+describe('removeKeysFromDotEnv', () => {
+  it('drops matching KEY= lines, preserves comments/blanks/order', () => {
+    const content = '# keep\nA=1\nB=2\n\nC=3';
+    expect(removeKeysFromDotEnv(content, ['B'])).toBe('# keep\nA=1\n\nC=3');
+  });
+  it('is a no-op for keys not present', () => {
+    const content = 'A=1\nB=2';
+    expect(removeKeysFromDotEnv(content, ['Z'])).toBe('A=1\nB=2');
   });
 });

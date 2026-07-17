@@ -40,3 +40,29 @@ export function diffEnvVars(
     removed: mode === 'replace' ? untouched : [],
   };
 }
+
+/** Extract variable keys from raw .env content, skipping blank lines and comments. */
+export function parseDotEnvKeys(content: string): string[] {
+  const keys: string[] = [];
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq <= 0) continue;
+    keys.push(line.slice(0, eq).trim());
+  }
+  return keys;
+}
+
+/** Remove the given keys from raw .env content, preserving order, comments and blank lines. */
+export function removeKeysFromDotEnv(content: string, keys: string[]): string {
+  const drop = new Set(keys);
+  const kept = content.split(/\r?\n/).filter((rawLine) => {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) return true;
+    const eq = line.indexOf('=');
+    if (eq <= 0) return true;
+    return !drop.has(line.slice(0, eq).trim());
+  });
+  return kept.join('\n');
+}
