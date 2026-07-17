@@ -58,3 +58,17 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  lockfile-integrity:
+    # Runs `npm ci` with the EXACT npm that ships in node:22-alpine — the image
+    # the release Docker build uses. The `build` job's `npm ci` runs on the
+    # runner's npm (a different patch), which validates lockfiles slightly
+    # differently and let a broken lock reach main: v1.8.0-1.8.2 tagged but
+    # produced no image (npm ci EUSAGE on conventional-commits-filter). No layer
+    # cache here, so a stale layer cannot mask an install/ci inconsistency.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: npm ci in production image (node:22-alpine)
+        run: docker run --rm -v "$PWD":/app -w /app node:22-alpine npm ci --no-audit --no-fund
