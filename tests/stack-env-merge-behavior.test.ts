@@ -156,3 +156,36 @@ describe('update_stack_env — merge behaviour (mocked client)', () => {
     expect(putBody(client).variables).toEqual([{ key: 'X', value: 'y' }]);
   });
 });
+
+// Response-Parser: jsonResponse liefert { content: [{ type:'text', text: JSON.stringify(x) }] }
+function jsonOut(res: unknown): Record<string, unknown> {
+  const text = (res as { content: { text: string }[] }).content[0].text;
+  return JSON.parse(text) as Record<string, unknown>;
+}
+
+describe('update_stack_env — summary/hint (merge only)', () => {
+  it('merge subset (no new keys) → summary + remove hint', async () => {
+    const { handler, client } = setup();
+    client.get.mockResolvedValue({ variables: [
+      { key: 'DB_PASSWORD', value: 's', isSecret: true },
+      { key: 'TZ', value: 'Europe/Berlin' },
+      { key: 'HOST', value: 'h' },
+    ] });
+    const res = await handler({ environmentId: 10, name: 'x',
+      variables: [{ key: 'DB_PASSWORD', value: '***', isSecret: true }] });
+    const out = jsonOut(res);
+    expect(out.summary).toEqual({ added: 0, updated: 0, preserved: 2, removed: 0 });
+    expect(typeof out.hint).toBe('string');
+    expect(String(out.hint)).toContain('remove_stack_env_vars');
+  });
+
+  it('replace mode: no summary/hint and no extra GET (existing contract preserved)', async () => {
+    const { handler, client } = setup();
+    const res = await handler({ environmentId: 10, name: 'x',
+      variables: [{ key: 'A', value: 'a' }], mode: 'replace' });
+    const out = jsonOut(res);
+    expect(client.get).not.toHaveBeenCalled();
+    expect(out.summary).toBeUndefined();
+    expect(out.hint).toBeUndefined();
+  });
+});
