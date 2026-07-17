@@ -5,6 +5,12 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.3](https://github.com/strausmann/mcp-dockhand/compare/v1.8.2...v1.8.3) (2026-07-17)
+
+### Bug Fixes
+
+* **deps:** regenerate lockfile so node:22-alpine npm ci is consistent ([#103](https://github.com/strausmann/mcp-dockhand/issues/103)) ([8678b33](https://github.com/strausmann/mcp-dockhand/commit/8678b33ceb258c75bc30817e6dd4849c9307faf5)), closes [#69](https://github.com/strausmann/mcp-dockhand/issues/69)
+
 ## [1.8.2](https://github.com/strausmann/mcp-dockhand/compare/v1.8.1...v1.8.2) (2026-07-17)
 
 ### Bug Fixes
