@@ -57,3 +57,14 @@ describe('removeKeysFromDotEnv', () => {
     expect(removeKeysFromDotEnv('export A=1\nB=2', ['A'])).toBe('B=2');
   });
 });
+
+describe('diffEnvVars — defensive against malformed API entries', () => {
+  it('ignores null/undefined/non-string-key entries in existing without crashing', () => {
+    const existing = [null, undefined, { key: 123 }, { key: 'A', value: 'a', isSecret: false }] as unknown as Parameters<typeof diffEnvVars>[0];
+    const d = diffEnvVars(existing, [{ key: 'A', value: 'a2' }], 'merge');
+    expect(d.added).toEqual([]);
+    expect(d.updated).toEqual(['A']);
+    expect(d.preserved).toEqual([]);
+    expect(d.removed).toEqual([]);
+  });
+});

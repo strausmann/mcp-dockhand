@@ -244,7 +244,8 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
 
       const structured = await client.get<StackEnv>(
         `/api/stacks/${encodePath(name)}/env`, { env: environmentId });
-      const vars = Array.isArray(structured?.variables) ? structured.variables : [];
+      const vars = (Array.isArray(structured?.variables) ? structured.variables : [])
+        .filter((v) => v && typeof v.key === 'string');
       const structuredKeys = new Set(vars.map((v) => v.key));
       const secretKeys = new Set(vars.filter((v) => v.isSecret).map((v) => v.key));
 
@@ -305,7 +306,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         `/api/stacks/${encodePath(name)}/env`, { env: environmentId });
       const secretKeys = new Set(
         (Array.isArray(structured?.variables) ? structured.variables : [])
-          .filter((v) => v.isSecret).map((v) => v.key));
+          .filter((v) => v && v.isSecret && typeof v.key === 'string').map((v) => v.key));
       const raw = await client.get<string>(
         `/api/stacks/${encodePath(name)}/env/raw`, { env: environmentId });
       const envKeys = parseDotEnvKeys(typeof raw === 'string' ? raw : '');

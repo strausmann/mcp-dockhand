@@ -16,7 +16,8 @@ export function diffEnvVars(
   payload: EnvVariable[],
   mode: 'merge' | 'replace',
 ): EnvDiff {
-  const existingByKey = new Map(existing.map((v) => [v.key, v]));
+  const validExisting = existing.filter((v) => v && typeof v.key === 'string');
+  const existingByKey = new Map(validExisting.map((v) => [v.key, v]));
   const payloadKeys = new Set(payload.map((v) => v.key));
 
   const added: string[] = [];
@@ -32,7 +33,7 @@ export function diffEnvVars(
     if (valueChanged || secretChanged) updated.push(v.key);
   }
 
-  const untouched = existing.filter((v) => !payloadKeys.has(v.key)).map((v) => v.key);
+  const untouched = validExisting.filter((v) => !payloadKeys.has(v.key)).map((v) => v.key);
   return {
     added,
     updated,
