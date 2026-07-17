@@ -5,6 +5,17 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0](https://github.com/strausmann/mcp-dockhand/compare/v1.8.3...v1.9.0) (2026-07-17)
+
+### Features
+
+* **tools:** stack-env ergonomics — summary/hint, remove_stack_env_vars, collision check ([#105](https://github.com/strausmann/mcp-dockhand/issues/105)) ([b18d5ca](https://github.com/strausmann/mcp-dockhand/commit/b18d5cacd66abf10980f01be83702a595995b05e))
+
+### CI/CD
+
+* **deps:** add lockfile-integrity gate (npm ci in node:22-alpine) ([#104](https://github.com/strausmann/mcp-dockhand/issues/104)) ([9f0da7c](https://github.com/strausmann/mcp-dockhand/commit/9f0da7cba2c7675a47f6c26d60e995adc98774a5)), closes [#69](https://github.com/strausmann/mcp-dockhand/issues/69)
+* **release:** drop @semantic-release/git and changelog plugins ([#106](https://github.com/strausmann/mcp-dockhand/issues/106)) ([bdecb01](https://github.com/strausmann/mcp-dockhand/commit/bdecb01a2a4a6b5b0247c831135cbc559d8f76ba))
+
 ## [1.8.3](https://github.com/strausmann/mcp-dockhand/compare/v1.8.2...v1.8.3) (2026-07-17)
 
 ### Bug Fixes
