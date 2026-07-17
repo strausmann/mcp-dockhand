@@ -283,6 +283,30 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
+  registerTool(server, 'check_stack_env_collisions',
+    'Read-only check reporting variable keys defined BOTH as a database-backed secret and in the plain .env file. Such duplicates are ambiguous: at deploy the secret (shell environment) wins over the .env value. Remove the duplicate copy with remove_stack_env_vars.',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      name: z.string().describe('Stack name'),
+    },
+    async ({ environmentId, name }) => {
+      const structured = await client.get<StackEnv>(
+        `/api/stacks/${encodePath(name)}/env`, { env: environmentId });
+      const secretKeys = new Set(
+        (Array.isArray(structured?.variables) ? structured.variables : [])
+          .filter((v) => v.isSecret).map((v) => v.key));
+      const raw = await client.get<string>(
+        `/api/stacks/${encodePath(name)}/env/raw`, { env: environmentId });
+      const envKeys = parseDotEnvKeys(typeof raw === 'string' ? raw : '');
+      const collisions = envKeys.filter((k) => secretKeys.has(k));
+      return jsonResponse(
+        collisions.length > 0
+          ? { collisions, note: 'These keys exist BOTH as a DB secret and in .env. The DB secret (shell-env) wins at deploy; remove the .env copy with remove_stack_env_vars.' }
+          : { collisions: [] },
+      );
+    }
+  );
+
   registerTool(server, 'validate_stack_env', 'Validate the environment variables of a stack for completeness and correctness without mutating; use `update_stack_env` or `update_stack_env_raw` to fix any reported issues.',
     {
       environmentId: z.number().describe('Environment ID'),
