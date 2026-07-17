@@ -5,6 +5,12 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.2](https://github.com/strausmann/mcp-dockhand/compare/v1.8.1...v1.8.2) (2026-07-17)
+
+### Bug Fixes
+
+* **deps:** sync package-lock with semantic-release conventional-commits deps ([#102](https://github.com/strausmann/mcp-dockhand/issues/102)) ([ee930ae](https://github.com/strausmann/mcp-dockhand/commit/ee930ae5f3da0de2fa0ca67287b120496e37309f))
+
 ## [1.8.1](https://github.com/strausmann/mcp-dockhand/compare/v1.8.0...v1.8.1) (2026-07-16)
 
 ### Bug Fixes
