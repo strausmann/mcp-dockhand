@@ -232,7 +232,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
   );
 
   registerTool(server, 'remove_stack_env_vars',
-    'Remove environment variables from a stack across BOTH stores. Secret keys are dropped from the encrypted database set (remaining secrets are preserved via masked "***" values); non-secret keys are removed from the .env file. Keys present in neither are returned in not_found. This is the safe way to delete variables — update_stack_env in the default merge mode cannot remove keys.',
+    'Remove environment variables from a stack across BOTH stores. Secret keys are dropped from the encrypted database set (remaining secrets are preserved via masked "***" values); non-secret keys are removed from the .env file. Keys present in neither are returned in not_found. This is the safe way to delete variables — `update_stack_env` in the default merge mode cannot remove keys.',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -284,7 +284,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
   );
 
   registerTool(server, 'check_stack_env_collisions',
-    'Read-only check reporting variable keys defined BOTH as a database-backed secret and in the plain .env file. Such duplicates are ambiguous: at deploy the secret (shell environment) wins over the .env value. Remove the duplicate copy with remove_stack_env_vars.',
+    'Read-only check reporting variable keys defined BOTH as a database-backed secret and in the plain .env file. Such duplicates are ambiguous: at deploy the secret (shell environment) wins over the .env value. Remove the duplicate copy with `remove_stack_env_vars`.',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),

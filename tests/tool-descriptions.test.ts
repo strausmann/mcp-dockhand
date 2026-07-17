@@ -87,6 +87,8 @@ const CLUSTERS: Record<string, string[]> = {
     'get_stack_env_raw',
     'update_stack_env',
     'update_stack_env_raw',
+    'remove_stack_env_vars',
+    'check_stack_env_collisions',
     'validate_stack_env',
   ],
   'Stack-Compose': ['get_stack_compose', 'update_stack_compose'],
