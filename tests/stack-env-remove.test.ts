@@ -72,4 +72,40 @@ describe('remove_stack_env_vars', () => {
     await expect(handler({ environmentId: 10, name: 'x', keys: ['A'] })).resolves.toBeDefined();
     expect(client.put).not.toHaveBeenCalled();
   });
+
+  it('CRITICAL: preserves DB-held non-secrets (git-stack vars not in .env) when removing an unrelated secret', async () => {
+    // Two-store model: a non-secret that appears in the structured /env view but
+    // NOT in .env lives in the DB (git-stack). Removing an unrelated secret must
+    // NOT drop these DB-managed non-secrets from the rebuilt /env PUT payload.
+    const { handler, client } = setup();
+    wireGet(client, { variables: [
+      { key: 'DB_PASSWORD', value: '***', isSecret: true },
+      { key: 'API_KEY', value: '***', isSecret: true },
+      { key: 'TZ', value: 'Europe/Berlin', isSecret: false },
+      { key: 'HOST', value: 'h', isSecret: false },
+    ] }, '');
+    const out = jsonOut(await handler({ environmentId: 10, name: 'x', keys: ['API_KEY'] }));
+    const envPut = client.put.mock.calls.find((c) => String(c[0]).endsWith('/env'));
+    const payload = envPut?.[1] as { variables: Array<{ key: string; value: string; isSecret: boolean }> };
+    const byKey = new Map(payload.variables.map((v) => [v.key, v]));
+    expect(byKey.get('DB_PASSWORD')).toEqual({ key: 'DB_PASSWORD', value: '***', isSecret: true });
+    expect(byKey.get('TZ')).toEqual({ key: 'TZ', value: 'Europe/Berlin', isSecret: false });
+    expect(byKey.get('HOST')).toEqual({ key: 'HOST', value: 'h', isSecret: false });
+    expect(byKey.has('API_KEY')).toBe(false);
+    expect(payload.variables).toHaveLength(3);
+    expect(out.removed).toEqual(['API_KEY']);
+  });
+
+  it('error on the first (/env) PUT is reported and no /env/raw PUT is attempted', async () => {
+    const { handler, client } = setup();
+    wireGet(client, { variables: [
+      { key: 'SEC', value: '***', isSecret: true },
+      { key: 'OTHER_SEC', value: '***', isSecret: true },
+    ] }, 'TZ=x\n');
+    client.put.mockImplementation((path: string) =>
+      String(path).endsWith('/env/raw') ? Promise.resolve({ success: true }) : Promise.reject(new Error('500 db unavailable')));
+    const out = jsonOut(await handler({ environmentId: 10, name: 'x', keys: ['SEC', 'TZ'] }));
+    expect(typeof out.error).toBe('string');
+    expect(client.put.mock.calls.some((c) => String(c[0]).endsWith('/env/raw'))).toBe(false);
+  });
 });

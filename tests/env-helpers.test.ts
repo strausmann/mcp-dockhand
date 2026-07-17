@@ -38,6 +38,10 @@ describe('parseDotEnvKeys', () => {
     const content = '# comment\nA=1\n\nB=two=with=eq\n  C = 3 \n';
     expect(parseDotEnvKeys(content)).toEqual(['A', 'B', 'C']);
   });
+
+  it('strips a leading "export " prefix before extracting the key', () => {
+    expect(parseDotEnvKeys('export A=1\nB=2')).toEqual(['A', 'B']);
+  });
 });
 
 describe('removeKeysFromDotEnv', () => {
@@ -48,5 +52,8 @@ describe('removeKeysFromDotEnv', () => {
   it('is a no-op for keys not present', () => {
     const content = 'A=1\nB=2';
     expect(removeKeysFromDotEnv(content, ['Z'])).toBe('A=1\nB=2');
+  });
+  it('drops an "export KEY=" line when KEY is targeted', () => {
+    expect(removeKeysFromDotEnv('export A=1\nB=2', ['A'])).toBe('B=2');
   });
 });
