@@ -8,6 +8,8 @@ import type { DockhandClient } from '../client/dockhand-client.js';
 import type { StackEnv, EnvVariable } from '../types/dockhand.js';
 import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
 import { encodePath } from '../utils/encode-path.js';
+import { diffEnvVars, parseDotEnvKeys, removeKeysFromDotEnv } from '../utils/env-helpers.js';
+import type { EnvDiff } from '../utils/env-helpers.js';
 
 export function registerStackTools(server: McpServer, client: DockhandClient): void {
 
@@ -150,8 +152,10 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     },
     async ({ environmentId, name, variables, mode = 'merge' }) => {
       let finalVariables: EnvVariable[];
+      let diff: EnvDiff | undefined;
 
       if (mode === 'merge') {
+        // GET is load-bearing here: a failure must NOT issue a PUT (no data loss).
         const existing = await client.get<StackEnv>(
           `/api/stacks/${encodePath(name)}/env`,
           { env: environmentId },
@@ -178,11 +182,30 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
           });
         }
         finalVariables = Array.from(mergedByKey.values());
+        diff = diffEnvVars(Array.isArray(existingVars) ? existingVars : [], variables, 'merge');
       } else {
+        // replace: PUT the payload directly. No GET, no summary — the existing
+        // contract (replace does not GET) stays intact.
         finalVariables = variables;
       }
 
-      return jsonResponse(await client.put(`/api/stacks/${encodePath(name)}/env`, { variables: finalVariables }, { env: environmentId }));
+      const result = (await client.put(
+        `/api/stacks/${encodePath(name)}/env`, { variables: finalVariables },
+        { env: environmentId })) as Record<string, unknown>;
+
+      const hint =
+        diff && diff.added.length === 0 && diff.preserved.length > 0
+          ? `merge mode preserved ${diff.preserved.length} variable(s) you did not include and removed nothing. To remove variables use remove_stack_env_vars, or update_stack_env with mode="replace".`
+          : undefined;
+
+      return jsonResponse({
+        ...result,
+        ...(diff ? { summary: {
+          added: diff.added.length, updated: diff.updated.length,
+          preserved: diff.preserved.length, removed: diff.removed.length,
+        } } : {}),
+        ...(hint ? { hint } : {}),
+      });
     }
   );
 
