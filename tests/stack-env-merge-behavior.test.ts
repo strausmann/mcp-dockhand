@@ -369,6 +369,23 @@ describe('update_stack_env — critical fixes: degrade, promote, orphaned DB row
     expect(out.summary).toEqual({ added: 1, updated: 0, preserved: 0, removed: 0 });
   });
 
+  it('N1: an orphaned DB non-secret row that ALSO exists live in .env with a different value must NOT overwrite the live .env value', async () => {
+    const { handler, client } = setup();
+    // FOO exists both as a stale orphaned DB non-secret row AND live in .env.
+    wireGet(client, { variables: [{ key: 'FOO', value: 'stale-db-val' }] }, 'FOO=live-env-val\n');
+
+    await handler({
+      environmentId: 1,
+      name: 's',
+      variables: [{ key: 'NEW_SECRET', value: 'v', isSecret: true }],
+    });
+
+    // the .env is authoritative: the live value survives, the stale DB value never wins.
+    const content = String((rawPut(client)?.[1] as { content: string }).content);
+    expect(content).toContain('FOO=live-env-val');
+    expect(content).not.toContain('stale-db-val');
+  });
+
   it('Minor 7: duplicate keys in the payload are de-duplicated (last one wins) before routing', async () => {
     const { handler, client } = setup();
     wireGet(client, { variables: [] }, '');

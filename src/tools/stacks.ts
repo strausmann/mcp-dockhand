@@ -258,7 +258,12 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
             const raw = await client.get<string>(envRawPath, { env: environmentId });
             rawStr = typeof raw === 'string' ? raw : '';
             newContent = upsertDotEnv(rawStr, payloadNonSecrets.map((v) => ({ key: v.key, value: v.value })));
-            newContent = upsertDotEnv(newContent, toMigrate.map((v) => ({ key: v.key, value: v.value })));
+            // N1: the live .env is authoritative for non-secrets — only migrate
+            // orphaned DB rows whose key is NOT already in .env, so a stale DB
+            // value can never overwrite a live .env value.
+            const envKeys = new Set(parseDotEnvKeys(rawStr));
+            const migrateNew = toMigrate.filter((v) => !envKeys.has(v.key));
+            newContent = upsertDotEnv(newContent, migrateNew.map((v) => ({ key: v.key, value: v.value })));
             newContent = removeKeysFromDotEnv(newContent, promotedKeys);
           } else {
             // replace: rebuild the .env file from scratch — comments are lost
