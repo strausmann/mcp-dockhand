@@ -150,30 +150,45 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       })).describe('Environment variables — flag secrets with isSecret:true'),
       mode: z.enum(['merge', 'replace']).optional().describe('How to handle existing variables. "merge" (default): fetch existing vars, update/add the provided ones, preserve all others. "replace": overwrite the entire variable list with exactly the provided variables — all others are deleted.'),
     },
-    async ({ environmentId, name, variables, mode = 'merge' }) => {
+    async ({ environmentId, name, variables: rawVariables, mode = 'merge' }) => {
       const envPath = `/api/stacks/${encodePath(name)}/env`;
       const envRawPath = `/api/stacks/${encodePath(name)}/env/raw`;
 
+      // Minor 7: de-duplicate incoming keys before anything is derived from
+      // them (last occurrence wins) — a caller sending the same key twice
+      // must not produce two lines in .env or an ambiguous DB write.
+      const variables: EnvVariable[] = Array.from(
+        rawVariables.reduce((map, v) => map.set(v.key, v), new Map<string, EnvVariable>()).values(),
+      );
+
       let secrets: EnvVariable[];
       let payloadNonSecrets: EnvVariable[];
-      let diff: EnvDiff | undefined;
-      let summaryPromise: Promise<EnvDiff | undefined> | undefined;
+      let existingSecrets: EnvVariable[] = [];
+      let existingSecretsCount = 0;
+      let promotedKeys: string[] = [];
+      let toMigrate: EnvVariable[] = [];
 
       if (mode === 'merge') {
         // GET is load-bearing here: a failure must NOT issue any write (no data loss).
         const existing = await client.get<StackEnv>(envPath, { env: environmentId });
-        const existingVars = existing?.variables;
-        const mergedByKey = new Map<string, EnvVariable>();
-
+        const existingVarsRaw = existing?.variables;
         // Guard against a malformed API response (variables null / not an array).
-        if (Array.isArray(existingVars)) {
-          for (const v of existingVars) {
-            if (v && typeof v.key === 'string') {
-              mergedByKey.set(v.key, v);
-            }
-          }
-        }
+        const existingVars: EnvVariable[] = Array.isArray(existingVarsRaw)
+          ? existingVarsRaw.filter((v): v is EnvVariable => !!v && typeof v.key === 'string')
+          : [];
 
+        existingSecrets = existingVars.filter((v) => v.isSecret === true);
+        existingSecretsCount = existingSecrets.length;
+        // Orphaned DB rows: non-secret entries sitting in the DB-backed
+        // structured store. These should never exist going forward (non-secrets
+        // belong in .env) but may be left over from before this fix, or from a
+        // git-stack import. Critical 3: they must not be silently dropped.
+        const existingDbNonSecrets = existingVars.filter((v) => v.isSecret !== true);
+
+        const mergedByKey = new Map<string, EnvVariable>();
+        for (const v of existingVars) {
+          mergedByKey.set(v.key, v);
+        }
         for (const v of variables) {
           const existingVar = mergedByKey.get(v.key);
           // Preserve the existing isSecret flag when the caller omits it, so a
@@ -184,7 +199,6 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
           });
         }
         const finalVariables: EnvVariable[] = Array.from(mergedByKey.values());
-        diff = diffEnvVars(Array.isArray(existingVars) ? existingVars : [], variables, 'merge');
 
         secrets = finalVariables.filter((v) => v.isSecret);
         // Only the payload's own non-secret entries are upserted into .env —
@@ -192,59 +206,101 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         payloadNonSecrets = variables
           .map((v) => mergedByKey.get(v.key))
           .filter((v): v is EnvVariable => !!v && !v.isSecret);
+
+        // Critical 2: a key the caller explicitly promotes to isSecret:true
+        // this call must be scrubbed from .env — otherwise the plaintext copy
+        // lingers alongside the new encrypted DB row.
+        promotedKeys = variables.filter((v) => v.isSecret === true).map((v) => v.key);
+
+        // Critical 1 + 3: the DB PUT below is DELETE-all+INSERT with only
+        // `secrets`. It must still fire when the last remaining secret is
+        // being degraded to isSecret:false (secrets.length would otherwise be
+        // 0 and the stale encrypted row would never be flushed). And when it
+        // fires, any orphaned non-secret DB row the caller did not touch this
+        // call would silently vanish — migrate its value into .env instead.
+        const willFireDbPut = secrets.length > 0 || existingSecretsCount > 0;
+        if (willFireDbPut) {
+          const payloadKeys = new Set(variables.map((v) => v.key));
+          toMigrate = existingDbNonSecrets.filter((v) => !payloadKeys.has(v.key));
+        }
       } else {
         // replace: wipe-and-set exactly the provided list, split by isSecret.
+        // No GET, no summary — Critical 4: matches the original #105 contract.
+        // replace is a deliberate full wipe of both stores, not a preview.
         secrets = variables.filter((v) => v.isSecret);
         payloadNonSecrets = variables.filter((v) => !v.isSecret);
-        // Best-effort GET purely to compute the summary — replace is a
-        // deliberate full wipe, so a GET failure must never block the write.
-        summaryPromise = client.get<StackEnv>(envPath, { env: environmentId })
-          .then((existing) => diffEnvVars(Array.isArray(existing?.variables) ? existing.variables : [], variables, 'replace'))
-          .catch(() => undefined);
       }
 
-      // DB store: only write when there is at least one secret to persist —
-      // in merge mode this also flushes any orphaned non-secret DB rows left
-      // over from before this fix, since the endpoint is DELETE-all+INSERT.
+      // DB store: fires when there is at least one secret to persist, or when
+      // secrets existed before this call and must be flushed (Critical 1).
       let dbSecretsWritten = 0;
-      if (mode === 'replace' || secrets.length > 0) {
-        await client.put(envPath, { variables: secrets }, { env: environmentId });
+      let dbPutResult: unknown;
+      if (mode === 'replace' || secrets.length > 0 || existingSecretsCount > 0) {
+        dbPutResult = await client.put(envPath, { variables: secrets }, { env: environmentId });
         dbSecretsWritten = secrets.length;
       }
 
-      // .env store: only touched when the payload actually contains
-      // non-secrets. GET-raw + upsert + PUT (merge) or a full rebuild
-      // (replace) are treated as one step — any failure inside it is
-      // reported as a partial success, it never undoes the DB write above.
+      // .env store: touched when the payload has non-secrets to upsert, when a
+      // key is being promoted to a secret and must be scrubbed from .env
+      // (Critical 2), or when an orphaned DB row needs migrating into .env
+      // before the DB PUT above would otherwise drop it (Critical 3).
+      // GET-raw + upsert + PUT (merge) or a full rebuild (replace) are treated
+      // as one step — any failure inside it is reported as a partial success,
+      // it never undoes the DB write above.
       let envNonSecretsWritten = 0;
       let envError: string | undefined;
-      if (mode === 'replace' || payloadNonSecrets.length > 0) {
+      let envPutResult: unknown;
+      let rawStr: string | undefined;
+      if (mode === 'replace' || payloadNonSecrets.length > 0 || promotedKeys.length > 0 || toMigrate.length > 0) {
         try {
           let newContent: string;
           if (mode === 'merge') {
             const raw = await client.get<string>(envRawPath, { env: environmentId });
-            const rawStr = typeof raw === 'string' ? raw : '';
+            rawStr = typeof raw === 'string' ? raw : '';
             newContent = upsertDotEnv(rawStr, payloadNonSecrets.map((v) => ({ key: v.key, value: v.value })));
+            newContent = upsertDotEnv(newContent, toMigrate.map((v) => ({ key: v.key, value: v.value })));
+            newContent = removeKeysFromDotEnv(newContent, promotedKeys);
           } else {
             // replace: rebuild the .env file from scratch — comments are lost
-            // (deliberate: replace is a full wipe-and-set).
+            // (deliberate: replace is a full wipe-and-set). Promoted secrets
+            // never land here since payloadNonSecrets already excludes them.
             newContent = payloadNonSecrets.map((v) => `${v.key}=${v.value}`).join('\n');
           }
-          await client.put(envRawPath, { content: newContent }, { env: environmentId });
+          envPutResult = await client.put(envRawPath, { content: newContent }, { env: environmentId });
           envNonSecretsWritten = payloadNonSecrets.length;
         } catch (e) {
           envError = `${dbSecretsWritten > 0 ? 'secrets written to database, but ' : ''}.env write failed: ${e instanceof Error ? e.message : String(e)}`;
         }
       }
 
-      diff = diff ?? (await summaryPromise);
+      // Summary: merge-only (Critical 4 — replace has no GET, no preview).
+      // Important 5: the baseline combines BOTH real stores — DB secrets and
+      // .env keys (parsed from the raw GET above, when it happened) — so a
+      // key already tracked in .env and changed this call is reported as
+      // `updated`, not `added`; a key left out is `preserved`. Critical 3:
+      // orphaned DB non-secret rows are deliberately excluded from the
+      // baseline — they are migrated into .env above, not "preserved" in DB.
+      let diff: EnvDiff | undefined;
+      if (mode === 'merge') {
+        const envBaselineKeys = rawStr !== undefined ? parseDotEnvKeys(rawStr) : [];
+        const baseline: EnvVariable[] = [
+          ...existingSecrets,
+          ...envBaselineKeys.map((key) => ({ key, value: '', isSecret: false })),
+        ];
+        diff = diffEnvVars(baseline, variables, 'merge');
+      }
 
       const hint =
         mode === 'merge' && diff && diff.added.length === 0 && diff.preserved.length > 0
           ? `merge mode preserved ${diff.preserved.length} variable(s) you did not include and removed nothing. To remove variables use remove_stack_env_vars, or update_stack_env with mode="replace".`
           : undefined;
 
+      // Important 6: spread through any extra fields the underlying PUT
+      // responses carried (e.g. API metadata), additively — our own fields
+      // (success/db/env/summary/hint/error) always take precedence.
       return jsonResponse({
+        ...(dbPutResult && typeof dbPutResult === 'object' ? dbPutResult : {}),
+        ...(envPutResult && typeof envPutResult === 'object' ? envPutResult : {}),
         success: !envError,
         db: { secretsWritten: dbSecretsWritten },
         env: { nonSecretsWritten: envNonSecretsWritten },
