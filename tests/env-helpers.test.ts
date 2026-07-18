@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { diffEnvVars, parseDotEnvKeys, removeKeysFromDotEnv } from '../src/utils/env-helpers.js';
+import { diffEnvVars, parseDotEnvKeys, removeKeysFromDotEnv, upsertDotEnv } from '../src/utils/env-helpers.js';
 
 describe('diffEnvVars', () => {
   const existing = [
@@ -66,5 +66,54 @@ describe('diffEnvVars — defensive against malformed API entries', () => {
     expect(d.updated).toEqual(['A']);
     expect(d.preserved).toEqual([]);
     expect(d.removed).toEqual([]);
+  });
+});
+
+describe('upsertDotEnv', () => {
+  it('replaces an existing KEY= line in place, preserving surrounding lines and order', () => {
+    const content = 'A=1\nB=2\nC=3';
+    expect(upsertDotEnv(content, [{ key: 'B', value: 'two' }])).toBe('A=1\nB=two\nC=3');
+  });
+
+  it('appends a new key at the end when it is not present', () => {
+    const content = 'A=1\nB=2';
+    expect(upsertDotEnv(content, [{ key: 'C', value: '3' }])).toBe('A=1\nB=2\nC=3');
+  });
+
+  it('preserves an "export " prefix when replacing the value', () => {
+    const content = 'export A=1\nB=2';
+    expect(upsertDotEnv(content, [{ key: 'A', value: 'rotated' }])).toBe('export A=rotated\nB=2');
+  });
+
+  it('preserves comments and blank lines untouched', () => {
+    const content = '# keep me\nA=1\n\nB=2';
+    expect(upsertDotEnv(content, [{ key: 'A', value: '9' }])).toBe('# keep me\nA=9\n\nB=2');
+  });
+
+  it('handles a value containing "=" by only splitting on the first "="', () => {
+    const content = 'A=old';
+    expect(upsertDotEnv(content, [{ key: 'A', value: 'x=y=z' }])).toBe('A=x=y=z');
+  });
+
+  it('appends to empty content without introducing a leading blank line', () => {
+    expect(upsertDotEnv('', [{ key: 'A', value: '1' }])).toBe('A=1');
+  });
+
+  it('handles a mix of replace and append across multiple vars in one call', () => {
+    const content = '# header\nA=1\nB=2';
+    const result = upsertDotEnv(content, [
+      { key: 'B', value: 'two' },
+      { key: 'D', value: '4' },
+    ]);
+    expect(result).toBe('# header\nA=1\nB=two\nD=4');
+  });
+
+  it('is a no-op when given an empty vars array', () => {
+    const content = 'A=1\nB=2';
+    expect(upsertDotEnv(content, [])).toBe('A=1\nB=2');
+  });
+
+  it('preserves a trailing newline when appending, without a spurious blank line', () => {
+    expect(upsertDotEnv('A=1\nB=2\n', [{ key: 'C', value: '3' }])).toBe('A=1\nB=2\nC=3\n');
   });
 });

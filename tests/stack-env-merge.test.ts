@@ -91,17 +91,18 @@ describe('update_stack_env — merge-semantic implementation', () => {
     });
   });
 
-  describe('replace path — PUT without GET', () => {
-    it('assigns variables directly in replace mode without a GET call', () => {
-      // replace branch: finalVariables = variables
-      expect(block).toMatch(/finalVariables\s*=\s*variables/);
+  describe('replace path — splits the payload by isSecret without a merge GET', () => {
+    it('derives secrets and non-secrets directly from the payload in replace mode', () => {
+      // replace branch: secrets = variables.filter(...), payloadNonSecrets = variables.filter(...)
+      expect(block).toMatch(/secrets\s*=\s*variables\.filter/);
+      expect(block).toMatch(/payloadNonSecrets\s*=\s*variables\.filter/);
     });
   });
 
-  describe('PUT call — always uses finalVariables', () => {
-    it('PUT body references finalVariables, not the raw input variables', () => {
-      // The PUT must use finalVariables as the payload
-      expect(block).toMatch(/variables:\s*finalVariables/);
+  describe('PUT call — DB store uses only the secret subset', () => {
+    it('PUT body to the DB endpoint references the secrets variable, not the raw input variables', () => {
+      // The DB PUT must use the isSecret:true subset as the payload
+      expect(block).toMatch(/variables:\s*secrets/);
     });
 
     it('PUT targets the correct /env endpoint with encodePath', () => {

@@ -1,22 +1,23 @@
 /**
- * Behavioural tests for the update_stack_env merge-semantic implementation.
+ * Behavioural tests for update_stack_env's auto-routing between the DB
+ * secrets store (PUT /env) and the .env file (PUT /env/raw).
  *
- * Unlike the static-analysis suite (stack-env-merge.test.ts), these tests
- * execute the registered tool handler against a mocked DockhandClient and
- * assert on the actual GET/PUT calls. This locks in the runtime behaviour that
- * the regex tests cannot verify:
- *   - existing variables (incl. secret values) survive a partial update,
- *   - collisions are overwritten, new keys are added,
- *   - replace mode skips the GET,
- *   - the merge path is fail-safe: a failed GET issues NO PUT (no data loss).
+ * Follow-up to #105 (merge/replace semantics against the DB-only /env
+ * endpoint). This suite locks in the routing added in #109:
+ *   - isSecret:true  vars -> DB (PUT /env), as before,
+ *   - isSecret:false vars -> .env file (PUT /env/raw), auto-upserted,
+ *   - the merge-mode structured GET stays load-bearing: on failure, NO
+ *     write happens at all (no data loss) — the original #105 fail-safe,
+ *   - replace mode rebuilds .env from exactly the non-secret payload.
  *
- * Incident this guards against: hangar-print-hub (2026-06-01), 7 of 8 variables
- * deleted by a single-key update_stack_env call.
+ * Incident this guards against (root cause of #109): isSecret:false vars
+ * sent through update_stack_env were PUT to the DB-only /env endpoint and
+ * silently orphaned there — get_stack_env always reads non-secrets from
+ * the .env file, so the value written to the DB was never actually applied.
  */
 
 import { describe, it, expect, vi } from 'vitest';
 import { registerStackTools } from '../src/tools/stacks.js';
-import type { EnvVariable } from '../src/types/dockhand.js';
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 
@@ -47,81 +48,184 @@ function setup(): { handler: ToolHandler; client: MockClient } {
   return { handler, client };
 }
 
-function putBody(client: MockClient): { variables: EnvVariable[] } {
-  return client.put.mock.calls[0][1] as { variables: EnvVariable[] };
+/** Wires client.get so `/env/raw` and the structured `/env` return different mocked payloads. */
+function wireGet(client: MockClient, structured: unknown, raw: string) {
+  client.get.mockImplementation((path: string) =>
+    path.endsWith('/env/raw') ? Promise.resolve(raw) : Promise.resolve(structured));
 }
 
-describe('update_stack_env — merge behaviour (mocked client)', () => {
-  it('merge (default): GETs existing, preserves untouched vars incl. secret value, overwrites on collision, adds new', async () => {
-    const { handler, client } = setup();
-    client.get.mockResolvedValue({
-      variables: [
-        { key: 'SECRET_A', value: 'super-secret', isSecret: true },
-        { key: 'PLAIN_B', value: 'b-old' },
-      ],
-    });
+function envPut(client: MockClient) {
+  return client.put.mock.calls.find((c) => String(c[0]).endsWith('/env'));
+}
+function rawPut(client: MockClient) {
+  return client.put.mock.calls.find((c) => String(c[0]).endsWith('/env/raw'));
+}
 
-    await handler({
+function jsonOut(res: unknown): Record<string, unknown> {
+  const text = (res as { content: { text: string }[] }).content[0].text;
+  return JSON.parse(text) as Record<string, unknown>;
+}
+
+describe('update_stack_env — merge auto-routing (mocked client)', () => {
+  it('mixed payload (1 secret + 1 non-secret): secret -> /env PUT, non-secret -> /env/raw upsert PUT', async () => {
+    const { handler, client } = setup();
+    wireGet(
+      client,
+      { variables: [{ key: 'SECRET_A', value: 'super-secret', isSecret: true }] },
+      'PLAIN_B=old\n',
+    );
+
+    const res = await handler({
       environmentId: 7,
       name: 'my-stack',
       variables: [
-        { key: 'PLAIN_B', value: 'b-new' }, // collision → overwrite
-        { key: 'NEW_C', value: 'c', isSecret: true }, // new
+        { key: 'SECRET_A', value: 'super-secret', isSecret: true }, // resend, unchanged
+        { key: 'PLAIN_B', value: 'new', isSecret: false },
       ],
     });
 
-    // GET against the /env endpoint with the env query param
-    expect(client.get).toHaveBeenCalledTimes(1);
-    expect(client.get.mock.calls[0][0]).toBe('/api/stacks/my-stack/env');
-    expect(client.get.mock.calls[0][1]).toEqual({ env: 7 });
+    // structured GET always happens (load-bearing merge fetch)
+    expect(client.get).toHaveBeenCalledWith('/api/stacks/my-stack/env', { env: 7 });
+    // raw GET happens because the payload has a non-secret to upsert
+    expect(client.get).toHaveBeenCalledWith('/api/stacks/my-stack/env/raw', { env: 7 });
 
-    // PUT the merged full list back to the same endpoint
-    expect(client.put).toHaveBeenCalledTimes(1);
-    expect(client.put.mock.calls[0][0]).toBe('/api/stacks/my-stack/env');
-    expect(client.put.mock.calls[0][2]).toEqual({ env: 7 });
+    expect(envPut(client)?.[1]).toEqual({ variables: [{ key: 'SECRET_A', value: 'super-secret', isSecret: true }] });
+    expect(rawPut(client)?.[1]).toEqual({ content: 'PLAIN_B=new\n' });
 
-    const body = putBody(client);
-    const byKey = new Map(body.variables.map((v) => [v.key, v]));
-    expect(body.variables).toHaveLength(3);
-    // untouched secret survives with value + flag — the linchpin of the whole fix
-    expect(byKey.get('SECRET_A')).toEqual({ key: 'SECRET_A', value: 'super-secret', isSecret: true });
-    expect(byKey.get('PLAIN_B')).toEqual({ key: 'PLAIN_B', value: 'b-new' });
-    expect(byKey.get('NEW_C')).toEqual({ key: 'NEW_C', value: 'c', isSecret: true });
+    const out = jsonOut(res);
+    expect(out.db).toEqual({ secretsWritten: 1 });
+    expect(out.env).toEqual({ nonSecretsWritten: 1 });
+    expect(out.summary).toBeDefined();
+    expect(out.success).toBe(true);
   });
 
-  it('merge with empty input is a no-op — existing variables are preserved, nothing is wiped', async () => {
+  it('pure secret payload, brand new key: DB PUT fires; .env is also checked+scrubbed for the promoted key (no-op here, key never existed in .env)', async () => {
     const { handler, client } = setup();
-    client.get.mockResolvedValue({
+    wireGet(client, { variables: [] }, '');
+
+    const res = await handler({
+      environmentId: 1,
+      name: 's',
+      variables: [{ key: 'TOKEN', value: 'x', isSecret: true }],
+    });
+
+    // structured GET, then a raw GET to scrub the (brand-new) promoted key from .env — see Critical 2
+    expect(client.get).toHaveBeenCalledTimes(2);
+    expect(envPut(client)?.[1]).toEqual({ variables: [{ key: 'TOKEN', value: 'x', isSecret: true }] });
+    // .env content is unchanged (TOKEN was never there), but the scrub PUT still fires
+    expect(rawPut(client)?.[1]).toEqual({ content: '' });
+
+    const out = jsonOut(res);
+    expect(out.db).toEqual({ secretsWritten: 1 });
+    expect(out.env).toEqual({ nonSecretsWritten: 0 });
+  });
+
+  it('Important 6: extra fields on the underlying PUT responses are passed through additively, our own fields still win', async () => {
+    const { handler, client } = setup();
+    wireGet(client, { variables: [] }, '');
+    client.put.mockImplementation((path: string) =>
+      String(path).endsWith('/env/raw')
+        ? Promise.resolve({ apiVersion: 'raw-v1', requestId: 'raw-req' })
+        : Promise.resolve({ apiVersion: 'db-v1', requestId: 'db-req', success: 'not-a-boolean-from-the-api' }));
+
+    const res = await handler({
+      environmentId: 1,
+      name: 's',
       variables: [
-        { key: 'A', value: '1', isSecret: true },
-        { key: 'B', value: '2' },
+        { key: 'A_SECRET', value: 's', isSecret: true },
+        { key: 'A', value: '1', isSecret: false },
       ],
     });
 
-    await handler({ environmentId: 1, name: 's', variables: [] });
-
-    expect(client.get).toHaveBeenCalledTimes(1);
-    expect(putBody(client).variables).toEqual([
-      { key: 'A', value: '1', isSecret: true },
-      { key: 'B', value: '2' },
-    ]);
+    const out = jsonOut(res);
+    // both the DB PUT and the .env PUT fire here — their extra response fields
+    // are spread additively; on a key collision the later (.env) write wins.
+    expect(out.requestId).toBe('raw-req');
+    expect(out.apiVersion).toBe('raw-v1');
+    // ...but our own authoritative fields are never shadowed by passthrough data.
+    expect(out.success).toBe(true);
+    expect(out.db).toEqual({ secretsWritten: 1 });
+    expect(out.env).toEqual({ nonSecretsWritten: 1 });
   });
 
-  it('replace mode: does NOT GET, PUTs exactly the provided variables', async () => {
+  it('pure non-secret payload, no existing secrets: no /env PUT at all', async () => {
     const { handler, client } = setup();
+    wireGet(client, { variables: [] }, 'A=1\n');
+
+    const res = await handler({
+      environmentId: 1,
+      name: 's',
+      variables: [{ key: 'A', value: '2' }],
+    });
+
+    expect(envPut(client)).toBeUndefined();
+    expect(rawPut(client)?.[1]).toEqual({ content: 'A=2\n' });
+
+    const out = jsonOut(res);
+    expect(out.db).toEqual({ secretsWritten: 0 });
+    expect(out.env).toEqual({ nonSecretsWritten: 1 });
+  });
+
+  it('pure non-secret payload with unrelated existing secrets: DB PUT re-affirms the untouched secrets (preserved)', async () => {
+    const { handler, client } = setup();
+    wireGet(client, { variables: [{ key: 'SECRET_A', value: '***', isSecret: true }] }, 'A=1\n');
+
+    await handler({ environmentId: 1, name: 's', variables: [{ key: 'A', value: '2' }] });
+
+    expect(envPut(client)?.[1]).toEqual({ variables: [{ key: 'SECRET_A', value: '***', isSecret: true }] });
+    expect(rawPut(client)?.[1]).toEqual({ content: 'A=2\n' });
+  });
+
+  it('merge with an empty variables array is a no-op: no DB PUT (no secrets touched), no .env PUT (no payload)', async () => {
+    const { handler, client } = setup();
+    wireGet(client, { variables: [{ key: 'B', value: '2', isSecret: false }] }, 'B=2\n');
+
+    const res = await handler({ environmentId: 1, name: 's', variables: [] });
+
+    expect(client.get).toHaveBeenCalledTimes(1); // only the structured GET; no payload non-secrets -> no raw GET
+    expect(client.put).not.toHaveBeenCalled();
+
+    const out = jsonOut(res);
+    expect(out.db).toEqual({ secretsWritten: 0 });
+    expect(out.env).toEqual({ nonSecretsWritten: 0 });
+  });
+
+  it('replace mode: secrets exact to /env, .env rebuilt exactly from the non-secret payload (no GET of raw .env)', async () => {
+    const { handler, client } = setup();
+    client.get.mockResolvedValue({ variables: [] }); // best-effort summary GET only
 
     await handler({
       environmentId: 2,
       name: 's',
       mode: 'replace',
-      variables: [{ key: 'ONLY', value: 'x' }],
+      variables: [
+        { key: 'SECRET', value: 's', isSecret: true },
+        { key: 'PLAIN', value: 'p' },
+      ],
     });
 
-    expect(client.get).not.toHaveBeenCalled();
-    expect(putBody(client).variables).toEqual([{ key: 'ONLY', value: 'x' }]);
+    expect(envPut(client)?.[1]).toEqual({ variables: [{ key: 'SECRET', value: 's', isSecret: true }] });
+    expect(rawPut(client)?.[1]).toEqual({ content: 'PLAIN=p' });
+    // replace never reads the raw .env file — it is rebuilt from scratch
+    expect(client.get.mock.calls.some((c) => String(c[0]).endsWith('/env/raw'))).toBe(false);
   });
 
-  it('merge is fail-safe: when the GET fails, NO PUT is issued (no data loss)', async () => {
+  it('replace mode with no non-secrets still wipes .env to empty content', async () => {
+    const { handler, client } = setup();
+    client.get.mockResolvedValue({ variables: [] });
+
+    await handler({
+      environmentId: 2,
+      name: 's',
+      mode: 'replace',
+      variables: [{ key: 'S', value: 's', isSecret: true }],
+    });
+
+    expect(rawPut(client)?.[1]).toEqual({ content: '' });
+    expect(envPut(client)?.[1]).toEqual({ variables: [{ key: 'S', value: 's', isSecret: true }] });
+  });
+
+  it('merge is fail-safe: when the structured GET fails, NO write is issued at all (no data loss)', async () => {
     const { handler, client } = setup();
     client.get.mockRejectedValue(new Error('network down'));
 
@@ -134,52 +238,213 @@ describe('update_stack_env — merge behaviour (mocked client)', () => {
 
   it('merge preserves an existing secret flag on a value-only update (no isSecret) — never demotes a secret to plaintext', async () => {
     const { handler, client } = setup();
-    client.get.mockResolvedValue({
-      variables: [{ key: 'TOKEN', value: 'old', isSecret: true }],
-    });
+    wireGet(client, { variables: [{ key: 'TOKEN', value: 'old', isSecret: true }] }, '');
 
     // caller rotates the value but omits isSecret
     await handler({ environmentId: 1, name: 's', variables: [{ key: 'TOKEN', value: 'rotated' }] });
 
-    expect(putBody(client).variables).toEqual([
-      { key: 'TOKEN', value: 'rotated', isSecret: true },
-    ]);
+    expect(envPut(client)?.[1]).toEqual({ variables: [{ key: 'TOKEN', value: 'rotated', isSecret: true }] });
+    expect(rawPut(client)).toBeUndefined();
   });
 
-  it('merge tolerates a malformed GET response (variables not an array) without crashing', async () => {
+  it('merge tolerates a malformed structured GET response (variables not an array) without crashing', async () => {
     const { handler, client } = setup();
-    client.get.mockResolvedValue({ variables: null });
+    wireGet(client, { variables: null }, '');
 
-    await handler({ environmentId: 1, name: 's', variables: [{ key: 'X', value: 'y' }] });
+    await handler({ environmentId: 1, name: 's', variables: [{ key: 'X', value: 'y', isSecret: true }] });
 
-    expect(client.put).toHaveBeenCalledTimes(1);
-    expect(putBody(client).variables).toEqual([{ key: 'X', value: 'y' }]);
+    expect(envPut(client)?.[1]).toEqual({ variables: [{ key: 'X', value: 'y', isSecret: true }] });
+  });
+
+  it('partial failure: DB PUT succeeds, .env/raw PUT fails -> error reported, db.secretsWritten stays set', async () => {
+    const { handler, client } = setup();
+    wireGet(
+      client,
+      { variables: [{ key: 'SECRET_A', value: 's', isSecret: true }] },
+      'PLAIN_B=old\n',
+    );
+    client.put.mockImplementation((path: string) =>
+      String(path).endsWith('/env/raw') ? Promise.reject(new Error('disk full')) : Promise.resolve({ ok: true }));
+
+    const res = await handler({
+      environmentId: 1,
+      name: 's',
+      variables: [
+        { key: 'SECRET_A', value: 's', isSecret: true },
+        { key: 'PLAIN_B', value: 'new', isSecret: false },
+      ],
+    });
+
+    const out = jsonOut(res);
+    expect(out.db).toEqual({ secretsWritten: 1 });
+    expect(out.env).toEqual({ nonSecretsWritten: 0 });
+    expect(typeof out.error).toBe('string');
+    expect(out.success).toBe(false);
+  });
+
+  it('partial failure: the raw GET itself fails after a successful DB PUT -> error reported, db.secretsWritten stays set', async () => {
+    const { handler, client } = setup();
+    client.get.mockImplementation((path: string) =>
+      path.endsWith('/env/raw')
+        ? Promise.reject(new Error('500'))
+        : Promise.resolve({ variables: [{ key: 'SECRET_A', value: 's', isSecret: true }] }));
+
+    const res = await handler({
+      environmentId: 1,
+      name: 's',
+      variables: [
+        { key: 'SECRET_A', value: 's', isSecret: true },
+        { key: 'PLAIN_B', value: 'new', isSecret: false },
+      ],
+    });
+
+    const out = jsonOut(res);
+    expect(out.db).toEqual({ secretsWritten: 1 });
+    expect(typeof out.error).toBe('string');
+    expect(rawPut(client)).toBeUndefined();
   });
 });
 
-// Response-Parser: jsonResponse liefert { content: [{ type:'text', text: JSON.stringify(x) }] }
-function jsonOut(res: unknown): Record<string, unknown> {
-  const text = (res as { content: { text: string }[] }).content[0].text;
-  return JSON.parse(text) as Record<string, unknown>;
-}
-
-describe('update_stack_env — summary/hint (merge only)', () => {
-  it('merge subset (no new keys) → summary + remove hint', async () => {
+describe('update_stack_env — critical fixes: degrade, promote, orphaned DB rows', () => {
+  it('Critical 1: degrading the ONLY existing secret to isSecret:false still fires the DB PUT (flushes the stale encrypted row)', async () => {
     const { handler, client } = setup();
-    client.get.mockResolvedValue({ variables: [
+    wireGet(client, { variables: [{ key: 'TOKEN', value: 'oldsecret', isSecret: true }] }, '');
+
+    const res = await handler({
+      environmentId: 1,
+      name: 's',
+      variables: [{ key: 'TOKEN', value: 'plain-now', isSecret: false }],
+    });
+
+    // DB PUT fires with an EMPTY secrets array -> the stale encrypted row is deleted.
+    expect(envPut(client)?.[1]).toEqual({ variables: [] });
+    // the demoted value lands in .env as plaintext.
+    expect(rawPut(client)?.[1]).toEqual({ content: 'TOKEN=plain-now' });
+
+    const out = jsonOut(res);
+    expect(out.db).toEqual({ secretsWritten: 0 });
+    expect(out.env).toEqual({ nonSecretsWritten: 1 });
+  });
+
+  it('Critical 2: promoting a plain .env key to isSecret:true removes it from .env AND stores it as a DB secret', async () => {
+    const { handler, client } = setup();
+    wireGet(client, { variables: [] }, 'API_KEY=plaintext-value\nOTHER=1\n');
+
+    const res = await handler({
+      environmentId: 1,
+      name: 's',
+      variables: [{ key: 'API_KEY', value: 'rotated-secret', isSecret: true }],
+    });
+
+    expect(envPut(client)?.[1]).toEqual({
+      variables: [{ key: 'API_KEY', value: 'rotated-secret', isSecret: true }],
+    });
+    // API_KEY is scrubbed from .env; OTHER is untouched.
+    expect(rawPut(client)?.[1]).toEqual({ content: 'OTHER=1\n' });
+
+    const out = jsonOut(res);
+    expect(out.db).toEqual({ secretsWritten: 1 });
+  });
+
+  it('Critical 3: an orphaned DB non-secret row untouched by this call is migrated into .env (not silently deleted), and is NOT reported as "preserved"', async () => {
+    const { handler, client } = setup();
+    // LEGACY_TZ lives only in the DB structured store (isSecret omitted/false) —
+    // a row that should not exist post-fix, but may be left over from before it.
+    wireGet(client, { variables: [{ key: 'LEGACY_TZ', value: 'Europe/Berlin' }] }, '');
+
+    const res = await handler({
+      environmentId: 1,
+      name: 's',
+      variables: [{ key: 'NEW_SECRET', value: 'v', isSecret: true }],
+    });
+
+    // the DB PUT fires (a new secret is being added) and drops LEGACY_TZ from the DB...
+    expect(envPut(client)?.[1]).toEqual({ variables: [{ key: 'NEW_SECRET', value: 'v', isSecret: true }] });
+    // ...but its value is migrated into .env first, so it is not lost.
+    expect(rawPut(client)?.[1]).toEqual({ content: 'LEGACY_TZ=Europe/Berlin' });
+
+    const out = jsonOut(res);
+    // LEGACY_TZ must not be counted as "preserved" — it was excluded from the DB
+    // it used to live in, and the diff baseline only tracks DB secrets + .env keys.
+    expect(out.summary).toEqual({ added: 1, updated: 0, preserved: 0, removed: 0 });
+  });
+
+  it('N1: an orphaned DB non-secret row that ALSO exists live in .env with a different value must NOT overwrite the live .env value', async () => {
+    const { handler, client } = setup();
+    // FOO exists both as a stale orphaned DB non-secret row AND live in .env.
+    wireGet(client, { variables: [{ key: 'FOO', value: 'stale-db-val' }] }, 'FOO=live-env-val\n');
+
+    await handler({
+      environmentId: 1,
+      name: 's',
+      variables: [{ key: 'NEW_SECRET', value: 'v', isSecret: true }],
+    });
+
+    // the .env is authoritative: the live value survives, the stale DB value never wins.
+    const content = String((rawPut(client)?.[1] as { content: string }).content);
+    expect(content).toContain('FOO=live-env-val');
+    expect(content).not.toContain('stale-db-val');
+  });
+
+  it('Minor 7: duplicate keys in the payload are de-duplicated (last one wins) before routing', async () => {
+    const { handler, client } = setup();
+    wireGet(client, { variables: [] }, '');
+
+    const res = await handler({
+      environmentId: 1,
+      name: 's',
+      variables: [
+        { key: 'A', value: '1', isSecret: false },
+        { key: 'A', value: '2', isSecret: false },
+      ],
+    });
+
+    expect(envPut(client)).toBeUndefined();
+    expect(rawPut(client)?.[1]).toEqual({ content: 'A=2' });
+
+    const out = jsonOut(res);
+    expect(out.env).toEqual({ nonSecretsWritten: 1 });
+  });
+});
+
+describe('update_stack_env — summary (merge and replace)', () => {
+  it('Important 5: a payload key already tracked in .env counts as "updated" (not "added"); an omitted .env key counts as "preserved"', async () => {
+    const { handler, client } = setup();
+    wireGet(
+      client,
+      { variables: [{ key: 'A_SECRET', value: 's', isSecret: true }] },
+      'EXISTING_KEY=old\nOTHER_KEY=other\n',
+    );
+
+    const res = await handler({
+      environmentId: 10,
+      name: 'x',
+      variables: [{ key: 'EXISTING_KEY', value: 'new', isSecret: false }],
+    });
+
+    expect(rawPut(client)?.[1]).toEqual({ content: 'EXISTING_KEY=new\nOTHER_KEY=other\n' });
+
+    const out = jsonOut(res);
+    // EXISTING_KEY already existed in .env and was changed -> updated, not added.
+    // OTHER_KEY (left out) and A_SECRET (DB secret, untouched) -> preserved.
+    expect(out.summary).toEqual({ added: 0, updated: 1, preserved: 2, removed: 0 });
+  });
+
+  it('merge subset of DB secrets (no new keys, no orphaned rows) -> summary reflects the DB store, hint fires', async () => {
+    const { handler, client } = setup();
+    wireGet(client, { variables: [
       { key: 'DB_PASSWORD', value: 's', isSecret: true },
-      { key: 'TZ', value: 'Europe/Berlin' },
-      { key: 'HOST', value: 'h' },
-    ] });
+      { key: 'API_TOKEN', value: 't', isSecret: true },
+    ] }, '');
     const res = await handler({ environmentId: 10, name: 'x',
       variables: [{ key: 'DB_PASSWORD', value: '***', isSecret: true }] });
     const out = jsonOut(res);
-    expect(out.summary).toEqual({ added: 0, updated: 0, preserved: 2, removed: 0 });
+    expect(out.summary).toEqual({ added: 0, updated: 0, preserved: 1, removed: 0 });
     expect(typeof out.hint).toBe('string');
     expect(String(out.hint)).toContain('remove_stack_env_vars');
   });
 
-  it('replace mode: no summary/hint and no extra GET (existing contract preserved)', async () => {
+  it('replace mode: no summary/hint and no extra GET (existing #105 contract preserved — Critical 4)', async () => {
     const { handler, client } = setup();
     const res = await handler({ environmentId: 10, name: 'x',
       variables: [{ key: 'A', value: 'a' }], mode: 'replace' });
