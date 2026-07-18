@@ -112,4 +112,8 @@ describe('upsertDotEnv', () => {
     const content = 'A=1\nB=2';
     expect(upsertDotEnv(content, [])).toBe('A=1\nB=2');
   });
+
+  it('preserves a trailing newline when appending, without a spurious blank line', () => {
+    expect(upsertDotEnv('A=1\nB=2\n', [{ key: 'C', value: '3' }])).toBe('A=1\nB=2\nC=3\n');
+  });
 });

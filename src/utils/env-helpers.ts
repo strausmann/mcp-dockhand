@@ -113,5 +113,11 @@ export function upsertDotEnv(content: string, vars: { key: string; value: string
     return appended.join('\n');
   }
 
-  return [...updated, ...appended].join('\n');
+  // A trailing newline in the source leaves an empty last element after split.
+  // Drop it before appending (so we don't insert a spurious blank line), then
+  // restore the trailing newline so the file's original shape is preserved.
+  const hasTrailingNewline = lines[lines.length - 1] === '';
+  const cleanUpdated = hasTrailingNewline ? updated.slice(0, -1) : updated;
+  const result = [...cleanUpdated, ...appended].join('\n');
+  return hasTrailingNewline ? result + '\n' : result;
 }
