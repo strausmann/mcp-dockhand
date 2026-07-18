@@ -73,9 +73,10 @@ describe('update_stack_env (rawContent cleanup)', () => {
 
   it('sends variables as the "variables" key in the PUT request body', () => {
     const block = extractToolBlock(stacksSource, 'update_stack_env');
-    // After the merge-semantic refactor the PUT body uses finalVariables,
-    // not the raw input — but the JSON key sent to the API is still "variables".
-    expect(block).toMatch(/variables:\s*finalVariables/);
+    // After the isSecret:false auto-routing refactor (#109), the DB PUT body
+    // uses the isSecret:true subset (secrets), not the raw input — but the
+    // JSON key sent to the API is still "variables".
+    expect(block).toMatch(/variables:\s*secrets/);
   });
 
   it('declares variables as a required parameter', () => {

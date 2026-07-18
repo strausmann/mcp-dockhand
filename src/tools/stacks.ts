@@ -8,7 +8,7 @@ import type { DockhandClient } from '../client/dockhand-client.js';
 import type { StackEnv, EnvVariable } from '../types/dockhand.js';
 import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
 import { encodePath } from '../utils/encode-path.js';
-import { diffEnvVars, parseDotEnvKeys, removeKeysFromDotEnv } from '../utils/env-helpers.js';
+import { diffEnvVars, parseDotEnvKeys, removeKeysFromDotEnv, upsertDotEnv } from '../utils/env-helpers.js';
 import type { EnvDiff } from '../utils/env-helpers.js';
 
 export function registerStackTools(server: McpServer, client: DockhandClient): void {
@@ -139,7 +139,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
   );
 
   registerTool(server, 'update_stack_env',
-    'Update secret environment variables (database-backed, encrypted at rest). Variables flagged isSecret:true are stored in the Dockhand database and injected into containers via shell-env at deploy time — they are NEVER written to the .env file. For non-secret variables that Docker Compose reads from the .env file at container start, use `update_stack_env_raw`.\n\n**IMPORTANT — merge vs replace semantics:** The underlying Dockhand REST endpoint (`PUT /api/stacks/{name}/env`) has replace-semantics: sending a partial list silently deletes all other variables. This tool therefore defaults to `mode="merge"`: it fetches the current variables first, merges your payload by key (new values win on collision), and then writes the full combined list. Use `mode="replace"` only when you intentionally want to wipe all existing variables and set exactly the provided list.',
+    'Set environment variables across both Dockhand stores in one call. Variables flagged isSecret:true are stored in the Dockhand database (encrypted at rest) and injected into containers via shell-env at deploy time. Variables with isSecret:false/omitted are written to the .env file on disk — the same file Docker Compose reads at container start — so they take effect without any extra step; equivalent in effect to `update_stack_env_raw` but merged in automatically. Never flag credentials isSecret:false.\n\n**IMPORTANT — merge vs replace semantics:** The underlying Dockhand REST endpoints (`PUT /api/stacks/{name}/env` and `PUT /api/stacks/{name}/env/raw`) both have replace-semantics for the store they touch. This tool therefore defaults to `mode="merge"`: it fetches the current DB-backed variables and the current .env content first, merges your payload in by key (new values win on collision), then writes each store only with what it now needs — the secrets to the database, the non-secrets upserted into .env. Use `mode="replace"` only when you intentionally want to wipe all existing variables and set exactly the provided list (the .env file is rebuilt from scratch; comments are lost).',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -151,15 +151,17 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       mode: z.enum(['merge', 'replace']).optional().describe('How to handle existing variables. "merge" (default): fetch existing vars, update/add the provided ones, preserve all others. "replace": overwrite the entire variable list with exactly the provided variables — all others are deleted.'),
     },
     async ({ environmentId, name, variables, mode = 'merge' }) => {
-      let finalVariables: EnvVariable[];
+      const envPath = `/api/stacks/${encodePath(name)}/env`;
+      const envRawPath = `/api/stacks/${encodePath(name)}/env/raw`;
+
+      let secrets: EnvVariable[];
+      let payloadNonSecrets: EnvVariable[];
       let diff: EnvDiff | undefined;
+      let summaryPromise: Promise<EnvDiff | undefined> | undefined;
 
       if (mode === 'merge') {
-        // GET is load-bearing here: a failure must NOT issue a PUT (no data loss).
-        const existing = await client.get<StackEnv>(
-          `/api/stacks/${encodePath(name)}/env`,
-          { env: environmentId },
-        );
+        // GET is load-bearing here: a failure must NOT issue any write (no data loss).
+        const existing = await client.get<StackEnv>(envPath, { env: environmentId });
         const existingVars = existing?.variables;
         const mergedByKey = new Map<string, EnvVariable>();
 
@@ -181,29 +183,76 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
             isSecret: v.isSecret !== undefined ? v.isSecret : existingVar?.isSecret,
           });
         }
-        finalVariables = Array.from(mergedByKey.values());
+        const finalVariables: EnvVariable[] = Array.from(mergedByKey.values());
         diff = diffEnvVars(Array.isArray(existingVars) ? existingVars : [], variables, 'merge');
+
+        secrets = finalVariables.filter((v) => v.isSecret);
+        // Only the payload's own non-secret entries are upserted into .env —
+        // pre-existing .env keys the caller did not touch stay untouched.
+        payloadNonSecrets = variables
+          .map((v) => mergedByKey.get(v.key))
+          .filter((v): v is EnvVariable => !!v && !v.isSecret);
       } else {
-        // replace: PUT the payload directly. No GET, no summary — the existing
-        // contract (replace does not GET) stays intact.
-        finalVariables = variables;
+        // replace: wipe-and-set exactly the provided list, split by isSecret.
+        secrets = variables.filter((v) => v.isSecret);
+        payloadNonSecrets = variables.filter((v) => !v.isSecret);
+        // Best-effort GET purely to compute the summary — replace is a
+        // deliberate full wipe, so a GET failure must never block the write.
+        summaryPromise = client.get<StackEnv>(envPath, { env: environmentId })
+          .then((existing) => diffEnvVars(Array.isArray(existing?.variables) ? existing.variables : [], variables, 'replace'))
+          .catch(() => undefined);
       }
 
-      const result = (await client.put(
-        `/api/stacks/${encodePath(name)}/env`, { variables: finalVariables },
-        { env: environmentId })) as Record<string, unknown>;
+      // DB store: only write when there is at least one secret to persist —
+      // in merge mode this also flushes any orphaned non-secret DB rows left
+      // over from before this fix, since the endpoint is DELETE-all+INSERT.
+      let dbSecretsWritten = 0;
+      if (mode === 'replace' || secrets.length > 0) {
+        await client.put(envPath, { variables: secrets }, { env: environmentId });
+        dbSecretsWritten = secrets.length;
+      }
+
+      // .env store: only touched when the payload actually contains
+      // non-secrets. GET-raw + upsert + PUT (merge) or a full rebuild
+      // (replace) are treated as one step — any failure inside it is
+      // reported as a partial success, it never undoes the DB write above.
+      let envNonSecretsWritten = 0;
+      let envError: string | undefined;
+      if (mode === 'replace' || payloadNonSecrets.length > 0) {
+        try {
+          let newContent: string;
+          if (mode === 'merge') {
+            const raw = await client.get<string>(envRawPath, { env: environmentId });
+            const rawStr = typeof raw === 'string' ? raw : '';
+            newContent = upsertDotEnv(rawStr, payloadNonSecrets.map((v) => ({ key: v.key, value: v.value })));
+          } else {
+            // replace: rebuild the .env file from scratch — comments are lost
+            // (deliberate: replace is a full wipe-and-set).
+            newContent = payloadNonSecrets.map((v) => `${v.key}=${v.value}`).join('\n');
+          }
+          await client.put(envRawPath, { content: newContent }, { env: environmentId });
+          envNonSecretsWritten = payloadNonSecrets.length;
+        } catch (e) {
+          envError = `${dbSecretsWritten > 0 ? 'secrets written to database, but ' : ''}.env write failed: ${e instanceof Error ? e.message : String(e)}`;
+        }
+      }
+
+      diff = diff ?? (await summaryPromise);
 
       const hint =
-        diff && diff.added.length === 0 && diff.preserved.length > 0
+        mode === 'merge' && diff && diff.added.length === 0 && diff.preserved.length > 0
           ? `merge mode preserved ${diff.preserved.length} variable(s) you did not include and removed nothing. To remove variables use remove_stack_env_vars, or update_stack_env with mode="replace".`
           : undefined;
 
       return jsonResponse({
-        ...result,
+        success: !envError,
+        db: { secretsWritten: dbSecretsWritten },
+        env: { nonSecretsWritten: envNonSecretsWritten },
         ...(diff ? { summary: {
           added: diff.added.length, updated: diff.updated.length,
           preserved: diff.preserved.length, removed: diff.removed.length,
         } } : {}),
+        ...(envError ? { error: envError } : {}),
         ...(hint ? { hint } : {}),
       });
     }
