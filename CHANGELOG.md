@@ -5,6 +5,20 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1](https://github.com/strausmann/mcp-dockhand/compare/v1.9.0...v1.9.1) (2026-07-19)
+
+### Bug Fixes
+
+* **tools:** route isSecret:false vars to .env in update_stack_env ([#109](https://github.com/strausmann/mcp-dockhand/issues/109)) ([#110](https://github.com/strausmann/mcp-dockhand/issues/110)) ([b637efb](https://github.com/strausmann/mcp-dockhand/commit/b637efb50d4f1042bc73d6b528f1325eab44d80e)), closes [#105](https://github.com/strausmann/mcp-dockhand/issues/105) [#105](https://github.com/strausmann/mcp-dockhand/issues/105) [#105](https://github.com/strausmann/mcp-dockhand/issues/105) [#105](https://github.com/strausmann/mcp-dockhand/issues/105)
+
+### Documentation
+
+* **release:** backfill v1.9.0 changelog entry ([#108](https://github.com/strausmann/mcp-dockhand/issues/108)) ([c4d49af](https://github.com/strausmann/mcp-dockhand/commit/c4d49afa53716ca1b2235e302211d3aef9131057))
+
+### CI/CD
+
+* **release:** restore @semantic-release/git and changelog plugins ([#107](https://github.com/strausmann/mcp-dockhand/issues/107)) ([e02ae91](https://github.com/strausmann/mcp-dockhand/commit/e02ae9171a5359997fd98812afe24e37c2a7836b))
+
 ## [1.9.0](https://github.com/strausmann/mcp-dockhand/compare/v1.8.3...v1.9.0) (2026-07-17)
 
 ### Features
