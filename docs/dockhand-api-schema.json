@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-07-12T06:00:31.777Z",
+  "generatedAt": "2026-07-25T07:11:25.751Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "c718ac9a84fd222a4ec0da625d305bad93827937",
-  "endpointCount": 208,
+  "sourceCommit": "123e04d17f5378a342d3bb6188ccfae2d6006145",
+  "endpointCount": 229,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -234,6 +234,207 @@
       ],
       "pathParams": [
         "containerName"
+      ]
+    },
+    {
+      "path": "/api/backup/configs",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "queryParams": [
+        "target",
+        "type"
+      ]
+    },
+    {
+      "path": "/api/backup/configs/{id}",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PUT"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
+      "path": "/api/backup/configs/{id}/run",
+      "methods": [
+        "POST"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
+      "path": "/api/backup/configs/{id}/stop",
+      "methods": [
+        "POST"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
+      "path": "/api/backup/destinations",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/backup/destinations/{id}",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PUT"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
+      "path": "/api/backup/destinations/{id}/init",
+      "methods": [
+        "POST"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
+      "path": "/api/backup/destinations/{id}/rotate-key",
+      "methods": [
+        "POST"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
+      "path": "/api/backup/destinations/{id}/task",
+      "methods": [
+        "POST"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
+      "path": "/api/backup/destinations/{id}/test",
+      "methods": [
+        "POST"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
+      "path": "/api/backup/destinations/{id}/verify",
+      "methods": [
+        "POST"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
+      "path": "/api/backup/destinations/test",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/backup/restore",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/backup/restore/preview",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/backup/restore/stop",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/backup/snapshots",
+      "methods": [
+        "GET"
+      ],
+      "queryParams": [
+        "allDestinations",
+        "configId",
+        "destinationId"
+      ]
+    },
+    {
+      "path": "/api/backup/snapshots/{id}",
+      "methods": [
+        "DELETE"
+      ],
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        "destinationId"
+      ]
+    },
+    {
+      "path": "/api/backup/snapshots/{id}/browse",
+      "methods": [
+        "GET"
+      ],
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        "destinationId",
+        "path"
+      ]
+    },
+    {
+      "path": "/api/backup/snapshots/{id}/dump",
+      "methods": [
+        "GET"
+      ],
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        "destinationId",
+        "download",
+        "path",
+        "type"
+      ]
+    },
+    {
+      "path": "/api/backup/snapshots/{id}/metadata",
+      "methods": [
+        "GET"
+      ],
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        "destinationId"
+      ]
+    },
+    {
+      "path": "/api/backup/snapshots/diff",
+      "methods": [
+        "GET"
+      ],
+      "queryParams": [
+        "destinationId",
+        "snapshotA",
+        "snapshotB"
       ]
     },
     {
