@@ -170,35 +170,45 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
 
   // --- UI Preferences ---
 
-  registerTool(server, 'get_favorites', 'Retrieve the UI favorite containers and stacks; use `set_favorites` to update the list.',
-    {},
-    async () => {
-      return jsonResponse(await client.get('/api/preferences/favorites'));
+  registerTool(server, 'get_favorites', 'Retrieve the UI favorite containers and stacks for an environment; use `set_favorites` to update the list.',
+    { environmentId: z.number().describe('Environment ID') },
+    async ({ environmentId }) => {
+      return jsonResponse(await client.get('/api/preferences/favorites', { env: environmentId }));
     }
   );
 
-  registerTool(server, 'set_favorites', 'Replace the UI favorites list with the provided containers/stacks; see `get_favorites` to read current entries before overwriting.',
+  registerTool(server, 'set_favorites', 'Replace the UI favorites list for an environment with the provided containers/stacks; see `get_favorites` to read current entries before overwriting.',
     {
+      environmentId: z.number().describe('Environment ID'),
       favorites: z.array(z.unknown()).describe('Favorites list'),
     },
-    async ({ favorites }) => {
-      return jsonResponse(await client.post('/api/preferences/favorites', favorites));
+    async ({ environmentId, favorites }) => {
+      return jsonResponse(await client.post('/api/preferences/favorites', {
+        environmentId,
+        action: 'reorder',
+        favorites,
+      }));
     }
   );
 
-  registerTool(server, 'get_favorite_groups', 'Retrieve the named groups used to organise UI favorites; use `set_favorite_groups` to save changes.',
-    {},
-    async () => {
-      return jsonResponse(await client.get('/api/preferences/favorite-groups'));
+  registerTool(server, 'get_favorite_groups', 'Retrieve the named groups used to organise UI favorites for an environment; use `set_favorite_groups` to save changes.',
+    { environmentId: z.number().describe('Environment ID') },
+    async ({ environmentId }) => {
+      return jsonResponse(await client.get('/api/preferences/favorite-groups', { env: environmentId }));
     }
   );
 
-  registerTool(server, 'set_favorite_groups', 'Replace the UI favorite groups definition; see `get_favorite_groups` to read the existing groups before overwriting.',
+  registerTool(server, 'set_favorite_groups', 'Replace the UI favorite groups definition for an environment; see `get_favorite_groups` to read the existing groups before overwriting.',
     {
+      environmentId: z.number().describe('Environment ID'),
       groups: z.array(z.unknown()).describe('Favorite groups'),
     },
-    async ({ groups }) => {
-      return jsonResponse(await client.post('/api/preferences/favorite-groups', groups));
+    async ({ environmentId, groups }) => {
+      return jsonResponse(await client.post('/api/preferences/favorite-groups', {
+        environmentId,
+        action: 'reorder',
+        groups,
+      }));
     }
   );
 
