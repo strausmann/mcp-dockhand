@@ -12,16 +12,28 @@
  * - ORPHANED_TOOL: MCP-Tool referenziert Endpunkt der nicht (mehr) existiert
  * - PARAM_MISMATCH: Path-Parameter stimmen nicht überein (Anzahl + Namens-Suffix)
  * - MISSING_ENCODE: Path-Parameter wird nicht mit encodePath() encoded
- * - QUERY_PARAM_MISSING: Endpunkt erwartet einen Query-Parameter, das Tool sendet ihn nicht
+ * - QUERY_PARAM_MISSING_REQUIRED: der Endpunkt 400ed ohne diesen Query-Parameter
+ *   (per-Methode required/optional aus dem Schema, siehe docs/dockhand-api-schema.json
+ *   `queryParamsByMethod`), das Tool sendet ihn nicht
  * - QUERY_PARAM_UNKNOWN: Tool sendet einen Query-Parameter, den der Endpunkt nicht kennt
  *
- * Exit-Code 1 bei Mismatches (ORPHANED_TOOL, PARAM_MISMATCH, MISSING_ENCODE oder QUERY_PARAM_UNKNOWN)
- * Exit-Code 0 wenn nur MISSING_TOOL oder QUERY_PARAM_MISSING (siehe Begründung unten)
+ * Required vs. optional kommt aus dem Schema (von extract-dockhand-api.mjs anhand des
+ * echten `if (!x) { ... status: 4xx ... }`-Guards im Handler klassifiziert) — es gibt
+ * KEINEN manuellen Re-Check mehr. Ein fehlender REQUIRED Query-Param ist ein harter
+ * Fehler (Exit 1); ein fehlender optionaler Query-Param wird gar nicht mehr gemeldet
+ * (der frühere "QUERY_PARAM_MISSING (informativ)"-Eimer, der jeden fehlenden Query-Param
+ * unabhängig von required/optional nur als Warnung auflistete, entfällt vollständig).
+ *
+ * Exit-Code 1 bei Mismatches (ORPHANED_TOOL, PARAM_MISMATCH, MISSING_ENCODE,
+ * QUERY_PARAM_UNKNOWN oder QUERY_PARAM_MISSING_REQUIRED)
+ * Exit-Code 0 wenn nur MISSING_TOOL (neue Endpunkte ohne Tool sind normal)
  */
 
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { findMatchingClose, splitTopLevel, extractObjectKey } from './lib/js-scan.mjs';
+import { resolveQueryParamKeys } from './lib/query-params.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -75,237 +87,16 @@ function loadSchema() {
   return JSON.parse(readFileSync(SCHEMA_FILE, 'utf8'));
 }
 
-// --- Balancierter Mini-Parser für Aufruf-Argumente & Objekt-Keys ---
+// --- Query-Param-Key-Extraktion für Aufruf-Argumente ---
 //
 // Die MCP-Tools rufen `client.<method>(path, body?, params?)` teils einzeilig, teils
-// über mehrere Zeilen auf (siehe z.B. containers.ts get_container_logs). Um die
-// tatsächlich gesendeten Query-Param-Keys zu extrahieren, muss der komplette
-// Argument-Ausdruck geparst werden — nicht nur die eine Zeile mit dem Funktionsnamen.
-// Die folgenden Helfer sind ein absichtlich einfacher, aber string/template/comment
-// bewusster Klammer-Scanner (kein vollständiger JS-Parser, reicht aber für die in
-// diesem Repo verwendeten einfachen Objekt-Literale).
-
-/**
- * Überspringt einen String-Literal-Body ab dem öffnenden Quote-Zeichen.
- * @param {string} text
- * @param {number} i Index des öffnenden Quote-Zeichens
- * @param {string} quote `'` oder `"`
- * @returns {number} Index direkt nach dem schließenden Quote
- */
-function skipString(text, i, quote) {
-  i++;
-  while (i < text.length) {
-    if (text[i] === '\\') {
-      i += 2;
-      continue;
-    }
-    if (text[i] === quote) {
-      return i + 1;
-    }
-    i++;
-  }
-  return i;
-}
-
-/**
- * Überspringt ein Template-Literal (Backtick-String) inkl. verschachtelter `${...}`
- * Ausdrücke ab dem öffnenden Backtick.
- * @param {string} text
- * @param {number} i Index des öffnenden Backtick
- * @returns {number} Index direkt nach dem schließenden Backtick
- */
-function skipTemplate(text, i) {
-  i++;
-  while (i < text.length) {
-    if (text[i] === '\\') {
-      i += 2;
-      continue;
-    }
-    if (text[i] === '`') {
-      return i + 1;
-    }
-    if (text[i] === '$' && text[i + 1] === '{') {
-      i += 2;
-      let depth = 1;
-      while (i < text.length && depth > 0) {
-        const c = text[i];
-        if (c === "'" || c === '"') {
-          i = skipString(text, i, c);
-          continue;
-        }
-        if (c === '`') {
-          i = skipTemplate(text, i);
-          continue;
-        }
-        if (c === '{') {
-          depth++;
-          i++;
-          continue;
-        }
-        if (c === '}') {
-          depth--;
-          i++;
-          continue;
-        }
-        i++;
-      }
-      continue;
-    }
-    i++;
-  }
-  return i;
-}
-
-/**
- * Findet den Index der zu `content[openIndex]` passenden schließenden Klammer
- * (respektiert Strings, Template-Literale und Kommentare).
- * @param {string} content
- * @param {number} openIndex Index von `(`, `{` oder `[`
- * @returns {number} Index der passenden schließenden Klammer, oder -1 bei unbalanciertem Input
- */
-function findMatchingClose(content, openIndex) {
-  const pairs = { '(': ')', '{': '}', '[': ']' };
-  const openChar = content[openIndex];
-  const closeChar = pairs[openChar];
-  if (!closeChar) return -1;
-
-  let depth = 1;
-  let i = openIndex + 1;
-  while (i < content.length) {
-    const ch = content[i];
-    if (ch === "'" || ch === '"') {
-      i = skipString(content, i, ch);
-      continue;
-    }
-    if (ch === '`') {
-      i = skipTemplate(content, i);
-      continue;
-    }
-    if (ch === '/' && content[i + 1] === '/') {
-      const nl = content.indexOf('\n', i);
-      i = nl === -1 ? content.length : nl;
-      continue;
-    }
-    if (ch === '/' && content[i + 1] === '*') {
-      const end = content.indexOf('*/', i);
-      i = end === -1 ? content.length : end + 2;
-      continue;
-    }
-    if (ch === openChar) {
-      depth++;
-      i++;
-      continue;
-    }
-    if (ch === closeChar) {
-      depth--;
-      if (depth === 0) return i;
-      i++;
-      continue;
-    }
-    i++;
-  }
-  return -1;
-}
-
-/**
- * Splittet einen Ausdruck an Top-Level-Kommas (Tiefe 0), respektiert dabei
- * verschachtelte Klammern/Objekte/Arrays, Strings, Template-Literale und Kommentare.
- * @param {string} text
- * @returns {string[]} getrimmte Teil-Ausdrücke
- */
-function splitTopLevel(text) {
-  const parts = [];
-  let depth = 0;
-  let start = 0;
-  let i = 0;
-  while (i < text.length) {
-    const ch = text[i];
-    if (ch === "'" || ch === '"') {
-      i = skipString(text, i, ch);
-      continue;
-    }
-    if (ch === '`') {
-      i = skipTemplate(text, i);
-      continue;
-    }
-    if (ch === '/' && text[i + 1] === '/') {
-      const nl = text.indexOf('\n', i);
-      i = nl === -1 ? text.length : nl;
-      continue;
-    }
-    if (ch === '/' && text[i + 1] === '*') {
-      const end = text.indexOf('*/', i);
-      i = end === -1 ? text.length : end + 2;
-      continue;
-    }
-    if ('([{'.includes(ch)) {
-      depth++;
-      i++;
-      continue;
-    }
-    if (')]}'.includes(ch)) {
-      depth--;
-      i++;
-      continue;
-    }
-    if (ch === ',' && depth === 0) {
-      parts.push(text.slice(start, i));
-      start = i + 1;
-      i++;
-      continue;
-    }
-    i++;
-  }
-  const last = text.slice(start);
-  if (last.trim().length > 0) parts.push(last);
-  return parts.map((p) => p.trim());
-}
-
-const IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
-
-/**
- * Ermittelt den Property-Key eines Objekt-Literal-Segments (`key: value` oder
- * Shorthand `key`). Gibt `null` zurück wenn kein statisch bestimmbarer Key vorliegt
- * (Spread `...x`, computed key `[expr]: ...`).
- * @param {string} segment Ein Top-Level-Segment aus splitTopLevel() über den Objekt-Inhalt
- * @returns {string|null}
- */
-function extractObjectKey(segment) {
-  const seg = segment.trim();
-  if (!seg || seg.startsWith('...')) return null;
-  if (seg.startsWith('[')) return null; // computed key, statisch nicht auflösbar
-
-  const quotedMatch = seg.match(/^(['"])((?:\\.|(?!\1).)*)\1\s*:/);
-  if (quotedMatch) return quotedMatch[2];
-
-  let depth = 0;
-  for (let i = 0; i < seg.length; i++) {
-    const ch = seg[i];
-    if (ch === "'" || ch === '"') {
-      i = skipString(seg, i, ch) - 1;
-      continue;
-    }
-    if (ch === '`') {
-      i = skipTemplate(seg, i) - 1;
-      continue;
-    }
-    if ('([{'.includes(ch)) {
-      depth++;
-      continue;
-    }
-    if (')]}'.includes(ch)) {
-      depth--;
-      continue;
-    }
-    if (ch === ':' && depth === 0) {
-      const key = seg.slice(0, i).trim();
-      return IDENTIFIER_RE.test(key) ? key : null;
-    }
-  }
-
-  // Kein Top-Level-Doppelpunkt → Shorthand-Property `{ foo }`
-  return IDENTIFIER_RE.test(seg) ? seg : null;
-}
+// über mehrere Zeilen auf (siehe z.B. containers.ts get_container_logs), und der
+// `params`-Ausdruck ist manchmal ein Objekt-Literal, manchmal ein Ternary
+// (`cond ? {...} : undefined`, siehe get_registry_catalog). Der komplette
+// Argument-Ausdruck muss deshalb geparst werden — nicht nur die eine Zeile mit dem
+// Funktionsnamen. `findMatchingClose`/`splitTopLevel`/`extractObjectKey` kommen aus
+// `lib/js-scan.mjs` (gemeinsam mit extract-dockhand-api.mjs genutzt), die eigentliche
+// Objekt-/Ternary-Auflösung aus `lib/query-params.mjs`.
 
 /**
  * Extrahiert die statisch bestimmbaren Query-Param-Keys eines `client.<method>(...)`
@@ -332,18 +123,15 @@ function extractCallQueryParamKeys(content, openParenIndex, clientMethod) {
   const argsText = content.slice(openParenIndex + 1, closeParenIndex);
   const args = splitTopLevel(argsText);
   const paramsArgText = args[paramsIdx];
-  if (!paramsArgText) return null;
 
-  const trimmed = paramsArgText.trim();
-  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null; // nicht statisch analysierbar
+  // Kein Params-Argument im Aufruf (z.B. `client.delete('/api/settings/scanner')`) heißt
+  // definitiv "sendet keine Query-Params" — kein Auflösungsproblem, sondern ein
+  // eindeutiger Fakt. Das MUSS geprüft werden, nicht übersprungen werden: genau dieses
+  // Muster ist real ein Bug (`reset_scanner_settings` ruft `client.delete(path)` ganz
+  // ohne Params auf, der Handler verlangt aber `removeImages=true` — 400 garantiert).
+  if (paramsArgText === undefined) return [];
 
-  const inner = trimmed.slice(1, -1);
-  const keys = [];
-  for (const segment of splitTopLevel(inner)) {
-    const key = extractObjectKey(segment);
-    if (key) keys.push(key);
-  }
-  return keys;
+  return resolveQueryParamKeys(paramsArgText);
 }
 
 /**
@@ -490,26 +278,33 @@ function pathParamsMatch(callParams, schemaParams) {
 
 /**
  * Diffed die von einem Tool-Aufruf gesendeten Query-Param-Keys gegen die vom Schema
- * für den Endpunkt bekannten Query-Params.
+ * für den Endpunkt PRO METHODE bekannten Query-Params (inkl. required/optional).
+ *
+ * Required-vs-optional ersetzt den früheren manuellen Re-Check vollständig: ein
+ * fehlender REQUIRED Param ist immer ein Bug (der Endpunkt 400ed nachweislich ohne ihn,
+ * siehe route-handlers.mjs), ein fehlender optionaler Param wird gar nicht mehr
+ * gemeldet — er war nie ein verlässliches Signal.
  * @param {string[]} sentKeys Roh extrahierte Keys (inkl. ggf. whitelisteter wie `env`)
- * @param {string[]|undefined} schemaQueryParams `ep.queryParams`
- * @param {{ checkMissing: boolean }} options `checkMissing` nur bei Endpunkten mit
- *   genau einer HTTP-Methode setzen (siehe Kommentar in validate())
- * @returns {{ missing: string[], unknown: string[] }}
+ * @param {Array<{name: string, required: boolean}>|undefined} schemaParams
+ *   `ep.queryParamsByMethod[method]`
+ * @param {{ checkMissing: boolean }} options `checkMissing` bewusst weiterhin ein Flag
+ *   (nicht fest `true`): Aufrufer, die den Endpunkt nicht method-genau auflösen können,
+ *   sollen den Missing-Check gezielt abschalten können, ohne unknown mit abzuschalten.
+ * @returns {{ missingRequired: string[], unknown: string[] }}
  */
-function diffQueryParams(sentKeys, schemaQueryParams, { checkMissing }) {
-  const known = new Set(schemaQueryParams ?? []);
+function diffQueryParams(sentKeys, schemaParams, { checkMissing }) {
+  const known = new Set((schemaParams ?? []).map((p) => p.name));
   const sent = sentKeys.filter((k) => !WHITELISTED_QUERY_PARAMS.has(k));
 
   const unknown = sent.filter((k) => !known.has(k));
 
-  let missing = [];
-  if (checkMissing && schemaQueryParams) {
+  let missingRequired = [];
+  if (checkMissing && schemaParams) {
     const sentSet = new Set(sent);
-    missing = schemaQueryParams.filter((p) => !sentSet.has(p));
+    missingRequired = schemaParams.filter((p) => p.required && !sentSet.has(p.name)).map((p) => p.name);
   }
 
-  return { missing, unknown };
+  return { missingRequired, unknown };
 }
 
 /**
@@ -546,7 +341,7 @@ function validate() {
   const orphanedTool = [];
   const paramMismatch = [];
   const missingEncode = [];
-  const queryParamMissing = [];
+  const queryParamMissingRequired = [];
   const queryParamUnknown = [];
 
   // Endpunkte die wir bewusst ignorieren (Streams, Callbacks, interne)
@@ -625,7 +420,8 @@ function validate() {
     }
   }
 
-  // 5. Prüfe Query-Parameter (fehlend / unbekannt) — Issue #95
+  // 5. Prüfe Query-Parameter (fehlend / unbekannt) — Issue #95, required-aware seit
+  // der queryParamsByMethod-Umstellung (kein manueller Re-Check mehr nötig).
   for (const call of toolCalls) {
     if (call.queryParamKeys === null) continue; // Params als Variable übergeben, nicht statisch analysierbar
     if (isIgnored(call.path)) continue;
@@ -634,17 +430,18 @@ function validate() {
     const schemaEp = schemaEndpoints.get(key);
     if (!schemaEp) continue; // ORPHANED_TOOL deckt das schon ab
 
-    // "Fehlend" nur bei Endpunkten mit GENAU EINER HTTP-Methode prüfen: das Schema
-    // fasst queryParams pro Route-DATEI zusammen (extract-dockhand-api.mjs liest jeden
-    // url.searchParams.get() im ganzen +server.ts), nicht pro Methode. Bei einer Datei
-    // mit z.B. GET+POST kann ein Param nur für die GET-Variante gelten — eine
-    // Fehlend-Prüfung würde dort legitime POST-Aufrufe fälschlich flaggen.
-    const { missing, unknown } = diffQueryParams(call.queryParamKeys, schemaEp.queryParams, {
-      checkMissing: schemaEp.methods.length === 1,
-    });
+    // Query-Params sind jetzt PRO METHODE im Schema (extract-dockhand-api.mjs scannt
+    // jeden Handler-Body einzeln, nicht mehr die ganze Datei) — der Missing-Check kann
+    // deshalb für JEDEN Endpunkt laufen, nicht mehr nur bei Dateien mit genau einer
+    // HTTP-Methode.
+    const { missingRequired, unknown } = diffQueryParams(
+      call.queryParamKeys,
+      schemaEp.queryParamsByMethod?.[call.httpMethod],
+      { checkMissing: true }
+    );
 
-    for (const p of missing) {
-      queryParamMissing.push({ ...call, queryParam: p });
+    for (const p of missingRequired) {
+      queryParamMissingRequired.push({ ...call, queryParam: p });
     }
     for (const p of unknown) {
       queryParamUnknown.push({ ...call, queryParam: p });
@@ -659,7 +456,7 @@ function validate() {
     orphanedTool,
     paramMismatch,
     missingEncode,
-    queryParamMissing,
+    queryParamMissingRequired,
     queryParamUnknown,
   });
 
@@ -673,16 +470,24 @@ function validate() {
   console.error(`  ORPHANED_TOOL:      ${orphanedTool.length} MCP-Tools referenzieren nicht-existente Endpunkte`);
   console.error(`  PARAM_MISMATCH:     ${paramMismatch.length} Path-Parameter-Inkonsistenzen`);
   console.error(`  MISSING_ENCODE:     ${missingEncode.length} fehlende encodePath()-Aufrufe`);
-  console.error(`  QUERY_PARAM_MISSING: ${queryParamMissing.length} vom Endpunkt erwartete, nicht gesendete Query-Params`);
+  console.error(`  QUERY_PARAM_MISSING_REQUIRED: ${queryParamMissingRequired.length} vom Endpunkt zwingend erwartete (400 ohne sie), nicht gesendete Query-Params`);
   console.error(`  QUERY_PARAM_UNKNOWN: ${queryParamUnknown.length} gesendete, dem Endpunkt unbekannte Query-Params`);
 
-  // Exit-Code: Fehler nur bei kritischen Problemen.
+  // Exit-Code: Fehler bei kritischen Problemen.
   // QUERY_PARAM_UNKNOWN ist wie ORPHANED_TOOL/PARAM_MISMATCH eindeutig ein Bug (das
   // Tool schickt einen Key, den die Route nachweislich nicht liest) — kritisch.
-  // QUERY_PARAM_MISSING ist wie MISSING_TOOL informativ: da praktisch alle Query-Params
-  // dieser API optionale Filter sind (url.searchParams.get() ohne Pflicht-Fallback),
-  // ist "dieser eine Aufruf nutzt einen optionalen Filter nicht" oft kein Bug.
-  const hasErrors = orphanedTool.length > 0 || paramMismatch.length > 0 || missingEncode.length > 0 || queryParamUnknown.length > 0;
+  // QUERY_PARAM_MISSING_REQUIRED ist jetzt GENAUSO kritisch: das Schema kennt required
+  // vs. optional pro Methode aus dem echten `if (!x) { ... status: 4xx ... }`-Guard im
+  // Handler (route-handlers.mjs) — ein fehlender required Param bedeutet, der Aufruf
+  // 400ed garantiert. Fehlende OPTIONALE Params werden gar nicht erst in diesen Bucket
+  // aufgenommen (diffQueryParams filtert per `p.required`), es gibt also keinen
+  // informativen Nebeneimer mehr, der manuell nachgeprüft werden müsste.
+  const hasErrors =
+    orphanedTool.length > 0 ||
+    paramMismatch.length > 0 ||
+    missingEncode.length > 0 ||
+    queryParamUnknown.length > 0 ||
+    queryParamMissingRequired.length > 0;
   if (hasErrors) {
     console.error('\n[validate] FEHLER: Kritische Mismatches gefunden!');
     process.exit(1);
@@ -693,18 +498,13 @@ function validate() {
     // Kein Fehler — neue Endpunkte sind normal
   }
 
-  if (queryParamMissing.length > 0) {
-    console.error('\n[validate] WARNUNG: Tools nutzen bekannte Query-Params des Endpunkts nicht');
-    // Kein Fehler — siehe Begründung oben (optionale Filter)
-  }
-
   console.error('\n[validate] OK');
 }
 
 /**
  * Generiert den Markdown-Report
  */
-function generateReport({ schema, covered, missingTool, orphanedTool, paramMismatch, missingEncode, queryParamMissing, queryParamUnknown }) {
+function generateReport({ schema, covered, missingTool, orphanedTool, paramMismatch, missingEncode, queryParamMissingRequired, queryParamUnknown }) {
   const lines = [];
   const now = new Date().toISOString();
 
@@ -725,7 +525,7 @@ function generateReport({ schema, covered, missingTool, orphanedTool, paramMisma
   lines.push(`| ORPHANED_TOOL | ${orphanedTool.length} |`);
   lines.push(`| PARAM_MISMATCH | ${paramMismatch.length} |`);
   lines.push(`| MISSING_ENCODE | ${missingEncode.length} |`);
-  lines.push(`| QUERY_PARAM_MISSING | ${queryParamMissing.length} |`);
+  lines.push(`| QUERY_PARAM_MISSING_REQUIRED | ${queryParamMissingRequired.length} |`);
   lines.push(`| QUERY_PARAM_UNKNOWN | ${queryParamUnknown.length} |`);
   lines.push('');
 
@@ -782,6 +582,21 @@ function generateReport({ schema, covered, missingTool, orphanedTool, paramMisma
     lines.push('');
   }
 
+  if (queryParamMissingRequired.length > 0) {
+    lines.push('## QUERY_PARAM_MISSING_REQUIRED (Kritisch)');
+    lines.push('');
+    lines.push('Der Endpunkt verlangt diesen Query-Parameter zwingend (der Handler 400ed ohne ihn —');
+    lines.push('siehe `queryParamsByMethod` im Schema), das Tool sendet ihn nicht. Der Aufruf schlägt');
+    lines.push('garantiert fehl:');
+    lines.push('');
+    lines.push('| Tool | HTTP | Pfad | Fehlender Pflicht-Parameter | Datei |');
+    lines.push('|------|------|------|------------------------------|-------|');
+    for (const t of queryParamMissingRequired) {
+      lines.push(`| \`${t.toolName}\` | ${t.httpMethod} | \`${t.path}\` | \`${t.queryParam}\` | ${t.file}:${t.line} |`);
+    }
+    lines.push('');
+  }
+
   // Fehlende Tools (informativ)
   if (missingTool.length > 0) {
     lines.push('## MISSING_TOOL (Informativ)');
@@ -792,20 +607,6 @@ function generateReport({ schema, covered, missingTool, orphanedTool, paramMisma
     lines.push('|------|------|----------------|');
     for (const t of missingTool) {
       lines.push(`| ${t.method} | \`${t.path}\` | ${t.pathParams?.join(', ') || '-'} |`);
-    }
-    lines.push('');
-  }
-
-  if (queryParamMissing.length > 0) {
-    lines.push('## QUERY_PARAM_MISSING (Informativ)');
-    lines.push('');
-    lines.push('Der Endpunkt kennt diesen Query-Parameter, das Tool sendet ihn nicht — bei den meisten');
-    lines.push('Query-Params dieser API ist das ein optionaler Filter und kein Bug; im Einzelfall prüfen:');
-    lines.push('');
-    lines.push('| Tool | HTTP | Pfad | Fehlender Parameter | Datei |');
-    lines.push('|------|------|------|----------------------|-------|');
-    for (const t of queryParamMissing) {
-      lines.push(`| \`${t.toolName}\` | ${t.httpMethod} | \`${t.path}\` | \`${t.queryParam}\` | ${t.file}:${t.line} |`);
     }
     lines.push('');
   }

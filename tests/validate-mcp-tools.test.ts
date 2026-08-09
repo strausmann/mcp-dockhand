@@ -105,12 +105,20 @@ describe('pathParamsMatch', () => {
 });
 
 describe('diffQueryParams', () => {
+  // Schema-Query-Params sind seit der queryParamsByMethod-Umstellung required-aware:
+  // `{ name, required }` statt eines nackten `string[]`. `req`/`opt` sind Kurzformen für
+  // lesbarere Test-Fixtures.
+  const req = (name) => ({ name, required: true });
+  const opt = (name) => ({ name, required: false });
+
   it('flags a sent key the schema does not know as unknown', () => {
-    const { unknown, missing } = diffQueryParams(['q', 'env'], ['term', 'limit', 'registry'], {
-      checkMissing: true,
-    });
+    const { unknown, missingRequired } = diffQueryParams(
+      ['q', 'env'],
+      [req('term'), opt('limit'), opt('registry')],
+      { checkMissing: true }
+    );
     expect(unknown).toEqual(['q']);
-    expect(missing).toEqual(['term', 'limit', 'registry']);
+    expect(missingRequired).toEqual(['term']);
   });
 
   it('never flags the whitelisted env scoping param as unknown', () => {
@@ -120,31 +128,43 @@ describe('diffQueryParams', () => {
   });
 
   it('flags envId normally (not whitelisted) when the schema does not expect it', () => {
-    const { unknown } = diffQueryParams(['envId'], ['other'], { checkMissing: true });
+    const { unknown } = diffQueryParams(['envId'], [opt('other')], { checkMissing: true });
     expect(unknown).toEqual(['envId']);
   });
 
   it('does not flag envId when the schema explicitly expects it (e.g. /api/containers/{id}/exec)', () => {
-    const { unknown, missing } = diffQueryParams(['envId'], ['envId'], { checkMissing: true });
+    const { unknown, missingRequired } = diffQueryParams(['envId'], [req('envId')], { checkMissing: true });
     expect(unknown).toEqual([]);
-    expect(missing).toEqual([]);
+    expect(missingRequired).toEqual([]);
   });
 
-  it('reports no missing params when checkMissing is false, even if the schema lists some', () => {
-    const { missing } = diffQueryParams(['env'], ['tail', 'since'], { checkMissing: false });
-    expect(missing).toEqual([]);
+  it('does NOT flag a missing OPTIONAL param — only required params are checked', () => {
+    const { missingRequired } = diffQueryParams(['env'], [opt('tail'), opt('since')], { checkMissing: true });
+    expect(missingRequired).toEqual([]);
+  });
+
+  it('flags a missing REQUIRED param even when other optional params are also unsent', () => {
+    const { missingRequired } = diffQueryParams(['env'], [req('registry'), opt('last')], { checkMissing: true });
+    expect(missingRequired).toEqual(['registry']);
+  });
+
+  it('reports no missing params when checkMissing is false, even if the schema lists required ones', () => {
+    const { missingRequired } = diffQueryParams(['env'], [req('tail'), req('since')], { checkMissing: false });
+    expect(missingRequired).toEqual([]);
   });
 
   it('reports no missing params when the schema has none', () => {
-    const { missing } = diffQueryParams(['env'], undefined, { checkMissing: true });
-    expect(missing).toEqual([]);
+    const { missingRequired } = diffQueryParams(['env'], undefined, { checkMissing: true });
+    expect(missingRequired).toEqual([]);
   });
 
-  it('is a clean diff when everything sent is known and everything known is sent', () => {
-    const { missing, unknown } = diffQueryParams(['env', 'term', 'limit', 'registry'], ['term', 'limit', 'registry'], {
-      checkMissing: true,
-    });
-    expect(missing).toEqual([]);
+  it('is a clean diff when everything required is sent and everything sent is known', () => {
+    const { missingRequired, unknown } = diffQueryParams(
+      ['env', 'term', 'limit', 'registry'],
+      [req('term'), opt('limit'), opt('registry')],
+      { checkMissing: true }
+    );
+    expect(missingRequired).toEqual([]);
     expect(unknown).toEqual([]);
   });
 });
@@ -226,12 +246,22 @@ registerTool(server, 'search_registry', 'desc',
   }
 );
 `;
+    // Real /api/registry/search shape: `term` is REQUIRED (handler 400s without it),
+    // `limit`/`registry` are optional.
+    const searchSchemaParams = [
+      { name: 'term', required: true },
+      { name: 'limit', required: false },
+      { name: 'registry', required: false },
+    ];
+
     const buggyCall = extractToolCallsFromSource('registries.ts', buggySource)[0];
-    const buggyDiff = diffQueryParams(buggyCall.queryParamKeys, ['limit', 'registry', 'term'], {
+    const buggyDiff = diffQueryParams(buggyCall.queryParamKeys, searchSchemaParams, {
       checkMissing: true,
     });
     expect(buggyDiff.unknown).toEqual(['q']);
-    expect(buggyDiff.missing.sort()).toEqual(['limit', 'registry', 'term']);
+    // `term` is required and never sent (the tool sent `q` instead) → hard failure.
+    // `limit`/`registry` are optional and legitimately unsent — NOT flagged.
+    expect(buggyDiff.missingRequired).toEqual(['term']);
 
     // GREEN: sending the real key names produces a clean diff.
     const fixedSource = `
@@ -243,13 +273,11 @@ registerTool(server, 'search_registry', 'desc',
 );
 `;
     const fixedCall = extractToolCallsFromSource('registries.ts', fixedSource)[0];
-    const fixedDiff = diffQueryParams(fixedCall.queryParamKeys, ['limit', 'registry', 'term'], {
+    const fixedDiff = diffQueryParams(fixedCall.queryParamKeys, searchSchemaParams, {
       checkMissing: true,
     });
     expect(fixedDiff.unknown).toEqual([]);
-    // `limit`/`registry` are legitimately optional here and not part of this red/green
-    // scenario — only `term` (the actual bug) is asserted as no longer missing.
-    expect(fixedDiff.missing).not.toContain('term');
+    expect(fixedDiff.missingRequired).toEqual([]);
   });
 
   it('does not confuse a tool-level query param diff with sibling tools in the same file', () => {
@@ -266,5 +294,59 @@ registerTool(server, 'tool_b', 'desc', {}, async () => {
     expect(calls).toHaveLength(2);
     expect(calls.find((c) => c.toolName === 'tool_a')?.queryParamKeys).toEqual(['env', 'foo']);
     expect(calls.find((c) => c.toolName === 'tool_b')?.queryParamKeys).toEqual(['env']);
+  });
+
+  it('RED → GREEN: get_registry_catalog bug class — a ternary params argument no longer hides a missing required param', () => {
+    // RED: this is the exact real shape from src/tools/registries.ts get_registry_catalog
+    // before the fix — `environmentId ? { env: environmentId } : undefined` sends `env`
+    // (whitelisted) but NEVER the actual `registry` query-param the real
+    // /api/registry/catalog handler requires (400s without it). Before the ternary fix,
+    // extractCallQueryParamKeys() returned `null` for this call (only handled a bare
+    // `{...}` argument) — the query-param check silently skipped the whole call.
+    const source = `
+registerTool(server, 'get_registry_catalog', 'desc',
+  { environmentId: z.number().optional() },
+  async ({ environmentId }) => {
+    return jsonResponse(await client.get('/api/registry/catalog', environmentId ? { env: environmentId } : undefined));
+  }
+);
+`;
+    const call = extractToolCallsFromSource('registries.ts', source)[0];
+    // The ternary is now statically resolvable: `env` from the true-branch, nothing
+    // (extra) from the false-branch (`undefined`).
+    expect(call.queryParamKeys).toEqual(['env']);
+
+    const diff = diffQueryParams(
+      call.queryParamKeys,
+      [
+        { name: 'registry', required: true },
+        { name: 'last', required: false },
+      ],
+      { checkMissing: true }
+    );
+    expect(diff.missingRequired).toEqual(['registry']);
+    expect(diff.unknown).toEqual([]);
+  });
+
+  it('RED → GREEN: reset_scanner_settings bug class — a call with NO params argument at all is checked, not skipped', () => {
+    // RED: real shape from src/tools/system.ts reset_scanner_settings — the tool takes
+    // no MCP-level arguments and calls `client.delete('/api/settings/scanner')` with no
+    // second argument whatsoever. The real DELETE /api/settings/scanner handler 400s
+    // without `removeImages=true`. Before this fix, a missing params argument returned
+    // `null` (treated the same as "not statically analyzable") — indistinguishable from
+    // a genuinely unresolvable call, so this always-broken tool call was never checked.
+    const source = `
+registerTool(server, 'reset_scanner_settings', 'desc', {}, async () => {
+  return jsonResponse(await client.delete('/api/settings/scanner'));
+});
+`;
+    const call = extractToolCallsFromSource('system.ts', source)[0];
+    // No params argument at all is a definite fact: sends nothing — not "unknown".
+    expect(call.queryParamKeys).toEqual([]);
+
+    const diff = diffQueryParams(call.queryParamKeys, [{ name: 'removeImages', required: true }], {
+      checkMissing: true,
+    });
+    expect(diff.missingRequired).toEqual(['removeImages']);
   });
 });
