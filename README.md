@@ -65,6 +65,9 @@ DOCKHAND_URL=https://your-server.com DOCKHAND_USERNAME=admin DOCKHAND_PASSWORD=s
 | `DOCKHAND_USERNAME` | Yes | - | Dockhand username |
 | `DOCKHAND_PASSWORD` | Yes | - | Dockhand password |
 | `MCP_PORT` | No | `8080` | Port for the MCP server |
+| `MCP_SESSION_TTL_SECONDS` | No | `1800` | Inactivity timeout before a retained MCP session is expired |
+| `MCP_SESSION_CLEANUP_INTERVAL_SECONDS` | No | `300` | Interval for removing expired sessions (clamped to the session TTL) |
+| `MCP_MAX_SESSIONS` | No | `0` | Maximum retained sessions; `0` keeps the existing unlimited behavior |
 | `LOG_LEVEL` | No | `info` | Log level |
 
 ## MCP Client Configuration
