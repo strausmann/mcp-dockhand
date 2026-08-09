@@ -135,4 +135,23 @@ describe('Dockhand API contract alignment', () => {
     expect(block).not.toMatch(/\bq:\s*query\b/);
     expect(block).not.toMatch(/\benv:\s*environmentId\b/);
   });
+
+  it('get_registry_catalog matches the real /api/registry/catalog contract: registry (required), last (optional), no env', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/registry/catalog/+server.ts, commit
+    // 905c4a0): `export const GET: RequestHandler = async ({ url }) => { const registryId =
+    // url.searchParams.get('registry'); const lastParam = url.searchParams.get('last'); //
+    // For pagination if (!registryId) { return json({ error: 'Registry ID is required' },
+    // { status: 400 }); } ... }`. The handler never reads `env`/`environmentId` at all —
+    // registries are global, not per-environment. The old tool sent
+    // `environmentId ? { env: environmentId } : undefined`, which the real handler ignores
+    // entirely AND never sent `registry` — every call 400ed with "Registry ID is required".
+    // (Found via the required/optional-aware query-param check, mcp-dockhand#148.)
+    const block = extractToolBlock(registriesSource, 'get_registry_catalog');
+
+    expect(block).toMatch(/registry:\s*z\.number\(\)/);
+    expect(block).toMatch(/last:\s*z\.string\(\)\.optional\(\)/);
+    expect(block).toMatch(/client\.get\('\/api\/registry\/catalog'/);
+    expect(block).not.toMatch(/environmentId/);
+    expect(block).not.toMatch(/\benv:\s*environmentId\b/);
+  });
 });

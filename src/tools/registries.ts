@@ -70,12 +70,15 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'get_registry_catalog', 'Retrieve the full image catalog of the configured Docker registry; use `search_registry` for filtered results or `get_registry_tags` for image tags.',
+  registerTool(server, 'get_registry_catalog', 'Retrieve the full image catalog of a configured Docker registry (registries are global, not scoped to an environment); use `search_registry` for filtered results or `get_registry_tags` for image tags.',
     {
-      environmentId: z.number().optional().describe('Environment ID'),
+      registry: z.number().describe('Registry ID (use list_registries to discover)'),
+      last: z.string().optional().describe('Pagination cursor from a previous response (opaque, returned as pagination.nextLast)'),
     },
-    async ({ environmentId }) => {
-      return jsonResponse(await client.get('/api/registry/catalog', environmentId ? { env: environmentId } : undefined));
+    async ({ registry, last }) => {
+      const query: Record<string, string | number> = { registry };
+      if (last !== undefined) query.last = last;
+      return jsonResponse(await client.get('/api/registry/catalog', query));
     }
   );
 
