@@ -107,6 +107,7 @@ Add to your MCP settings:
 | `update_container` | Update container settings |
 | `create_container` | Create a new container |
 | `get_container_shells` | List available shells |
+| `exec_container` | Create a terminal exec session (execId + WS connectionInfo); does NOT run a one-shot command or return output — no such endpoint exists in the Dockhand API |
 | `list_container_files` | Browse files inside container |
 | `get_container_file_content` | Read file from container |
 | `create_container_file` | Create file in container |

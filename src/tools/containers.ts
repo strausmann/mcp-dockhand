@@ -356,20 +356,17 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
     }
   );
 
-  registerTool(server, 'exec_container', 'Execute a one-shot command inside a running container and return its output (similar to `docker exec`); pair with `get_container_shells` to discover available shells, or `get_container_logs` if you only need to inspect already-emitted output rather than run something new.',
+  registerTool(server, 'exec_container', 'Create a Docker exec instance for terminal attachment inside a running container (like opening a `docker exec -it` session) and return an execId plus WebSocket connectionInfo for a terminal client to attach to. This does NOT run a one-shot command and does NOT return output — the Dockhand REST API has no endpoint for arbitrary command execution with captured output; only the `shell` to attach and the `user` to run as are honored. Use `get_container_shells` to discover available shells first, or `get_container_logs`/`get_container_top` if you need output or process info without an interactive session.',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
-      command: z.array(z.string()).describe('Command as argv array (e.g. ["sh", "-c", "ls /app"])'),
-      workingDir: z.string().optional().describe('Working directory inside the container'),
+      shell: z.string().optional().describe('Shell executable to exec into (default: /bin/sh); see `get_container_shells` for what is available'),
       user: z.string().optional().describe('User to exec as (e.g. "root" or "1000:1000")'),
-      tty: z.boolean().optional().describe('Allocate a TTY'),
     },
-    async ({ environmentId, containerId, command, workingDir, user, tty }) => {
-      const body: Record<string, unknown> = { command };
-      if (workingDir) body.workingDir = workingDir;
+    async ({ environmentId, containerId, shell, user }) => {
+      const body: Record<string, unknown> = {};
+      if (shell) body.shell = shell;
       if (user) body.user = user;
-      if (tty !== undefined) body.tty = tty;
       return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/exec`, body, { envId: environmentId }));
     }
   );

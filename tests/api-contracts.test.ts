@@ -7,6 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const stacksSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'stacks.ts'), 'utf-8');
 const systemSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'system.ts'), 'utf-8');
 const usersSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'users.ts'), 'utf-8');
+const containersSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'containers.ts'), 'utf-8');
 
 function extractToolBlock(source: string, toolName: string): string {
   const startPattern = new RegExp(
@@ -85,5 +86,34 @@ describe('Dockhand API contract alignment', () => {
     }
     expect(setFavorites).toMatch(/environmentId,\s*\n\s*action:\s*'reorder',\s*\n\s*favorites/);
     expect(setGroups).toMatch(/environmentId,\s*\n\s*action:\s*'reorder',\s*\n\s*groups/);
+  });
+
+  it('exec_container matches the real /api/containers/{id}/exec contract: envId query param, shell+user body only', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/containers/[id]/exec/+server.ts, unchanged
+    // since the route's initial commit through v1.0.41): the handler reads `envId` from the
+    // query string (not `env`, unlike every sibling containers endpoint), and only reads
+    // `body.shell` (default '/bin/sh') and `body.user` (default 'root') — it creates a Docker
+    // exec instance for WebSocket terminal attachment and returns { execId, connectionInfo }.
+    // It never reads body.command/workingDir/tty and never executes or captures output for an
+    // arbitrary command — there is no REST endpoint upstream that does that (see issue #81).
+    const block = extractToolBlock(containersSource, 'exec_container');
+
+    // Query param must be envId, not env (the one endpoint in the cluster that differs).
+    expect(block).toMatch(/\{\s*envId:\s*environmentId\s*\}/);
+    expect(block).not.toMatch(/\{\s*env:\s*environmentId\s*\}/);
+
+    // Only fields the real handler reads may be sent.
+    expect(block).toMatch(/shell:\s*z\.string\(\)\.optional\(\)/);
+    expect(block).toMatch(/user:\s*z\.string\(\)\.optional\(\)/);
+    expect(block).not.toMatch(/command:\s*z\.array/);
+    expect(block).not.toMatch(/workingDir:\s*z\.string/);
+    expect(block).not.toMatch(/tty:\s*z\.boolean/);
+    expect(block).not.toMatch(/body\.command/);
+    expect(block).not.toMatch(/body\.workingDir/);
+    expect(block).not.toMatch(/body\.tty/);
+
+    // Description must not promise one-shot command execution/output the API cannot deliver.
+    expect(block).not.toMatch(/Execute a one-shot command/i);
+    expect(block).toMatch(/does not run|cannot run|no.*output|terminal attach/i);
   });
 });
