@@ -13,7 +13,13 @@ import express from 'express';
 import type { Request, Response } from 'express';
 import { DockhandClient } from './client/dockhand-client.js';
 import { registerAllTools } from './tools/index.js';
-import { getSessionLifecycleConfig, selectOldestIdleSession } from './session-lifecycle.js';
+import {
+  beginFoundingSession,
+  completeFoundingSession,
+  getSessionLifecycleConfig,
+  removeSessionEntry,
+  selectOldestIdleSession,
+} from './session-lifecycle.js';
 import type { DockhandConfig } from './types/dockhand.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
@@ -68,19 +74,7 @@ export async function createServer(config: ServerConfig): Promise<void> {
   async function removeSession(sessionId: string, reason: string): Promise<void> {
     const entry = sessions.get(sessionId);
     if (!entry) return;
-
-    sessions.delete(sessionId);
-    try {
-      await entry.server.close();
-    } catch (error) {
-      console.error(`[session] Error closing server for ${sessionId}:`, error);
-      try {
-        await entry.transport.close?.();
-      } catch {
-        // Best-effort fallback only.
-      }
-    }
-    console.error(`[session] Removed session ${sessionId} (${reason}; ${sessions.size} active)`);
+    await removeSessionEntry(sessions, sessionId, entry, reason);
   }
 
   async function handleExistingSession(
@@ -172,12 +166,12 @@ export async function createServer(config: ServerConfig): Promise<void> {
           sessionIdGenerator: () => crypto.randomUUID(),
           onsessioninitialized: (id) => {
             initializedSessionId = id;
-            sessions.set(id, {
-              server: server!,
-              transport: transport!,
-              lastActivity: Date.now(),
-              activeRequests: 0,
-            });
+            // Mark the session busy (activeRequests: 1) immediately: the
+            // founding transport.handleRequest(...) call below is still in
+            // flight for this very session, and until it resolves the
+            // session must not be a candidate for capacity eviction (see
+            // selectOldestIdleSession / reserveSessionSlot).
+            beginFoundingSession(sessions, id, { server: server!, transport: transport! });
             console.error(`[session] New session ${id} (${sessions.size} active)`);
           },
         });
@@ -193,6 +187,13 @@ export async function createServer(config: ServerConfig): Promise<void> {
         server = createMcpServer(client);
         await server.connect(transport);
         await transport.handleRequest(req, res, req.body);
+
+        // The founding request has now been fully served; release the busy
+        // marker so normal idle-eviction/inactivity-timeout accounting takes
+        // back over for this session.
+        if (initializedSessionId) {
+          completeFoundingSession(sessions, initializedSessionId);
+        }
       } catch (error) {
         if (initializedSessionId) {
           await removeSession(initializedSessionId, 'initialization failure');
@@ -242,7 +243,13 @@ export async function createServer(config: ServerConfig): Promise<void> {
     }
 
     await handleExistingSession(entry, req, res);
-    await removeSession(sessionId, 'client delete');
+    // Use the entry captured above rather than removeSession(sessionId, ...)
+    // (which would re-look-up via sessions.get(sessionId)): the SDK's own
+    // DELETE handling inside handleExistingSession() calls
+    // transport.close() internally, firing transport.onclose, which already
+    // deletes the map entry before we get here. A lookup-based removal would
+    // then silently no-op and skip server.close() + the removal log.
+    await removeSessionEntry(sessions, sessionId, entry, 'client delete');
   });
 
   const host = config.host || '0.0.0.0';
