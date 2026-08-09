@@ -5,6 +5,20 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0](https://github.com/strausmann/mcp-dockhand/compare/v1.9.1...v1.10.0) (2026-08-09)
+
+### Features
+
+* **server:** bound Streamable HTTP session lifecycle ([4166a6d](https://github.com/strausmann/mcp-dockhand/commit/4166a6d9d7b7508ac989726666ce10d32c501302))
+
+### Bug Fixes
+
+* **release:** migrate presetConfig.types hidden-Feld zu effect (ccc@10) ([40f0719](https://github.com/strausmann/mcp-dockhand/commit/40f071957ae3f9711d881de5d034cd9c0a58c862))
+* **release:** render changelog on ccc@10 via conventional-changelog-writer@9 override ([6a49c1b](https://github.com/strausmann/mcp-dockhand/commit/6a49c1b387cc4d974c365e80416d85c9d0d47911)), references [#113](https://github.com/strausmann/mcp-dockhand/issues/113) [semantic-release/release-notes-generator#1021](https://github.com/semantic-release/release-notes-generator/issues/1021)
+* **server:** protect founding session from eviction; run DELETE cleanup ([85b3f29](https://github.com/strausmann/mcp-dockhand/commit/85b3f29b134d213767d2a9502ac0eda12b747ef1)), references [#133](https://github.com/strausmann/mcp-dockhand/issues/133)
+* **tools:** align stack, system and favorites API contracts ([#131](https://github.com/strausmann/mcp-dockhand/issues/131)) ([1dc0b31](https://github.com/strausmann/mcp-dockhand/commit/1dc0b3183c1ead878f3261698a0de50bf35e0a8c))
+* **tools:** send pull/build/forceRecreate body from deploy_stack ([#117](https://github.com/strausmann/mcp-dockhand/issues/117)) ([99e42a9](https://github.com/strausmann/mcp-dockhand/commit/99e42a92dd1fae68a7b461a3a0b636271d70cf23))
+
 ## [1.9.1](https://github.com/strausmann/mcp-dockhand/compare/v1.9.0...v1.9.1) (2026-07-19)
 
 ### Bug Fixes
