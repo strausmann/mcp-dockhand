@@ -8,6 +8,7 @@ const stacksSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'stacks.
 const systemSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'system.ts'), 'utf-8');
 const usersSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'users.ts'), 'utf-8');
 const containersSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'containers.ts'), 'utf-8');
+const registriesSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'registries.ts'), 'utf-8');
 
 function extractToolBlock(source: string, toolName: string): string {
   const startPattern = new RegExp(
@@ -115,5 +116,23 @@ describe('Dockhand API contract alignment', () => {
     // Description must not promise one-shot command execution/output the API cannot deliver.
     expect(block).not.toMatch(/Execute a one-shot command/i);
     expect(block).toMatch(/does not run|cannot run|no.*output|terminal attach/i);
+  });
+
+  it('search_registry matches the real /api/registry/search contract: term (required), limit + registry (optional), no env', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/registry/search/+server.ts, v1.0.40):
+    // `export const GET: RequestHandler = async ({ url }) => { const term = url.searchParams.get('term');
+    // const limit = parseInt(url.searchParams.get('limit') || '25', 10); const registryId =
+    // url.searchParams.get('registry'); if (!term) return json({ error: 'Search term is required' }, { status: 400 }); }`
+    // The handler never reads `q` or `env` at all — this endpoint has no environment concept
+    // (it searches a registry, not a Docker host). The old tool sent { q: query, env: environmentId },
+    // which the real handler ignores entirely, so `!term` always fired the 400 in production.
+    const block = extractToolBlock(registriesSource, 'search_registry');
+
+    expect(block).toMatch(/term:\s*z\.string\(\)/);
+    expect(block).toMatch(/limit:\s*z\.number\(\)\.optional\(\)/);
+    expect(block).toMatch(/registry:\s*z\.number\(\)\.optional\(\)/);
+    expect(block).toMatch(/client\.get\('\/api\/registry\/search'/);
+    expect(block).not.toMatch(/\bq:\s*query\b/);
+    expect(block).not.toMatch(/\benv:\s*environmentId\b/);
   });
 });
