@@ -541,13 +541,30 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'deploy_stack', 'Explicit deploy operation for an existing stack (pulls latest images and recreates services from the current compose file); use `start_stack` if you just want to start without re-pulling, or `update_stack_compose` to change the compose file before deploying.',
+  registerTool(server, 'deploy_stack', 'Explicit deploy operation for an existing stack: pulls newer images (unless pull:false) and recreates services whose configuration changed, from the current compose file. Set forceRecreate to also recreate containers whose config is unchanged. Use `start_stack` if you just want to start without re-pulling, or `update_stack_compose` to change the compose file before deploying.',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
+      pull: z.boolean().optional().describe('Pull newer images before recreating (default: true)'),
+      build: z.boolean().optional().describe('Build services that declare a `build:` section (default: false)'),
+      forceRecreate: z.boolean().optional().describe('Recreate containers even when their resolved configuration is unchanged (default: false)'),
     },
-    async ({ environmentId, name }) => {
-      return jsonResponse(await client.postSSE(`/api/stacks/${encodePath(name)}/deploy`, undefined, { env: environmentId }));
+    async ({ environmentId, name, pull, build, forceRecreate }) => {
+      // Dockhand's /deploy handler reads pull/build/forceRecreate out of the
+      // request body. Sending no body is not equivalent to sending defaults:
+      // before Dockhand 1.0.38 the handler called request.json() unguarded, so
+      // an empty body threw before the SSE stream opened and the endpoint
+      // answered with an HTML 500 while deploying nothing; and from 1.0.38 on
+      // (request.json().catch(() => ({}))) an absent body silently means
+      // pull:undefined, i.e. a deploy that never pulls — contradicting what
+      // this tool advertises. So always send all three, defaulting to the
+      // values the web UI's Deploy popover uses.
+      const body = {
+        pull: pull ?? true,
+        build: build ?? false,
+        forceRecreate: forceRecreate ?? false,
+      };
+      return jsonResponse(await client.postSSE(`/api/stacks/${encodePath(name)}/deploy`, body, { env: environmentId }));
     }
   );
 }
