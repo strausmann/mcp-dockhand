@@ -41,10 +41,10 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'get_system_disk', 'Retrieve disk usage statistics for the Dockhand server host; use `get_host_info` for OS-level details or `get_general_settings` to read application-level configuration.',
-    {},
-    async () => {
-      return jsonResponse(await client.get('/api/system/disk'));
+  registerTool(server, 'get_system_disk', 'Retrieve disk usage statistics for a Dockhand environment; use `get_host_info` for OS-level details or `get_general_settings` to read application-level configuration.',
+    { environmentId: z.number().describe('Environment ID') },
+    async ({ environmentId }) => {
+      return jsonResponse(await client.get('/api/system/disk', { env: environmentId }));
     }
   );
 

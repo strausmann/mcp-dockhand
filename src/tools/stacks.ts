@@ -25,6 +25,8 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
       compose: z.string().describe('Docker Compose file content as string'),
+      composePath: z.string().optional().describe('Explicit path for the compose file'),
+      envPath: z.string().optional().describe('Explicit path for the .env file'),
       start: z.boolean().optional().describe('Start/deploy the stack immediately (default: true)'),
       envVars: z.array(z.object({
         key: z.string(),
@@ -33,8 +35,10 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       })).optional().describe('Environment variables'),
       rawEnvContent: z.string().optional().describe('Raw .env file content'),
     },
-    async ({ environmentId, name, compose, start, envVars, rawEnvContent }) => {
+    async ({ environmentId, name, compose, composePath, envPath, start, envVars, rawEnvContent }) => {
       const body: Record<string, unknown> = { name, compose };
+      if (composePath !== undefined) body.composePath = composePath;
+      if (envPath !== undefined) body.envPath = envPath;
       if (start !== undefined) body.start = start;
       if (envVars) body.envVars = envVars;
       if (rawEnvContent) body.rawEnvContent = rawEnvContent;
@@ -450,12 +454,18 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name to adopt'),
-      path: z.string().optional().describe('Path to the stack on the filesystem'),
+      composePath: z.string().describe('Full path to the stack compose file'),
+      envPath: z.string().optional().describe('Optional full path to the stack .env file'),
+      sourceDir: z.string().optional().describe('Optional source directory for the stack'),
     },
-    async ({ environmentId, name, path }) => {
-      const body: Record<string, unknown> = { name };
-      if (path) body.path = path;
-      return jsonResponse(await client.post('/api/stacks/adopt', body, { env: environmentId }));
+    async ({ environmentId, name, composePath, envPath, sourceDir }) => {
+      const stack: Record<string, unknown> = { name, composePath };
+      if (envPath !== undefined) stack.envPath = envPath;
+      if (sourceDir !== undefined) stack.sourceDir = sourceDir;
+      return jsonResponse(await client.post('/api/stacks/adopt', {
+        environmentId,
+        stacks: [stack],
+      }));
     }
   );
 
@@ -463,10 +473,14 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
-      newPath: z.string().describe('New filesystem path'),
+      oldDir: z.string().describe('Current stack directory'),
+      newComposePath: z.string().describe('New full path to the compose file'),
+      newEnvPath: z.string().optional().describe('Optional new full path to the .env file'),
     },
-    async ({ environmentId, name, newPath }) => {
-      return jsonResponse(await client.post(`/api/stacks/${encodePath(name)}/relocate`, { path: newPath }, { env: environmentId }));
+    async ({ environmentId, name, oldDir, newComposePath, newEnvPath }) => {
+      const body: Record<string, unknown> = { oldDir, newComposePath };
+      if (newEnvPath !== undefined) body.newEnvPath = newEnvPath;
+      return jsonResponse(await client.post(`/api/stacks/${encodePath(name)}/relocate`, body, { env: environmentId }));
     }
   );
 
@@ -484,10 +498,13 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'get_stack_path_hints', 'Retrieve a list of suggested filesystem paths for placing a new stack; complements `get_stack_default_path` (single default) and `get_stack_base_path` (root base dir).',
-    { environmentId: z.number().describe('Environment ID') },
-    async ({ environmentId }) => {
-      return jsonResponse(await client.get('/api/stacks/path-hints', { env: environmentId }));
+  registerTool(server, 'get_stack_path_hints', 'Retrieve a list of suggested filesystem paths for placing a stack; complements `get_stack_default_path` (single default) and `get_stack_base_path` (root base dir).',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      name: z.string().describe('Stack name'),
+    },
+    async ({ environmentId, name }) => {
+      return jsonResponse(await client.get('/api/stacks/path-hints', { env: environmentId, name }));
     }
   );
 
@@ -503,21 +520,24 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
 
   // --- Missing endpoints ---
 
-  registerTool(server, 'get_stack_default_path', 'Retrieve the default suggested path for a new stack on this environment; use `get_stack_path_hints` for multiple alternatives, or `validate_stack_path` to confirm a chosen path.',
-    { environmentId: z.number().describe('Environment ID') },
-    async ({ environmentId }) => {
-      return jsonResponse(await client.get('/api/stacks/default-path', { env: environmentId }));
-    }
-  );
-
-  registerTool(server, 'check_stack_path_change', 'Check whether moving a stack to a new filesystem path is safe (e.g. no conflicts, writable); call before `relocate_stack` to avoid data issues, or use `validate_stack_path` for a new-stack path check.',
+  registerTool(server, 'get_stack_default_path', 'Retrieve the default suggested path for a stack on this environment; use `get_stack_path_hints` for multiple alternatives, or `validate_stack_path` to confirm a chosen path.',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
-      newPath: z.string().describe('New filesystem path to check'),
     },
-    async ({ environmentId, name, newPath }) => {
-      return jsonResponse(await client.post(`/api/stacks/${encodePath(name)}/check-path-change`, { path: newPath }, { env: environmentId }));
+    async ({ environmentId, name }) => {
+      return jsonResponse(await client.get('/api/stacks/default-path', { env: environmentId, name }));
+    }
+  );
+
+  registerTool(server, 'check_stack_path_change', 'Check whether moving a stack to a new compose path is safe (e.g. no conflicts, writable); call before `relocate_stack` to avoid data issues, or use `validate_stack_path` for a new-stack path check.',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      name: z.string().describe('Stack name'),
+      newComposePath: z.string().describe('New full path to the compose file to check'),
+    },
+    async ({ environmentId, name, newComposePath }) => {
+      return jsonResponse(await client.post(`/api/stacks/${encodePath(name)}/check-path-change`, { newComposePath }, { env: environmentId }));
     }
   );
 
