@@ -6,6 +6,14 @@
  * Klont das finsys/dockhand Repo (shallow) und extrahiert alle SvelteKit
  * API-Routen aus der Verzeichnisstruktur + exportierten HTTP-Methoden.
  *
+ * Query-Parameter werden PRO HTTP-METHODE extrahiert (nicht pro Datei) und je Parameter
+ * als required/optional klassifiziert — anhand eines `if (!x) { ... status: 4xx ... }`-
+ * Guards im jeweiligen Handler-Body (siehe scripts/lib/route-handlers.mjs). Das ersetzt
+ * die frühere datei-weite Aggregation, bei der ein Query-Param, der nur für GET gilt,
+ * fälschlich auch für POST in derselben Datei erwartet wurde — und bei der "required vs.
+ * optional" komplett fehlte, sodass der Validator jeden fehlenden Query-Param nur als
+ * informative Warnung statt als harten Fehler melden konnte.
+ *
  * Ausgabe: docs/dockhand-api-schema.json
  *
  * Benötigt: Node.js 22+, git
@@ -16,6 +24,7 @@ import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, rmSync } from 'node:fs';
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { extractHandlerBlocks, analyzeQueryParams } from './lib/route-handlers.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -132,25 +141,29 @@ function extractMethods(filePath) {
 }
 
 /**
- * Extrahiert query-Parameter aus dem Quellcode (url.searchParams.get)
+ * Extrahiert Query-Parameter PRO HTTP-METHODE aus dem Quellcode einer +server.ts-Datei,
+ * inkl. required/optional-Klassifikation (siehe route-handlers.mjs). `env` wird wie
+ * bisher herausgefiltert — er ist der universelle Environment-Scoping-Parameter, den
+ * der Validator ohnehin separat whitelisted (WHITELISTED_QUERY_PARAMS).
  * @param {string} filePath
- * @returns {string[]}
+ * @param {string[]} methods Die für diese Datei extrahierten HTTP-Methoden (aus extractMethods)
+ * @returns {Record<string, Array<{name: string, required: boolean}>>} Nur Methoden mit
+ *   mindestens einem (nicht-`env`) Query-Parameter tauchen als Key auf.
  */
-function extractQueryParams(filePath) {
+function extractQueryParamsByMethod(filePath, methods) {
   const content = readFileSync(filePath, 'utf8');
-  const params = new Set();
+  const blocks = extractHandlerBlocks(content);
+  const byMethod = {};
 
-  // Matcht: url.searchParams.get('param')
-  const matches = content.matchAll(/url\.searchParams\.get\(['"]([^'"]+)['"]\)/g);
-  for (const match of matches) {
-    // Filtere interne/generische Parameter
-    const param = match[1];
-    if (!['env'].includes(param)) {
-      params.add(param);
+  for (const { method, body } of blocks) {
+    if (!methods.includes(method)) continue;
+    const params = analyzeQueryParams(body).filter((p) => p.name !== 'env');
+    if (params.length > 0) {
+      byMethod[method] = params;
     }
   }
 
-  return [...params].sort();
+  return byMethod;
 }
 
 /**
@@ -169,12 +182,13 @@ function main() {
     const apiPath = pathFromFile(file);
     const methods = extractMethods(file);
     const pathParams = extractPathParams(apiPath);
-    const queryParams = extractQueryParams(file);
 
     if (methods.length === 0) {
       console.error(`[extract] WARNING: No HTTP methods found in ${apiPath}`);
       continue;
     }
+
+    const queryParamsByMethod = extractQueryParamsByMethod(file, methods);
 
     const endpoint = {
       path: apiPath,
@@ -182,8 +196,8 @@ function main() {
       pathParams: pathParams.length > 0 ? pathParams : undefined,
     };
 
-    if (queryParams.length > 0) {
-      endpoint.queryParams = queryParams;
+    if (Object.keys(queryParamsByMethod).length > 0) {
+      endpoint.queryParamsByMethod = queryParamsByMethod;
     }
 
     endpoints.push(endpoint);
