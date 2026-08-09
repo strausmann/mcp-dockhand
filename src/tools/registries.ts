@@ -61,11 +61,12 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
 
   registerTool(server, 'search_registry', 'Search the configured registry for images matching a query; use `get_registry_catalog` for a full image list or `get_registry_tags` for available tags.',
     {
-      query: z.string().describe('Search query'),
-      environmentId: z.number().optional().describe('Environment ID'),
+      term: z.string().describe('Search term'),
+      limit: z.number().optional().describe('Maximum number of results (default: 25)'),
+      registry: z.number().optional().describe('Registry ID to search (use list_registries to discover); omit to search Docker Hub'),
     },
-    async ({ query, environmentId }) => {
-      return jsonResponse(await client.get('/api/registry/search', { q: query, env: environmentId }));
+    async ({ term, limit, registry }) => {
+      return jsonResponse(await client.get('/api/registry/search', { term, limit, registry }));
     }
   );
 
