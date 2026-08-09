@@ -216,7 +216,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       settings: z.record(z.string(), z.unknown()).describe('Image prune settings'),
     },
     async ({ environmentId, settings }) => {
-      return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}/image-prune`, settings));
+      return jsonResponse(await client.post(`/api/environments/${encodePath(environmentId)}/image-prune`, settings));
     }
   );
 
@@ -268,12 +268,12 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
     }
   );
 
-  registerTool(server, 'trigger_environment_image_prune', 'Trigger an immediate image-prune sweep for an environment using the configured retention policy (separate from the GET/PUT pair `get_environment_image_prune` and `set_environment_image_prune` which read and modify the schedule/retention settings).',
+  registerTool(server, 'trigger_environment_image_prune', 'Trigger an immediate image-prune sweep for an environment using the configured retention policy (separate from the GET/POST pair `get_environment_image_prune` and `set_environment_image_prune` which read and modify the schedule/retention settings).',
     {
       environmentId: z.number().describe('Environment ID'),
     },
     async ({ environmentId }) => {
-      return jsonResponse(await client.post(`/api/environments/${encodePath(environmentId)}/image-prune`, undefined));
+      return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}/image-prune`, undefined));
     }
   );
 }
