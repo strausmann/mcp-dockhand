@@ -35,12 +35,12 @@
             { "type": "fix", "section": "Bug Fixes" },
             { "type": "perf", "section": "Performance Improvements" },
             { "type": "refactor", "section": "Code Refactoring" },
-            { "type": "docs", "section": "Documentation", "hidden": false },
-            { "type": "style", "section": "Styles", "hidden": true },
-            { "type": "test", "section": "Tests", "hidden": true },
+            { "type": "docs", "section": "Documentation" },
+            { "type": "style", "section": "Styles", "effect": "hidden" },
+            { "type": "test", "section": "Tests", "effect": "hidden" },
             { "type": "build", "section": "Build System" },
-            { "type": "ci", "section": "CI/CD", "hidden": false },
-            { "type": "chore", "section": "Chores", "hidden": true }
+            { "type": "ci", "section": "CI/CD" },
+            { "type": "chore", "section": "Chores", "effect": "hidden" }
           ]
         }
       }
