@@ -19,7 +19,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
     }
   );
 
-  registerTool(server, 'create_user', 'Create a new Dockhand user account with username and password; use `set_user_roles` to assign roles afterwards.',
+  registerTool(server, 'create_user', 'Create a new Dockhand user account with username and password; use `add_user_role` to assign roles afterwards.',
     {
       username: z.string().describe('Username'),
       password: z.string().describe('Password'),
@@ -77,20 +77,36 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
     }
   );
 
-  registerTool(server, 'get_user_roles', 'Retrieve the roles currently assigned to a user; use `set_user_roles` to update the assignment.',
+  registerTool(server, 'get_user_roles', 'Retrieve the roles currently assigned to a user; use `add_user_role` or `remove_user_role` to change the assignment (the real endpoint has no bulk-replace — one role per call).',
     { userId: z.number().describe('User ID') },
     async ({ userId }) => {
       return jsonResponse(await client.get(`/api/users/${encodePath(userId)}/roles`));
     }
   );
 
-  registerTool(server, 'set_user_roles', 'Assign a list of roles to a user, replacing the current assignment; see `get_user_roles` to inspect existing roles before overwriting.',
+  registerTool(server, 'add_user_role', 'Assign a single role to a user, optionally scoped to one environment; the real endpoint has no bulk-replace, so call this once per role. See `get_user_roles` to inspect existing roles first, or `remove_user_role` to unassign.',
     {
       userId: z.number().describe('User ID'),
-      roles: z.array(z.string()).describe('Role names to assign'),
+      roleId: z.number().describe('Role ID to assign (required by the real endpoint)'),
+      environmentId: z.number().optional().describe('Scope this role assignment to a single environment; omit for an unscoped (all-environments) assignment'),
     },
-    async ({ userId, roles }) => {
-      return jsonResponse(await client.post(`/api/users/${encodePath(userId)}/roles`, { roles }));
+    async ({ userId, roleId, environmentId }) => {
+      const body: Record<string, unknown> = { roleId };
+      if (environmentId !== undefined) body.environmentId = environmentId;
+      return jsonResponse(await client.post(`/api/users/${encodePath(userId)}/roles`, body));
+    }
+  );
+
+  registerTool(server, 'remove_user_role', 'Unassign a single role from a user, optionally scoped to one environment; see `get_user_roles` to inspect existing roles first, or `add_user_role` to assign a different one, or `clear_user_roles` to remove every role at once.',
+    {
+      userId: z.number().describe('User ID'),
+      roleId: z.number().describe('Role ID to remove (required by the real endpoint)'),
+      environmentId: z.number().optional().describe('Only remove the assignment scoped to this environment; omit to remove the unscoped (all-environments) assignment'),
+    },
+    async ({ userId, roleId, environmentId }) => {
+      const body: Record<string, unknown> = { roleId };
+      if (environmentId !== undefined) body.environmentId = environmentId;
+      return jsonResponse(await client.delete(`/api/users/${encodePath(userId)}/roles`, undefined, body));
     }
   );
 
@@ -103,14 +119,17 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
     }
   );
 
-  registerTool(server, 'create_role', 'Create a new Dockhand role with a name and optional permissions; use `list_roles` to avoid duplicate role names.',
+  registerTool(server, 'create_role', 'Create a new Dockhand role with a name and a permissions object (both required by the real endpoint); use `list_roles` to avoid duplicate role names.',
     {
       name: z.string().describe('Role name'),
-      permissions: z.array(z.string()).optional().describe('Permissions to grant'),
+      permissions: z.record(z.string(), z.array(z.string())).describe('Permissions object mapping resource categories (e.g. containers, images, volumes, networks, stacks, environments, registries, notifications, configsets, settings, users, git, license, audit_logs, activity, schedules, backups) to arrays of allowed action strings; required by the real endpoint'),
+      description: z.string().optional().describe('Role description'),
+      environmentIds: z.array(z.number()).optional().describe('Environment IDs this role is scoped to (enterprise environment-scoped roles)'),
     },
-    async ({ name, permissions }) => {
-      const body: Record<string, unknown> = { name };
-      if (permissions) body.permissions = permissions;
+    async ({ name, permissions, description, environmentIds }) => {
+      const body: Record<string, unknown> = { name, permissions };
+      if (description !== undefined) body.description = description;
+      if (environmentIds !== undefined) body.environmentIds = environmentIds;
       return jsonResponse(await client.post('/api/roles', body));
     }
   );
@@ -275,7 +294,7 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
     }
   );
 
-  registerTool(server, 'clear_user_roles', 'Permanently remove every role assignment from a user (the user remains, but loses all permissions until reassigned); pair with `get_user_roles` to inspect first, or `set_user_roles` to re-assign roles afterwards.',
+  registerTool(server, 'clear_user_roles', 'Permanently remove every role assignment from a user (the user remains, but loses all permissions until reassigned); pair with `get_user_roles` to inspect first, or `add_user_role` to re-assign roles afterwards.',
     { userId: z.number().describe('User ID') },
     async ({ userId }) => {
       return jsonResponse(await client.delete(`/api/users/${encodePath(userId)}/roles`));

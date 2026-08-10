@@ -256,16 +256,6 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'set_git_stack_env_files', 'Upload or replace the environment files (`.env` content + overrides) used by a Git-based stack on its next deploy; read current files with `get_git_stack_env_files` and trigger the deploy via `deploy_git_stack` or `sync_git_stack`.',
-    {
-      stackId: z.number().describe('Git stack ID'),
-      envFiles: z.record(z.string(), z.string()).describe('Map of filename to file contents (e.g. {".env": "FOO=bar\\n"})'),
-    },
-    async ({ stackId, envFiles }) => {
-      return jsonResponse(await client.post(`/api/git/stacks/${encodePath(stackId)}/env-files`, { envFiles }));
-    }
-  );
-
   registerTool(server, 'get_git_stack_webhook', 'Retrieve the inbound webhook URL and secret configured on a Git-based stack (used by GitHub/GitLab/etc. to POST deploy notifications); use `trigger_git_webhook` to fire the webhook manually, or `get_git_webhook` for the equivalent on the generic webhook endpoint.',
     { stackId: z.number().describe('Git stack ID') },
     async ({ stackId }) => {

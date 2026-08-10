@@ -326,15 +326,15 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
     }
   );
 
-  registerTool(server, 'create_container_file', 'Write a new file with the supplied content at the specified path inside a container; use `get_container_file_content` to read an existing file before overwriting, `delete_container_file` to remove a file, or `upload_container_file` to upload binary content.',
+  registerTool(server, 'create_container_file', 'Create an empty file or an empty directory at the specified path inside a container; the real endpoint does NOT accept content — use `write_container_file_content` to create a file WITH content, `get_container_file_content` to read an existing file, or `delete_container_file` to remove it.',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
-      path: z.string().describe('File path inside container'),
-      content: z.string().describe('File content'),
+      path: z.string().describe('File or directory path inside container'),
+      type: z.enum(['file', 'directory']).describe('Whether to create an empty file or a directory (required by the real endpoint)'),
     },
-    async ({ environmentId, containerId, path, content }) => {
-      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/files/create`, { path, content }, { env: environmentId }));
+    async ({ environmentId, containerId, path, type }) => {
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/files/create`, { path, type }, { env: environmentId }));
     }
   );
 
@@ -392,7 +392,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
 
   // Fix #30 (HIGH): Add encoding parameter for binary file support (PR #23).
   // When encoding is 'base64', content is decoded from base64 before upload.
-  registerTool(server, 'upload_container_file', 'Upload a file into a container as multipart form data; for binary files pass content as base64 and set encoding to "base64". Use `download_container_file` to retrieve a file from the container, `create_container_file` to write plain-text content directly, or `list_container_files` to confirm the target path.',
+  registerTool(server, 'upload_container_file', 'Upload a file into a container as multipart form data; for binary files pass content as base64 and set encoding to "base64". Use `download_container_file` to retrieve a file from the container, `write_container_file_content` to write plain-text content directly, or `list_container_files` to confirm the target path.',
     {
       environmentId: z.number().describe('Environment ID (required)'),
       containerId: z.string().describe('Container ID or name'),
@@ -429,7 +429,7 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
     }
   );
 
-  registerTool(server, 'batch_update_containers', 'Pull the latest images and recreate multiple containers in one operation by supplying an array of container IDs; contrast with `update_container` which targets a single container ID. Use `check_container_updates` to discover which containers have newer images, or `list_batch_operations` to review pending batch history.',
+  registerTool(server, 'batch_update_containers', 'Pull the latest images and recreate multiple containers in one operation by supplying an array of container IDs; contrast with `update_container` which targets a single container ID. Use `check_container_updates` to discover which containers have newer images, or `execute_batch` for other bulk lifecycle operations (start/stop/restart/remove/etc.) across containers, images, volumes, networks, or stacks.',
     {
       environmentId: z.number().describe('Environment ID'),
       containerIds: z.array(z.string()).describe('Array of container IDs to update'),

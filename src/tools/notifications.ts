@@ -66,10 +66,20 @@ export function registerNotificationTools(server: McpServer, client: DockhandCli
     }
   );
 
-  registerTool(server, 'trigger_test_notification', 'Fire the standard test-event payload to all configured notification channels; use `test_notification` to target a single saved configuration instead.',
-    {},
-    async () => {
-      return jsonResponse(await client.post('/api/notifications/trigger-test'));
+  registerTool(server, 'trigger_test_notification', 'Fire a real notification for the given event type and payload to all configured channels (required by the real endpoint); use `get_test_notification_payload` to list valid event type IDs first, or `test_notification` to target a single saved configuration instead.',
+    {
+      eventType: z.string().describe('Notification event type ID (e.g. container_started, stack_deployed, vulnerability_critical, license_expiring — see `get_test_notification_payload` for the full list); required by the real endpoint'),
+      environmentId: z.number().optional().describe('Environment ID; required by the real endpoint for every event type except the system-only "license_expiring"'),
+      payload: z.object({
+        title: z.string().describe('Notification title'),
+        message: z.string().describe('Notification message'),
+        type: z.string().optional().describe('Notification severity type (e.g. info, warning); defaults to "info"'),
+      }).describe('Notification content; title and message are required by the real endpoint'),
+    },
+    async ({ eventType, environmentId, payload }) => {
+      const body: Record<string, unknown> = { eventType, payload };
+      if (environmentId !== undefined) body.environmentId = environmentId;
+      return jsonResponse(await client.post('/api/notifications/trigger-test', body));
     }
   );
 
