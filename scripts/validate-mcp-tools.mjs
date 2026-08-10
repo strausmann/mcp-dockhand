@@ -16,6 +16,11 @@
  *   (per-Methode required/optional aus dem Schema, siehe docs/dockhand-api-schema.json
  *   `queryParamsByMethod`), das Tool sendet ihn nicht
  * - QUERY_PARAM_UNKNOWN: Tool sendet einen Query-Parameter, den der Endpunkt nicht kennt
+ * - BODY_PARAM_MISSING_REQUIRED: der Endpunkt verlangt dieses Feld laut OpenAPI-Body-Contract
+ *   (docs/dockhand-openapi.json), das Tool sendet es nicht als required (Task P2.2, Gate seit
+ *   P2.1-Voll-Sweep + #171)
+ * - BODY_PARAM_UNKNOWN / UNTYPED_PASSTHROUGH / BODY_CONTRACT_UNRESOLVED: weiterhin advisory
+ *   (siehe scripts/lib/body-checks.mjs, docs/body-contract-report.md)
  *
  * Required vs. optional kommt aus dem Schema (von extract-dockhand-api.mjs anhand des
  * echten `if (!x) { ... status: 4xx ... }`-Guards im Handler klassifiziert) — es gibt
@@ -25,8 +30,10 @@
  * unabhängig von required/optional nur als Warnung auflistete, entfällt vollständig).
  *
  * Exit-Code 1 bei Mismatches (ORPHANED_TOOL, PARAM_MISMATCH, MISSING_ENCODE,
- * QUERY_PARAM_UNKNOWN oder QUERY_PARAM_MISSING_REQUIRED)
- * Exit-Code 0 wenn nur MISSING_TOOL (neue Endpunkte ohne Tool sind normal)
+ * QUERY_PARAM_UNKNOWN, QUERY_PARAM_MISSING_REQUIRED oder BODY_PARAM_MISSING_REQUIRED --
+ * siehe hasCriticalErrors()/CRITICAL_BODY_FINDING_TYPES weiter unten)
+ * Exit-Code 0 wenn nur MISSING_TOOL oder die übrigen (advisory) Body-Finding-Typen
+ * (neue Endpunkte ohne Tool sind normal, advisory Body-Findings sind keine garantierten Bugs)
  */
 
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
@@ -623,10 +630,11 @@ function computeValidation(schema, toolCalls, toolBodyShapes = null) {
     }
   }
 
-  // 6. Body-Contract-Checks (Task P1.4/P1.6) -- rein advisory, siehe JSDoc oben:
-  // toolBodyShapes ist nur gesetzt, wenn der Aufrufer loadToolBodyShapes() erfolgreich
-  // ausgeführt hat. Kein Effekt auf covered/missingTool/.../queryParamUnknown oder auf den
-  // Exit-Code in validate() -- ein separater, nicht-fehler-auslösender Bucket.
+  // 6. Body-Contract-Checks (Task P1.4/P1.6) -- toolBodyShapes ist nur gesetzt, wenn der
+  // Aufrufer loadToolBodyShapes() erfolgreich ausgeführt hat. Kein Effekt auf
+  // covered/missingTool/.../queryParamUnknown -- eigener Bucket. Seit Task P2.2 ist
+  // BODY_PARAM_MISSING_REQUIRED darin selbst kritisch (siehe hasCriticalErrors() unten);
+  // die übrigen drei Finding-Typen bleiben advisory.
   let bodyFindings = [];
   if (toolBodyShapes) {
     const openApiPathIndex = buildOpenApiPathIndex();
@@ -646,6 +654,71 @@ function computeValidation(schema, toolCalls, toolBodyShapes = null) {
     bodyFindings,
     excludedCount,
   };
+}
+
+/**
+ * Body-Finding-Typen, die seit Task P2.2 als kritisch gelten (CI-Fail + Auto-Issue, wie
+ * ORPHANED_TOOL/PARAM_MISMATCH/QUERY_PARAM_*). Bewusst als Set, nicht als einzelner
+ * String-Vergleich verstreut über die Datei -- eine einzige Stelle, die künftig eine
+ * zweite Body-Finding-Klasse (z.B. BODY_PARAM_UNKNOWN) mit ins Gate aufnehmen könnte,
+ * ohne hasCriticalErrors()/partitionBodyFindings() an mehreren Stellen anzufassen.
+ *
+ * NUR BODY_PARAM_MISSING_REQUIRED wandert hier rein (Plan Task P2.2, Step 1: "UNKNOWN/
+ * UNTYPED_PASSTHROUGH bleiben Warning/Info") -- BODY_CONTRACT_UNRESOLVED bleibt ebenfalls
+ * advisory (fehlende OpenAPI-Annotation ist kein Tool-Bug, sondern eine Dokumentationslücke
+ * im Dockhand-Fork).
+ */
+const CRITICAL_BODY_FINDING_TYPES = new Set(['BODY_PARAM_MISSING_REQUIRED']);
+
+/**
+ * Trennt `bodyFindings` (computeValidation()s advisory-Bucket, Task P1.4/P1.6) in die seit
+ * Task P2.2 kritischen (`CRITICAL_BODY_FINDING_TYPES`) und die weiterhin advisory Findings.
+ * Single Source of Truth für BEIDE Stellen, die diese Unterscheidung brauchen:
+ * `hasCriticalErrors()` (Exit-Code) und `generateReport()` (welche Tabelle/Section ein
+ * Finding bekommt) -- verhindert, dass die beiden je einen eigenen, potenziell
+ * auseinanderlaufenden Filter pflegen.
+ * @param {Array<{type: string}>} bodyFindings
+ * @returns {{ critical: Array, advisory: Array }}
+ */
+function partitionBodyFindings(bodyFindings) {
+  const critical = [];
+  const advisory = [];
+  for (const finding of bodyFindings) {
+    (CRITICAL_BODY_FINDING_TYPES.has(finding.type) ? critical : advisory).push(finding);
+  }
+  return { critical, advisory };
+}
+
+/**
+ * Bestimmt, ob ein computeValidation()-Ergebnis einen kritischen Mismatch enthält, der den
+ * CLI-Exit-Code in validate() auf 1 setzen soll. Aus validate() herausgelöst (Task P2.2),
+ * damit das Gate-Verhalten unit-testbar ist, ohne echte Schema-/Tool-Datei-I/O oder den
+ * tsx-Body-Shape-Collector-Subprozess anzustoßen -- ein synthetisches, computeValidation()
+ * -förmiges Ergebnisobjekt reicht.
+ *
+ * BODY_PARAM_MISSING_REQUIRED zählt seit Task P2.2 GENAUSO kritisch wie ORPHANED_TOOL/
+ * PARAM_MISMATCH/MISSING_ENCODE/QUERY_PARAM_*: der P2.1-Voll-Sweep hat die beiden bekannten
+ * False-Positive-Klassen strukturell ausgeschlossen (z.record(...)-Ganzkörper-Passthrough
+ * über UNTYPED_PASSTHROUGH, FP_COMPUTED_BODY über `WHITELISTED_BODY_PASSTHROUGH` in
+ * body-checks.mjs) und die verbleibenden echten Bugs gefixt (#171) -- auf der gepinnten
+ * Spec (docs/dockhand-openapi.json) ist dieser Bucket damit 0 (siehe
+ * docs/body-contract-report.md, das aktuell KEINE BODY_PARAM_MISSING_REQUIRED-Section
+ * enthält). Die übrigen drei Body-Finding-Typen (BODY_PARAM_UNKNOWN, UNTYPED_PASSTHROUGH,
+ * BODY_CONTRACT_UNRESOLVED) bleiben BEWUSST advisory (Plan Task P2.2, Step 1).
+ * @param {{ orphanedTool: Array, paramMismatch: Array, missingEncode: Array,
+ *   queryParamUnknown: Array, queryParamMissingRequired: Array, bodyFindings: Array }} result
+ * @returns {boolean}
+ */
+function hasCriticalErrors(result) {
+  const { critical: criticalBodyFindings } = partitionBodyFindings(result.bodyFindings ?? []);
+  return (
+    result.orphanedTool.length > 0 ||
+    result.paramMismatch.length > 0 ||
+    result.missingEncode.length > 0 ||
+    result.queryParamUnknown.length > 0 ||
+    result.queryParamMissingRequired.length > 0 ||
+    criticalBodyFindings.length > 0
+  );
 }
 
 /**
@@ -705,7 +778,9 @@ function validate() {
   console.error(`  MISSING_ENCODE:     ${missingEncode.length} fehlende encodePath()-Aufrufe`);
   console.error(`  QUERY_PARAM_MISSING_REQUIRED: ${queryParamMissingRequired.length} vom Endpunkt zwingend erwartete (400 ohne sie), nicht gesendete Query-Params`);
   console.error(`  QUERY_PARAM_UNKNOWN: ${queryParamUnknown.length} gesendete, dem Endpunkt unbekannte Query-Params`);
-  console.error(`  BODY_FINDINGS (informativ, kein Exit-Code-Effekt): ${bodyFindings.length}`);
+  const { critical: bodyFindingsCritical, advisory: bodyFindingsAdvisory } = partitionBodyFindings(bodyFindings);
+  console.error(`  BODY_PARAM_MISSING_REQUIRED: ${bodyFindingsCritical.length} laut Contract required Body-Felder, die das Tool nicht sendet`);
+  console.error(`  BODY_FINDINGS (informativ, kein Exit-Code-Effekt): ${bodyFindingsAdvisory.length}`);
 
   // Exit-Code: Fehler bei kritischen Problemen.
   // QUERY_PARAM_UNKNOWN ist wie ORPHANED_TOOL/PARAM_MISMATCH eindeutig ein Bug (das
@@ -717,16 +792,18 @@ function validate() {
   // aufgenommen (diffQueryParams filtert per `p.required`), es gibt also keinen
   // informativen Nebeneimer mehr, der manuell nachgeprüft werden müsste.
   //
-  // bodyFindings (Task P1.4) ist BEWUSST NICHT Teil von hasErrors -- advisory laut P1-Plan
-  // (Global Constraints: "Checks starten advisory ... Beförderung ins Gate erst in P2").
-  // Erst wenn P2.1 den Voll-Sweep FP-frei triagiert hat, wandert
-  // BODY_PARAM_MISSING_REQUIRED hier in die hasErrors-Liste (P2.2).
-  const hasErrors =
-    orphanedTool.length > 0 ||
-    paramMismatch.length > 0 ||
-    missingEncode.length > 0 ||
-    queryParamUnknown.length > 0 ||
-    queryParamMissingRequired.length > 0;
+  // BODY_PARAM_MISSING_REQUIRED (Task P1.4) ist seit Task P2.2 GENAUSO kritisch -- siehe
+  // hasCriticalErrors()-JSDoc oben für das vollständige WARUM (P2.1-Voll-Sweep FP-frei,
+  // #171 gemergt). Die übrigen drei Body-Finding-Typen bleiben advisory, siehe
+  // partitionBodyFindings()/CRITICAL_BODY_FINDING_TYPES.
+  const hasErrors = hasCriticalErrors({
+    orphanedTool,
+    paramMismatch,
+    missingEncode,
+    queryParamUnknown,
+    queryParamMissingRequired,
+    bodyFindings,
+  });
   if (hasErrors) {
     console.error('\n[validate] FEHLER: Kritische Mismatches gefunden!');
     process.exit(1);
@@ -746,6 +823,11 @@ function validate() {
 function generateReport({ schema, covered, missingTool, orphanedTool, paramMismatch, missingEncode, queryParamMissingRequired, queryParamUnknown, bodyFindings = [] }) {
   const lines = [];
   const now = new Date().toISOString();
+  // Task P2.2: BODY_PARAM_MISSING_REQUIRED bekommt eine eigene Kritisch-Section (analog zu
+  // QUERY_PARAM_MISSING_REQUIRED unten), die übrigen drei Body-Finding-Typen bleiben im
+  // bestehenden Informativ/Advisory-Block. Einzige Filterstelle: partitionBodyFindings()
+  // (dieselbe, die auch hasCriticalErrors() für den Exit-Code nutzt).
+  const { critical: bodyFindingsCritical, advisory: bodyFindingsAdvisory } = partitionBodyFindings(bodyFindings);
 
   lines.push('# MCP Tool Validation Report');
   lines.push('');
@@ -766,7 +848,8 @@ function generateReport({ schema, covered, missingTool, orphanedTool, paramMisma
   lines.push(`| MISSING_ENCODE | ${missingEncode.length} |`);
   lines.push(`| QUERY_PARAM_MISSING_REQUIRED | ${queryParamMissingRequired.length} |`);
   lines.push(`| QUERY_PARAM_UNKNOWN | ${queryParamUnknown.length} |`);
-  lines.push(`| BODY_FINDINGS (informativ) | ${bodyFindings.length} |`);
+  lines.push(`| BODY_PARAM_MISSING_REQUIRED | ${bodyFindingsCritical.length} |`);
+  lines.push(`| BODY_FINDINGS (informativ, übrige Body-Typen) | ${bodyFindingsAdvisory.length} |`);
   lines.push('');
 
   // Kritische Probleme
@@ -837,22 +920,46 @@ function generateReport({ schema, covered, missingTool, orphanedTool, paramMisma
     lines.push('');
   }
 
-  // Body-Contract-Findings (Task P1.4/P1.6, informativ/advisory -- KEIN Exit-Code-Effekt,
-  // siehe hasErrors in validate(). Beförderung von BODY_PARAM_MISSING_REQUIRED zum harten
-  // Gate erst nach dem P2.1-Voll-Sweep, siehe Task P2.2 im P1-Plan.)
-  if (bodyFindings.length > 0) {
+  // BODY_PARAM_MISSING_REQUIRED (Task P2.2, Kritisch) -- seit dem P2.1-Voll-Sweep
+  // (Fehlalarme strukturell ausgeschlossen, siehe body-checks.mjs) UND #171 (letzte echte
+  // Bugs gefixt) genauso kritisch wie QUERY_PARAM_MISSING_REQUIRED oben: der Contract
+  // verlangt dieses Feld laut `docs/dockhand-openapi.json`, das Tool sendet es nicht als
+  // required -- der Aufruf kann am echten Endpunkt fehlschlagen.
+  if (bodyFindingsCritical.length > 0) {
+    lines.push('## BODY_PARAM_MISSING_REQUIRED (Kritisch)');
+    lines.push('');
+    lines.push(
+      'Der OpenAPI-Body-Contract (`docs/dockhand-openapi.json`, siehe `scripts/fetch-openapi.mjs`) ' +
+        'verlangt dieses Feld für diesen Endpunkt, das Tool sendet es nicht als required. Der Aufruf ' +
+        'kann am echten Dockhand-Endpunkt fehlschlagen (siehe #142):'
+    );
+    lines.push('');
+    lines.push('| Tool | HTTP | Pfad | Fehlendes Pflicht-Feld | Datei |');
+    lines.push('|------|------|------|-------------------------|-------|');
+    for (const f of bodyFindingsCritical) {
+      lines.push(`| \`${f.toolName}\` | ${f.httpMethod} | \`${f.path}\` | \`${f.field}\` | ${f.file}:${f.line} |`);
+    }
+    lines.push('');
+  }
+
+  // Übrige Body-Contract-Findings (Task P1.4/P1.6, informativ/advisory -- KEIN
+  // Exit-Code-Effekt, siehe hasErrors in validate()). BODY_PARAM_MISSING_REQUIRED ist HIER
+  // bewusst NICHT mehr enthalten -- es hat seit Task P2.2 seine eigene Kritisch-Section
+  // oben; BODY_PARAM_UNKNOWN/UNTYPED_PASSTHROUGH/BODY_CONTRACT_UNRESOLVED bleiben advisory.
+  if (bodyFindingsAdvisory.length > 0) {
     lines.push('## BODY_FINDINGS (Informativ / Advisory)');
     lines.push('');
     lines.push(
-      'Body-Contract-Abweichungen zwischen unseren MCP-Tools und der generierten ' +
-        '`docs/dockhand-openapi.json` (Body-Contract-Quelle, siehe `scripts/fetch-openapi.mjs`). ' +
-        '**Kein Gate** -- diese Findings beeinflussen den Exit-Code NICHT (Phase P1 im ' +
-        'Body-Contract-Validierungs-Plan ist bewusst advisory-only; Beförderung ins Gate ist P2).'
+      'Weitere Body-Contract-Abweichungen zwischen unseren MCP-Tools und der generierten ' +
+        '`docs/dockhand-openapi.json`. **Kein Gate** -- diese Findings beeinflussen den ' +
+        'Exit-Code NICHT (BODY_PARAM_MISSING_REQUIRED ist seit Task P2.2 kritisch und steht ' +
+        'in der eigenen Section oben; UNKNOWN/UNTYPED_PASSTHROUGH/UNRESOLVED bleiben bewusst ' +
+        'advisory).'
     );
     lines.push('');
     lines.push('| Typ | Tool | HTTP | Pfad | Feld | Datei |');
     lines.push('|-----|------|------|------|------|-------|');
-    for (const f of bodyFindings) {
+    for (const f of bodyFindingsAdvisory) {
       lines.push(
         `| ${f.type} | \`${f.toolName}\` | ${f.httpMethod} | \`${f.path}\` | ${f.field ? `\`${f.field}\`` : '-'} | ${f.file}:${f.line} |`
       );
@@ -915,4 +1022,8 @@ export {
   computeBodyFindingsForCalls,
   computeValidation,
   loadSchema,
+  CRITICAL_BODY_FINDING_TYPES,
+  partitionBodyFindings,
+  hasCriticalErrors,
+  generateReport,
 };

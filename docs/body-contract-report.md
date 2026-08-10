@@ -5,11 +5,12 @@
 > Änderung committet. Grundlage: `docs/dockhand-openapi.json` (Body-Contract-Quelle,
 > siehe `scripts/fetch-openapi.mjs`) gegen die registrierten Zod-Shapes unserer MCP-Tools.
 
-> **ADVISORY — kein CI-Gate.** Diese Findings beeinflussen keinen Exit-Code. Phase P1 des
-> Body-Contract-Validierungs-Plans ist bewusst informativ; die Beförderung ins Gate (mindestens
-> `BODY_PARAM_MISSING_REQUIRED`) ist Phase P2, nach einer FP-freien Voll-Sweep-Triage.
+> **ADVISORY — kein CI-Gate.** Dieses Dokument selbst löst keinen Exit-Code aus. Seit Task
+> P2.2 ist `BODY_PARAM_MISSING_REQUIRED` (nach FP-freier Voll-Sweep-Triage, Task P2.1) ein
+> hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-Issue) — hier weiterhin nur
+> zur Übersicht gelistet. Die übrigen drei Typen bleiben vollständig advisory.
 
-**Erzeugt:** 2026-08-10T14:15:03.951Z
+**Erzeugt:** 2026-08-10T14:43:35.035Z
 
 ## Zusammenfassung
 
