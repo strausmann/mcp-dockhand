@@ -104,4 +104,29 @@ function getBodyContract(method, path, options = {}) {
   };
 }
 
-export { getBodyContract, loadOpenApiSpec, resolveSchemaRef, SPEC_FILE };
+/**
+ * Liefert die Namen der Query-/Path-Parameter eines Endpunkts (der OpenAPI
+ * `parameters`-Abschnitt der Operation) -- Task P1.4 braucht diese Liste, um
+ * Query-/Path-Felder (z.B. `environmentId`, `containerId`), die unsere MCP-Tools über
+ * dasselbe Zod-Shape-Objekt wie die Body-Felder senden, von der BODY_PARAM_UNKNOWN-Prüfung
+ * auszunehmen -- sie sind nie Teil des `requestBody`-Schemas, tauchen aber trotzdem in
+ * `getToolBodyShape()`s `sentFields` auf, weil das Zod-Schema Body- und
+ * Query-/Path-Parameter nicht unterscheidet.
+ * @param {string} method HTTP-Methode, z.B. 'POST' (case-insensitiv)
+ * @param {string} path OpenAPI-Pfad, z.B. '/api/containers/{id}/rename'
+ * @param {{ spec?: object }} [options] siehe getBodyContract()
+ * @returns {string[]} Namen aller `in: "path"`/`in: "query"`-Parameter der Operation,
+ *   oder ein leeres Array, wenn der Endpunkt nicht existiert oder keine Parameter hat.
+ */
+function getOperationParamNames(method, path, options = {}) {
+  const spec = options.spec ?? loadOpenApiSpec();
+
+  const operation = spec.paths?.[path]?.[method.toLowerCase()];
+  const parameters = operation?.parameters ?? [];
+
+  return parameters
+    .filter((p) => p?.in === 'path' || p?.in === 'query')
+    .map((p) => p.name);
+}
+
+export { getBodyContract, getOperationParamNames, loadOpenApiSpec, resolveSchemaRef, SPEC_FILE };

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getBodyContract } from '../scripts/lib/openapi-contract-source.mjs';
+import { getBodyContract, getOperationParamNames } from '../scripts/lib/openapi-contract-source.mjs';
 
 /**
  * OpenApiContractSource liest Request-Body-Contracts (required/known Felder) aus der
@@ -77,6 +77,25 @@ const fixtureSpec = {
         },
       },
     },
+    '/api/containers/{id}/rename': {
+      post: {
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'env', in: 'query', required: false, schema: { type: 'integer' } },
+        ],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: { name: { type: 'string' } },
+                required: ['name'],
+              },
+            },
+          },
+        },
+      },
+    },
   },
 };
 
@@ -140,5 +159,36 @@ describe('getBodyContract (default: real docs/dockhand-openapi.json)', () => {
     expect(contract.hasSchema).toBe(true);
     expect(contract.requiredFields).toEqual(['name', 'compose']);
     expect(contract.knownFields).toEqual(expect.arrayContaining(['name', 'compose']));
+  });
+});
+
+describe('getOperationParamNames (fixture spec)', () => {
+  it('returns path + query param names for an operation that has both', () => {
+    const names = getOperationParamNames('POST', '/api/containers/{id}/rename', { spec: fixtureSpec });
+
+    expect(names).toEqual(['id', 'env']);
+  });
+
+  it('is method-case-insensitive, same as getBodyContract', () => {
+    const upper = getOperationParamNames('POST', '/api/containers/{id}/rename', { spec: fixtureSpec });
+    const lower = getOperationParamNames('post', '/api/containers/{id}/rename', { spec: fixtureSpec });
+
+    expect(lower).toEqual(upper);
+  });
+
+  it('returns an empty array for an operation with no parameters key at all', () => {
+    expect(getOperationParamNames('POST', '/api/stacks', { spec: fixtureSpec })).toEqual([]);
+  });
+
+  it('returns an empty array for a path/method combination that does not exist', () => {
+    expect(getOperationParamNames('DELETE', '/api/does-not-exist', { spec: fixtureSpec })).toEqual([]);
+  });
+});
+
+describe('getOperationParamNames (default: real docs/dockhand-openapi.json)', () => {
+  it('resolves the real path + query params for POST /api/containers/{id}/rename', () => {
+    const names = getOperationParamNames('POST', '/api/containers/{id}/rename');
+
+    expect(names).toEqual(expect.arrayContaining(['id', 'env']));
   });
 });
