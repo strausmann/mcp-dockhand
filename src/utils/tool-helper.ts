@@ -31,7 +31,14 @@ export function registerTool<T extends ZodShape>(
     try {
       return await callback(args);
     } catch (error) {
-      return errorResponse(error instanceof Error ? error.message : 'Unknown error');
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      // Fail loud: a thrown error here (e.g. a lazily-triggered Dockhand
+      // login failure) would otherwise only ever reach the caller as a
+      // structured MCP tool-error response — never written to
+      // stderr/docker logs. Log it unconditionally so every tool failure
+      // is diagnosable from container logs alone. See Issue #116.
+      console.error(`[tool:${name}] ${message}`);
+      return errorResponse(message);
     }
   });
   /* eslint-enable @typescript-eslint/no-explicit-any */

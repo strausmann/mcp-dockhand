@@ -5,6 +5,7 @@
 
 import { SessionManager } from '../auth/session.js';
 import type { DockhandConfig, SSEResult } from '../types/dockhand.js';
+import { normalizeBaseUrl } from '../utils/url.js';
 
 /** Timeout for SSE streaming responses (5 minutes). */
 const SSE_TIMEOUT_MS = 300_000;
@@ -14,7 +15,7 @@ export class DockhandClient {
   private baseUrl: string;
 
   constructor(config: DockhandConfig) {
-    this.baseUrl = config.url.replace(/\/+$/, '');
+    this.baseUrl = normalizeBaseUrl(config.url);
     this.session = new SessionManager(config);
   }
 
