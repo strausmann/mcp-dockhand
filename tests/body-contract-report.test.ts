@@ -59,6 +59,25 @@ describe('buildBodyContractDoc', () => {
     expect(doc).toMatch(/\| `update_container` \| POST \| `\/api\/containers\/\{containerId\}\/update` \| - \| containers\.ts:209 \|/);
   });
 
+  it('renders expectedRequired (Task P2.1 Fix 1) in the field cell of a passthrough finding instead of a dash, so the report keeps showing what to check manually', () => {
+    const withExpected = [
+      ...findings,
+      {
+        type: 'UNTYPED_PASSTHROUGH',
+        expectedRequired: ['name', 'url'],
+        toolName: 'create_registry',
+        httpMethod: 'POST',
+        path: '/api/registries',
+        file: 'registries.ts',
+        line: 25,
+      },
+    ];
+
+    const doc = buildBodyContractDoc({ generatedAt: '2026-08-10T12:00:00.000Z', bodyFindings: withExpected });
+
+    expect(doc).toContain('| `create_registry` | POST | `/api/registries` | `name`, `url` | registries.ts:25 |');
+  });
+
   it('reports "no findings" clearly instead of an empty/confusing table for a clean run', () => {
     const doc = buildBodyContractDoc({ generatedAt: '2026-08-10T12:00:00.000Z', bodyFindings: [] });
 

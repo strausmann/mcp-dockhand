@@ -471,7 +471,7 @@ function computeBodyFindingsForCalls(toolCalls, toolBodyShapes, openApiPathIndex
       ...ENVIRONMENT_SCOPING_FIELD_NAMES,
       ...getOperationParamNames(call.httpMethod, realPath),
     ];
-    const findings = computeBodyFindings(contract, shape, opParams);
+    const findings = computeBodyFindings(contract, shape, opParams, call.toolName);
 
     for (const finding of findings) {
       results.push({
