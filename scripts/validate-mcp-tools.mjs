@@ -21,6 +21,10 @@
  *   P2.1-Voll-Sweep + #171)
  * - BODY_PARAM_UNKNOWN / UNTYPED_PASSTHROUGH / BODY_CONTRACT_UNRESOLVED: weiterhin advisory
  *   (siehe scripts/lib/body-checks.mjs, docs/body-contract-report.md)
+ * - CROSSREF_UNRESOLVED: eine `(from METHOD /api/path)`- bzw. `<feld> from METHOD /api/path`-
+ *   Cross-Ref-Annotation in docs/dockhand-openapi.json zeigt auf einen Endpunkt, den kein
+ *   MCP-Tool bedient (Tippfehler in der Annotation oder bewusst ausgelassener Endpunkt) --
+ *   advisory, Task P3.6 (siehe scripts/lib/crossref-checks.mjs)
  *
  * Required vs. optional kommt aus dem Schema (von extract-dockhand-api.mjs anhand des
  * echten `if (!x) { ... status: 4xx ... }`-Guards im Handler klassifiziert) — es gibt
@@ -44,6 +48,7 @@ import { findMatchingClose, splitTopLevel, extractObjectKey } from './lib/js-sca
 import { resolveQueryParamKeys } from './lib/query-params.mjs';
 import { getBodyContract, getOperationParamNames, loadOpenApiSpec } from './lib/openapi-contract-source.mjs';
 import { computeBodyFindings } from './lib/body-checks.mjs';
+import { checkCrossRefs, buildCrossRefEntries } from './lib/crossref-checks.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -390,6 +395,64 @@ function buildOpenApiPathIndex() {
   return index;
 }
 
+// --- Cross-Ref-Unresolved-Check (Task P3.6, advisory) ---
+//
+// Same "own resolver, no cross-stack import" reasoning as scripts/generate-tool-endpoint-map.mjs's
+// buildMap(): rather than importing src/openapi/tool-endpoint.ts's endpointToTool() (TypeScript,
+// would need a tsx subprocess like loadToolBodyShapes() below), this builds an equivalent
+// method+path -> toolName index directly from the SAME toolCalls + openApiPathIndex this file
+// already extracts for the body-contract checks -- no new I/O, no tsx dependency.
+
+/**
+ * Builds a `endpointKey(realOpenApiPath, METHOD) -> toolName` index from `toolCalls`, by
+ * resolving each call's own path form to the OpenAPI spec's path form via `openApiPathIndex`
+ * (same normalizePath()-based matching `buildOpenApiPathIndex()`'s callers already rely on).
+ * First tool call to reach a given real endpoint wins (mirrors generate-tool-endpoint-map.mjs's
+ * `buildMap()` "first call wins" rule) -- acceptable here because this index is advisory-only
+ * (CROSSREF_UNRESOLVED never gates the exit code, see computeCrossRefFindings() below): a
+ * cross-ref resolving to the "wrong" of two tools sharing an endpoint is still correctly
+ * reported as RESOLVED, which is all this check cares about.
+ * @param {Array} toolCalls Rückgabe von extractToolCalls()
+ * @param {Map<string, string>} openApiPathIndex Rückgabe von buildOpenApiPathIndex()
+ * @returns {Map<string, string>}
+ */
+function buildEndpointToToolIndex(toolCalls, openApiPathIndex) {
+  const index = new Map();
+  for (const call of toolCalls) {
+    const realPath = openApiPathIndex.get(endpointKey(call.path, call.httpMethod));
+    if (!realPath) continue; // endpoint not (yet) in the OpenAPI spec -- same skip as computeBodyFindingsForCalls()
+    const key = endpointKey(realPath, call.httpMethod);
+    if (!index.has(key)) index.set(key, call.toolName);
+  }
+  return index;
+}
+
+/**
+ * Computes CROSSREF_UNRESOLVED findings (Task P3.6) for every cross-ref annotation in
+ * `docs/dockhand-openapi.json` whose target endpoint no registered MCP tool serves.
+ * Advisory: the caller MUST NOT fold the result into hasCriticalErrors() (see that
+ * function's own doc comment for the full list of what IS critical).
+ * @param {Array} toolCalls Rückgabe von extractToolCalls()
+ * @param {Map<string, string>|null} openApiPathIndex Rückgabe von buildOpenApiPathIndex()
+ * @returns {import('./lib/crossref-checks.mjs').CrossRefFinding[]}
+ */
+function computeCrossRefFindings(toolCalls, openApiPathIndex) {
+  if (!openApiPathIndex) return [];
+
+  let spec;
+  try {
+    spec = loadOpenApiSpec();
+  } catch {
+    return [];
+  }
+
+  const endpointToToolIndex = buildEndpointToToolIndex(toolCalls, openApiPathIndex);
+  const endpointToTool = (method, path) => endpointToToolIndex.get(endpointKey(path, method));
+
+  const entries = buildCrossRefEntries(spec, endpointToTool);
+  return checkCrossRefs(entries, endpointToTool);
+}
+
 /**
  * Sammelt die Body-Shapes ALLER registrierten MCP-Tools, indem der eigenständige
  * `tsx`-Collector (scripts/collect-tool-shapes.mjs) als Subprozess ausgeführt wird — siehe
@@ -511,7 +574,7 @@ function computeBodyFindingsForCalls(toolCalls, toolBodyShapes, openApiPathIndex
  * @returns {{
  *   covered: Array, missingTool: Array, orphanedTool: Array, paramMismatch: Array,
  *   missingEncode: Array, queryParamMissingRequired: Array, queryParamUnknown: Array,
- *   bodyFindings: Array, excludedCount: number
+ *   bodyFindings: Array, crossRefFindings: Array, excludedCount: number
  * }}
  */
 function computeValidation(schema, toolCalls, toolBodyShapes = null) {
@@ -635,13 +698,23 @@ function computeValidation(schema, toolCalls, toolBodyShapes = null) {
   // covered/missingTool/.../queryParamUnknown -- eigener Bucket. Seit Task P2.2 ist
   // BODY_PARAM_MISSING_REQUIRED darin selbst kritisch (siehe hasCriticalErrors() unten);
   // die übrigen drei Finding-Typen bleiben advisory.
+  //
+  // openApiPathIndex wird UNABHÄNGIG von toolBodyShapes gebaut (anders als vorher) --
+  // computeCrossRefFindings() (Task P3.6, Schritt 7 unten) braucht ihn genauso, hat aber
+  // KEINE Abhängigkeit vom tsx-Body-Shape-Collector (der einzige Grund, warum Body-Checks
+  // an toolBodyShapes gekoppelt sind). `null`, wenn docs/dockhand-openapi.json (noch) nicht
+  // existiert -- beide Checks überspringen sich dann selbst (siehe buildOpenApiPathIndex()
+  // JSDoc).
+  const openApiPathIndex = buildOpenApiPathIndex();
+
   let bodyFindings = [];
-  if (toolBodyShapes) {
-    const openApiPathIndex = buildOpenApiPathIndex();
-    if (openApiPathIndex) {
-      bodyFindings = computeBodyFindingsForCalls(toolCalls, toolBodyShapes, openApiPathIndex);
-    }
+  if (toolBodyShapes && openApiPathIndex) {
+    bodyFindings = computeBodyFindingsForCalls(toolCalls, toolBodyShapes, openApiPathIndex);
   }
+
+  // 7. Cross-Ref-Unresolved-Check (Task P3.6, advisory) -- unabhängig von toolBodyShapes,
+  // siehe computeCrossRefFindings() JSDoc.
+  const crossRefFindings = computeCrossRefFindings(toolCalls, openApiPathIndex);
 
   return {
     covered,
@@ -652,6 +725,7 @@ function computeValidation(schema, toolCalls, toolBodyShapes = null) {
     queryParamMissingRequired,
     queryParamUnknown,
     bodyFindings,
+    crossRefFindings,
     excludedCount,
   };
 }
@@ -751,6 +825,7 @@ function validate() {
     queryParamMissingRequired,
     queryParamUnknown,
     bodyFindings,
+    crossRefFindings,
   } = computeValidation(schema, toolCalls, toolBodyShapes);
 
   // Report generieren
@@ -764,6 +839,7 @@ function validate() {
     queryParamMissingRequired,
     queryParamUnknown,
     bodyFindings,
+    crossRefFindings,
   });
 
   writeFileSync(REPORT_FILE, report, 'utf8');
@@ -781,6 +857,7 @@ function validate() {
   const { critical: bodyFindingsCritical, advisory: bodyFindingsAdvisory } = partitionBodyFindings(bodyFindings);
   console.error(`  BODY_PARAM_MISSING_REQUIRED: ${bodyFindingsCritical.length} laut Contract required Body-Felder, die das Tool nicht sendet`);
   console.error(`  BODY_FINDINGS (informativ, kein Exit-Code-Effekt): ${bodyFindingsAdvisory.length}`);
+  console.error(`  CROSSREF_UNRESOLVED (informativ, kein Exit-Code-Effekt): ${crossRefFindings.length} Cross-Ref-Annotationen ohne bedienenden Tool`);
 
   // Exit-Code: Fehler bei kritischen Problemen.
   // QUERY_PARAM_UNKNOWN ist wie ORPHANED_TOOL/PARAM_MISMATCH eindeutig ein Bug (das
@@ -820,7 +897,7 @@ function validate() {
 /**
  * Generiert den Markdown-Report
  */
-function generateReport({ schema, covered, missingTool, orphanedTool, paramMismatch, missingEncode, queryParamMissingRequired, queryParamUnknown, bodyFindings = [] }) {
+function generateReport({ schema, covered, missingTool, orphanedTool, paramMismatch, missingEncode, queryParamMissingRequired, queryParamUnknown, bodyFindings = [], crossRefFindings = [] }) {
   const lines = [];
   const now = new Date().toISOString();
   // Task P2.2: BODY_PARAM_MISSING_REQUIRED bekommt eine eigene Kritisch-Section (analog zu
@@ -850,6 +927,7 @@ function generateReport({ schema, covered, missingTool, orphanedTool, paramMisma
   lines.push(`| QUERY_PARAM_UNKNOWN | ${queryParamUnknown.length} |`);
   lines.push(`| BODY_PARAM_MISSING_REQUIRED | ${bodyFindingsCritical.length} |`);
   lines.push(`| BODY_FINDINGS (informativ, übrige Body-Typen) | ${bodyFindingsAdvisory.length} |`);
+  lines.push(`| CROSSREF_UNRESOLVED (informativ) | ${crossRefFindings.length} |`);
   lines.push('');
 
   // Kritische Probleme
@@ -967,6 +1045,31 @@ function generateReport({ schema, covered, missingTool, orphanedTool, paramMisma
     lines.push('');
   }
 
+  // CROSSREF_UNRESOLVED (Task P3.6, informativ/advisory -- KEIN Exit-Code-Effekt). Eine
+  // `(from METHOD /api/path)`- bzw. `<feld> from METHOD /api/path`-Annotation in
+  // docs/dockhand-openapi.json zeigt auf einen Endpunkt, den kein MCP-Tool bedient --
+  // entweder ein Tippfehler in der Annotation, oder ein bewusst (noch) nicht bewrappter
+  // Endpunkt. `tool` ist der ANFRAGENDE Tool-Name (dessen Beschreibung die Annotation
+  // trägt), `method`/`path` sind das unaufgelöste ZIEL der Annotation -- siehe
+  // scripts/lib/crossref-checks.mjs.
+  if (crossRefFindings.length > 0) {
+    lines.push('## CROSSREF_UNRESOLVED (Informativ / Advisory)');
+    lines.push('');
+    lines.push(
+      'Cross-Ref-Annotationen in `docs/dockhand-openapi.json` (`(from METHOD /api/path)` ' +
+        'bzw. `<feld> from METHOD /api/path`), deren Ziel-Endpunkt kein registriertes ' +
+        'MCP-Tool bedient. **Kein Gate** -- Kandidaten für Tippfehler in der Annotation ODER ' +
+        'für die Omission-Registry (bewusst ausgelassene Endpunkte).'
+    );
+    lines.push('');
+    lines.push('| Anfragendes Tool/Endpunkt | Ziel-HTTP | Ziel-Pfad |');
+    lines.push('|---------------------------|-----------|-----------|');
+    for (const f of crossRefFindings) {
+      lines.push(`| \`${f.tool}\` | ${f.method} | \`${f.path}\` |`);
+    }
+    lines.push('');
+  }
+
   // Fehlende Tools (informativ)
   if (missingTool.length > 0) {
     lines.push('## MISSING_TOOL (Informativ)');
@@ -1020,6 +1123,8 @@ export {
   isIgnored,
   buildOpenApiPathIndex,
   computeBodyFindingsForCalls,
+  buildEndpointToToolIndex,
+  computeCrossRefFindings,
   computeValidation,
   loadSchema,
   CRITICAL_BODY_FINDING_TYPES,
