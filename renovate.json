@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":enableVulnerabilityAlerts"
+  ],
+  "minimumReleaseAge": "3 days",
+  "platformAutomerge": true,
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "automerge": true
+    },
+    {
+      "matchManagers": ["github-actions", "dockerfile"],
+      "automerge": true
+    },
+    {
+      "matchPackageNames": [
+        "/^@semantic-release\\//",
+        "conventional-changelog-conventionalcommits",
+        "conventional-changelog-writer"
+      ],
+      "groupName": "semantic-release"
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ]
+}
