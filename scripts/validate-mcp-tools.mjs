@@ -479,30 +479,65 @@ function computeCrossRefFindings(toolCalls, openApiPathIndex) {
 }
 
 /**
+ * Thrown by loadToolBodyShapes() when the `tsx` subprocess collector fails for ANY reason
+ * (the `npx tsx` invocation itself errors/exits non-zero, or its stdout is not valid JSON).
+ *
+ * Ground truth for WHY this is now a dedicated error type instead of a swallowed `null`
+ * (Refs #173, follow-up to #172's hard BODY_PARAM_MISSING_REQUIRED gate): the OLD
+ * loadToolBodyShapes() caught every failure and returned `null`, which computeValidation()
+ * treats as "body-checks intentionally skipped" -- the EXACT same signal a caller sends by
+ * never calling loadToolBodyShapes() at all (e.g. generate-coverage-doc.mjs's 2-arg
+ * computeValidation() call). That made "the collector crashed" indistinguishable from "body
+ * checks were never requested", so the hard gate went silently fail-open on a broken
+ * collector: CI stayed green even though the check never ran. `tsx` is a committed
+ * devDependency and every CI job runs `npm ci` before `validate-mcp-tools.mjs` (see
+ * .github/workflows/ci.yml, api-schema-sync.yml) -- there is no longer a legitimate
+ * "tsx isn't installed" case to stay silent for.
+ */
+class BodyShapeCollectorError extends Error {
+  constructor(message, options) {
+    super(message, options);
+    this.name = 'BodyShapeCollectorError';
+  }
+}
+
+/**
  * Sammelt die Body-Shapes ALLER registrierten MCP-Tools, indem der eigenständige
  * `tsx`-Collector (scripts/collect-tool-shapes.mjs) als Subprozess ausgeführt wird — siehe
  * dessen Datei-Kopf-Kommentar für das WARUM (plain `node` kann `.ts`-Tool-Dateien nicht
  * importieren, `validate-mcp-tools.mjs` selbst bleibt bewusst `tsx`-frei).
  *
- * Body-Checks sind komplett advisory (Global Constraint des P1-Plans): schlägt der
- * Collector aus IRGENDEINEM Grund fehl (kein `tsx` installiert, ein Tool-File das nicht
- * importierbar ist, ...), gibt diese Funktion `null` zurück und computeValidation()
- * überspringt die Body-Checks komplett — der bestehende `node scripts/validate-mcp-tools.mjs`
- * Aufruf und sein Exit-Code bleiben davon unberührt.
- * @returns {Record<string, { sentFields: string[], requiredSent: string[], passthrough: boolean }>|null}
+ * Fail-CLOSED seit #173 (vorher fail-open, siehe BodyShapeCollectorError-JSDoc oben):
+ * schlägt der Collector-Subprozess fehl ODER liefert kein valides JSON auf stdout, wirft
+ * diese Funktion eine BodyShapeCollectorError -- der einzige Aufrufer (validate(), unten)
+ * fängt sie ab und bricht mit Exit 1 und einer klaren "body-contract collector failed"-
+ * Meldung ab, BEVOR computeValidation() überhaupt läuft. Ein Collector-Lauf, der sauber
+ * durchläuft und (legitim) 0 Tool-Shapes meldet, ist davon unterschieden: `JSON.parse('{}')`
+ * wirft NICHT, liefert nur ein leeres Objekt -- computeValidation() sieht dann ganz normal
+ * 0 Body-Findings und der Exit-Code bleibt 0 (kein anderer Bucket betroffen).
+ * @param {string} [scriptPath] Pfad zum Collector-Script (Default COLLECT_SHAPES_SCRIPT).
+ *   Nur für Tests parametrisierbar (siehe tests/body-shape-collector.test.ts), damit ein
+ *   Collector-Crash ohne echten Bug in collect-tool-shapes.mjs simuliert werden kann.
+ * @returns {Record<string, { sentFields: string[], requiredSent: string[], passthrough: boolean }>}
+ * @throws {BodyShapeCollectorError}
  */
-function loadToolBodyShapes() {
+function loadToolBodyShapes(scriptPath = COLLECT_SHAPES_SCRIPT) {
+  let output;
   try {
-    const output = execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['tsx', COLLECT_SHAPES_SCRIPT], {
+    output = execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['tsx', scriptPath], {
       cwd: PROJECT_ROOT,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'inherit'],
       maxBuffer: 10 * 1024 * 1024,
     });
+  } catch (err) {
+    throw new BodyShapeCollectorError(`body-contract collector failed: ${err.message}`, { cause: err });
+  }
+
+  try {
     return JSON.parse(output);
   } catch (err) {
-    console.error(`[validate] Body-Contract-Checks übersprungen (tsx-Collector fehlgeschlagen): ${err.message}`);
-    return null;
+    throw new BodyShapeCollectorError(`body-contract collector failed: collector output is not valid JSON (${err.message})`, { cause: err });
   }
 }
 
@@ -849,14 +884,20 @@ function validate() {
   console.error(`[validate] Schema: ${schema.endpointCount} Endpunkte (Commit: ${schema.sourceCommit.substring(0, 8)})`);
   console.error(`[validate] MCP Tools: ${toolCalls.length} API-Aufrufe gefunden`);
 
-  // Body-Contract-Checks (Task P1.4/P1.6) sind advisory und optional: loadToolBodyShapes()
-  // gibt `null` zurück, wenn der tsx-Collector aus irgendeinem Grund fehlschlägt (z.B. tsx
-  // fehlt) -- computeValidation() überspringt die Checks dann komplett, alle bestehenden
-  // Buckets und der Exit-Code bleiben unangetastet.
-  const toolBodyShapes = loadToolBodyShapes();
-  if (toolBodyShapes) {
-    console.error(`[validate] Body-Shapes: ${Object.keys(toolBodyShapes).length} Tools erfasst (tsx-Collector)`);
+  // Body-Contract-Checks (Task P1.4/P1.6) sind fail-CLOSED seit #173: schlägt der
+  // tsx-Collector fehl (BodyShapeCollectorError, siehe loadToolBodyShapes()-JSDoc), bricht
+  // dieser CLI-Lauf HART ab -- kein stiller Rückfall mehr auf "Body-Checks übersprungen".
+  let toolBodyShapes;
+  try {
+    toolBodyShapes = loadToolBodyShapes();
+  } catch (err) {
+    if (err instanceof BodyShapeCollectorError) {
+      console.error(`\n[validate] KRITISCH: ${err.message}`);
+      process.exit(1);
+    }
+    throw err;
   }
+  console.error(`[validate] Body-Shapes: ${Object.keys(toolBodyShapes).length} Tools erfasst (tsx-Collector)`);
 
   // Omission-Registry (Task P3.7) -- optional, siehe loadOmissionRegistry() JSDoc.
   const registry = loadOmissionRegistry();
@@ -1204,4 +1245,6 @@ export {
   partitionBodyFindings,
   hasCriticalErrors,
   generateReport,
+  loadToolBodyShapes,
+  BodyShapeCollectorError,
 };
