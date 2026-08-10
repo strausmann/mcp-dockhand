@@ -12,6 +12,7 @@ const registriesSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'reg
 const imagesSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'images.ts'), 'utf-8');
 const dashboardSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'dashboard.ts'), 'utf-8');
 const gitStacksSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'git-stacks.ts'), 'utf-8');
+const volumesSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'volumes.ts'), 'utf-8');
 
 function extractToolBlock(source: string, toolName: string): string {
   const startPattern = new RegExp(
@@ -263,5 +264,86 @@ describe('Dockhand API contract alignment', () => {
     expect(block).toMatch(/client\.get\(`\/api\/git\/stacks\/\$\{encodePath\(stackId\)\}\/webhook`,\s*\{\s*secret\s*\}\)/);
     expect(block).not.toMatch(/client\.post\(`\/api\/git\/stacks/);
     expect(block).not.toMatch(/\btoken\b/);
+  });
+
+  it('clone_volume sends the source volume clone target as body.name (required), not optional body.newName', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/volumes/[name]/clone/+server.ts, v1.0.41):
+    // `const body = await request.json(); const newName = body.name; if (!newName) return
+    // json({ error: 'New volume name is required' }, { status: 400 });`. The handler reads the
+    // target name exclusively from `body.name` and always requires it — there is no `newName`
+    // field anywhere in the handler. The old tool sent an optional `newName` field, which the
+    // real handler never reads, so `body.name` was always undefined and every call 400ed with
+    // "New volume name is required" (mcp-dockhand#167).
+    const block = extractToolBlock(volumesSource, 'clone_volume');
+
+    expect(block).toMatch(/name:\s*z\.string\(\)/);
+    expect(block).not.toMatch(/newName/);
+    expect(block).toMatch(/\{\s*name\s*\}/);
+  });
+
+  it('create_git_repository sends name as a required body field, not just url', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/git/repositories/+server.ts, v1.0.41):
+    // `const data = await request.json(); if (!data.name || typeof data.name !== 'string')
+    // return json({ error: 'Name is required' }, { status: 400 }); if (!data.url || typeof
+    // data.url !== 'string') return json({ error: 'Repository URL is required' }, { status:
+    // 400 });`. Both `name` and `url` are required; `branch`/`credentialId` are optional
+    // (`data.branch || 'main'`, `data.credentialId || null`). The old tool's zod schema never
+    // included `name` at all, so it could never be sent — every call 400ed with "Name is
+    // required" before `url` was even checked (mcp-dockhand#167).
+    const block = extractToolBlock(gitStacksSource, 'create_git_repository');
+
+    expect(block).toMatch(/name:\s*z\.string\(\)(?!\.optional)/);
+    expect(block).toMatch(/url:\s*z\.string\(\)(?!\.optional)/);
+    expect(block).toMatch(/\{\s*name,\s*url\s*\}/);
+  });
+
+  it('push_image sends imageId and registryId as required body fields, not just image', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/images/push/+server.ts, v1.0.41): `const {
+    // imageId, imageName, registryId, newTag } = await request.json(); if (!imageId ||
+    // !registryId) return json({ error: 'Image ID and registry ID are required' }, { status:
+    // 400 });`. The handler never reads `image` at all — it needs the local image ID plus the
+    // target registry ID; `imageName` (fallback source tag) and `newTag` (custom target tag)
+    // are optional. The old tool sent only `{ image }`, a field the real handler never reads —
+    // every call 400ed with "Image ID and registry ID are required" (mcp-dockhand#167).
+    const block = extractToolBlock(imagesSource, 'push_image');
+
+    expect(block).toMatch(/imageId:\s*z\.string\(\)(?!\.optional)/);
+    expect(block).toMatch(/registryId:\s*z\.number\(\)(?!\.optional)/);
+    expect(block).not.toMatch(/\bimage:\s*z\.string\(\)/);
+    expect(block).toMatch(/imageId,\s*\n?\s*registryId/);
+  });
+
+  it('scan_image sends imageName as the required body field, not imageId', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/images/scan/+server.ts, v1.0.41): `const
+    // body = await request.json(); const { imageName, scanner: forceScannerType } = body; if
+    // (!imageName) return json({ error: 'Image name is required' }, { status: 400 });`. The
+    // handler reads `imageName` (a name/reference, not a Docker image ID) and an optional
+    // `scanner` override — it never reads `imageId`. The old tool sent `{ imageId }`, which the
+    // real handler ignores entirely — every call 400ed with "Image name is required"
+    // (mcp-dockhand#167).
+    const block = extractToolBlock(imagesSource, 'scan_image');
+
+    expect(block).toMatch(/imageName:\s*z\.string\(\)(?!\.optional)/);
+    expect(block).not.toMatch(/imageId:\s*z\.string\(\)/);
+    expect(block).toMatch(/\{\s*imageName/);
+  });
+
+  it('request_git_preview_env sends composePath plus repositoryId/url, not an empty body', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/git/preview-env/+server.ts, v1.0.41): `const
+    // data = await request.json(); if (!data.composePath || typeof data.composePath !==
+    // 'string') return json({ error: 'Compose path is required' }, { status: 400 }); ... if
+    // (data.repositoryId) { ... } else if (data.url) { ... } else { return json({ error:
+    // 'Either repositoryId or url is required' }, { status: 400 }); }`. `composePath` is always
+    // required, and either `repositoryId` (existing repo) or `url` (new repo) must be given;
+    // `branch`, `credentialId`, `envFilePath` are optional. The old tool's input schema was
+    // empty (`{}`) and sent no body at all — every call 400ed with "Compose path is required"
+    // (mcp-dockhand#167).
+    const block = extractToolBlock(gitStacksSource, 'request_git_preview_env');
+
+    expect(block).toMatch(/composePath:\s*z\.string\(\)(?!\.optional)/);
+    expect(block).toMatch(/repositoryId:\s*z\.number\(\)\.optional\(\)/);
+    expect(block).toMatch(/url:\s*z\.string\(\)\.optional\(\)/);
+    expect(block).toMatch(/client\.post\('\/api\/git\/preview-env',\s*body\)/);
+    expect(block).not.toMatch(/client\.post\('\/api\/git\/preview-env'\)/);
   });
 });

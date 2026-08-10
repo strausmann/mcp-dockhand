@@ -80,12 +80,10 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Source volume name'),
-      newName: z.string().optional().describe('Name for the cloned volume'),
+      name: z.string().describe('Name for the cloned volume (required by the real endpoint)'),
     },
-    async ({ environmentId, volumeName, newName }) => {
-      const body: Record<string, unknown> = {};
-      if (newName) body.newName = newName;
-      return jsonResponse(await client.post(`/api/volumes/${encodePath(volumeName)}/clone`, body, { env: environmentId }));
+    async ({ environmentId, volumeName, name }) => {
+      return jsonResponse(await client.post(`/api/volumes/${encodePath(volumeName)}/clone`, { name }, { env: environmentId }));
     }
   );
 
