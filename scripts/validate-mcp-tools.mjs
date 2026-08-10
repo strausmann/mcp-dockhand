@@ -307,16 +307,46 @@ function diffQueryParams(sentKeys, schemaParams, { checkMissing }) {
   return { missingRequired, unknown };
 }
 
+// Endpunkte die wir bewusst ignorieren (Streams, Callbacks, interne)
+const IGNORED_PATTERNS = [
+  '/api/auth/login',           // Login wird nicht über MCP gemacht
+  '/api/auth/oidc/callback',   // OAuth Callback
+  '/stream',                   // SSE Streams (werden über postSSE abgedeckt)
+  '/api/debug/',               // Debug-Endpunkte
+  '/api/self-update',          // Self-Update (gefährlich über MCP)
+  '/api/events',               // SSE Event-Stream
+  '/api/jobs/',                // Interne Job-Verwaltung
+  '/api/hawser/connect',       // Hawser Agent-Verbindung
+  '/api/environments/{*}/icon',          // Icon-Upload (binary)
+  '/api/environments/{*}/disk-warning',  // Disk-Warning (intern)
+  '/api/profile/avatar',                 // Avatar-Upload (binary)
+];
+
 /**
- * Hauptvalidierung
+ * Prüft, ob ein Pfad zu den bewusst ausgeschlossenen Endpunkten gehört (Streams,
+ * Callbacks, interne Routen — siehe IGNORED_PATTERNS).
+ * @param {string} path
+ * @returns {boolean}
  */
-function validate() {
-  const schema = loadSchema();
-  const toolCalls = extractToolCalls();
+function isIgnored(path) {
+  const normalized = normalizePath(path);
+  return IGNORED_PATTERNS.some((p) => normalized.includes(p) || normalized === normalizePath(p));
+}
 
-  console.error(`[validate] Schema: ${schema.endpointCount} Endpunkte (Commit: ${schema.sourceCommit.substring(0, 8)})`);
-  console.error(`[validate] MCP Tools: ${toolCalls.length} API-Aufrufe gefunden`);
-
+/**
+ * Reine Berechnung der Validierungs-Buckets aus Schema + extrahierten Tool-Aufrufen —
+ * ohne I/O (kein Datei-Read, kein console.error). Wird sowohl von der CLI-Validierung
+ * (`validate()`) als auch vom Coverage-Doc-Generator (`generate-coverage-doc.mjs`)
+ * genutzt, damit beide garantiert dieselben Zahlen liefern.
+ * @param {object} schema Geladenes docs/dockhand-api-schema.json
+ * @param {Array} toolCalls Rückgabe von extractToolCalls()
+ * @returns {{
+ *   covered: Array, missingTool: Array, orphanedTool: Array, paramMismatch: Array,
+ *   missingEncode: Array, queryParamMissingRequired: Array, queryParamUnknown: Array,
+ *   excludedCount: number
+ * }}
+ */
+function computeValidation(schema, toolCalls) {
   // Baue Lookup-Maps
   const schemaEndpoints = new Map();
   for (const ep of schema.endpoints) {
@@ -343,33 +373,17 @@ function validate() {
   const missingEncode = [];
   const queryParamMissingRequired = [];
   const queryParamUnknown = [];
-
-  // Endpunkte die wir bewusst ignorieren (Streams, Callbacks, interne)
-  const ignoredPatterns = [
-    '/api/auth/login',           // Login wird nicht über MCP gemacht
-    '/api/auth/oidc/callback',   // OAuth Callback
-    '/stream',                   // SSE Streams (werden über postSSE abgedeckt)
-    '/api/debug/',               // Debug-Endpunkte
-    '/api/self-update',          // Self-Update (gefährlich über MCP)
-    '/api/events',               // SSE Event-Stream
-    '/api/jobs/',                // Interne Job-Verwaltung
-    '/api/hawser/connect',       // Hawser Agent-Verbindung
-    '/api/environments/{*}/icon',          // Icon-Upload (binary)
-    '/api/environments/{*}/disk-warning',  // Disk-Warning (intern)
-    '/api/profile/avatar',                 // Avatar-Upload (binary)
-  ];
-
-  function isIgnored(path) {
-    const normalized = normalizePath(path);
-    return ignoredPatterns.some(p => normalized.includes(p) || normalized === normalizePath(p));
-  }
+  let excludedCount = 0;
 
   // 1. Prüfe Schema-Endpunkte → COVERED oder MISSING_TOOL
   for (const ep of schema.endpoints) {
     for (const method of ep.methods) {
       const key = endpointKey(ep.path, method);
 
-      if (isIgnored(ep.path)) continue;
+      if (isIgnored(ep.path)) {
+        excludedCount++;
+        continue;
+      }
 
       if (toolEndpoints.has(key)) {
         covered.push({ path: ep.path, method, tools: toolEndpoints.get(key).map(t => t.toolName) });
@@ -447,6 +461,40 @@ function validate() {
       queryParamUnknown.push({ ...call, queryParam: p });
     }
   }
+
+  return {
+    covered,
+    missingTool,
+    orphanedTool,
+    paramMismatch,
+    missingEncode,
+    queryParamMissingRequired,
+    queryParamUnknown,
+    excludedCount,
+  };
+}
+
+/**
+ * Hauptvalidierung (CLI-Einstiegspunkt: lädt Schema + Tool-Aufrufe von der Platte,
+ * berechnet die Buckets über computeValidation(), schreibt den Report, setzt den
+ * Exit-Code).
+ */
+function validate() {
+  const schema = loadSchema();
+  const toolCalls = extractToolCalls();
+
+  console.error(`[validate] Schema: ${schema.endpointCount} Endpunkte (Commit: ${schema.sourceCommit.substring(0, 8)})`);
+  console.error(`[validate] MCP Tools: ${toolCalls.length} API-Aufrufe gefunden`);
+
+  const {
+    covered,
+    missingTool,
+    orphanedTool,
+    paramMismatch,
+    missingEncode,
+    queryParamMissingRequired,
+    queryParamUnknown,
+  } = computeValidation(schema, toolCalls);
 
   // Report generieren
   const report = generateReport({
@@ -635,6 +683,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
 export {
   WHITELISTED_QUERY_PARAMS,
+  IGNORED_PATTERNS,
   splitTopLevel,
   extractObjectKey,
   findMatchingClose,
@@ -645,4 +694,7 @@ export {
   endpointKey,
   pathParamsMatch,
   diffQueryParams,
+  isIgnored,
+  computeValidation,
+  loadSchema,
 };

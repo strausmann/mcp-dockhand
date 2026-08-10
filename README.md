@@ -4,13 +4,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue)](https://github.com/strausmann/mcp-dockhand/pkgs/container/mcp-dockhand)
 
-An MCP (Model Context Protocol) server that exposes **130+ Dockhand API endpoints** as MCP tools. Manage your entire Docker infrastructure through AI assistants.
+An MCP (Model Context Protocol) server that exposes the Dockhand API as MCP tools. Manage your entire Docker infrastructure through AI assistants.
+
+**API coverage:** 88.7% of in-scope Dockhand endpoints (282/318) have an MCP tool — see [`docs/coverage.md`](docs/coverage.md) for the full, auto-updated breakdown by area.
 
 [Dockhand](https://github.com/fnsys/dockhand) is a Docker management server that connects to multiple Docker hosts via Hawser agents. This MCP server provides full programmatic access to all Dockhand features.
 
 ## Features
 
-- **130+ MCP Tools** covering all Dockhand API endpoints
+- **280+ MCP Tools** covering the Dockhand API — see [`docs/coverage.md`](docs/coverage.md) for exact, auto-updated coverage
 - **Streamable HTTP Transport** (MCP Spec 2025-03-26) for Docker container hosting
 - **Session-based Auth** with auto-relogin on 401
 - **SSE Support** for deploy operations (start, stop, down, restart)

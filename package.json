@@ -1,7 +1,7 @@
 {
   "name": "mcp-dockhand",
   "version": "1.11.0",
-  "description": "MCP Server for Dockhand Docker Management - exposes 130+ API endpoints as MCP tools",
+  "description": "MCP Server for Dockhand Docker Management - exposes the Dockhand API as MCP tools (see docs/coverage.md for exact coverage)",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -13,6 +13,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "api:extract": "node scripts/extract-dockhand-api.mjs",
+    "api:validate": "node scripts/validate-mcp-tools.mjs",
+    "api:coverage-doc": "node scripts/generate-coverage-doc.mjs",
     "prepare": "husky"
   },
   "keywords": [
