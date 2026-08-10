@@ -110,7 +110,12 @@ export const EXPLICIT_OVERRIDES = {
   update_stack_env: { method: 'PUT', path: '/api/stacks/{name}/env' },
   // Composes client.get<StackEnv>(envPath, ...) + client.get<string>(envRawPath, ...) —
   // no single dedicated REST endpoint; anchored on the structured-read side as the
-  // closest available summary (secrets-masked variable listing).
+  // closest available summary (secrets-masked variable listing). This endpoint is also
+  // shared with `get_stack_env` — the spec summary this anchoring inherits ("Get all
+  // environment variables...") describes get_stack_env, not this tool; see
+  // src/openapi/description-overrides.ts for the follow-up fix (P3 Final Fix Wave,
+  // Finding 1/2, Refs #57) that gives this tool its own correct description AND makes
+  // endpointToTool() resolve this endpoint back to get_stack_env, not here.
   check_stack_env_collisions: { method: 'GET', path: '/api/stacks/{name}/env' },
   // client.get(...) is a CONDITIONAL performance shortcut ("Only fetch environment when
   // connectionType is not provided ... avoids performance regression from PR #21") —
@@ -125,11 +130,18 @@ export const EXPLICIT_OVERRIDES = {
   // the whole endpoint family that mentions "deletes" at all ("...empty content deletes
   // the .env file..."). PUT .../env (what first-wins previously picked, matching
   // update_stack_env) was rejected: its summary "Save environment variables..." directly
-  // contradicts a key-removal tool's purpose. KNOWN REGRESSION either way: the disambiguation
-  // from update_stack_env's merge-mode limitation ("safe way to delete variables —
-  // update_stack_env in merge mode cannot remove keys") has no surviving textual home at
-  // all (not the spec, not any .describe()) — see tests/stack-env-tools.test.ts and
-  // tests/stack-env-merge.test.ts, and the Task 5 fix-round report.
+  // contradicts a key-removal tool's purpose. KNOWN REGRESSION either way (at the time):
+  // the disambiguation from update_stack_env's merge-mode limitation ("safe way to delete
+  // variables — update_stack_env in merge mode cannot remove keys") had no surviving
+  // textual home at all (not the spec, not any .describe()) — see
+  // tests/stack-env-tools.test.ts and tests/stack-env-merge.test.ts, and the Task 5
+  // fix-round report. RESOLVED (P3 Final Fix Wave, Finding 1/2, Refs #57): this endpoint
+  // is ALSO shared with `update_stack_env_raw` — the derived description this anchoring
+  // produced was update_stack_env_raw's raw-file-write text, not this tool's own. See
+  // src/openapi/description-overrides.ts (restores the tool's own hand-written text,
+  // including the exact "update_stack_env in merge mode cannot remove keys" disambiguation
+  // above) and src/openapi/tool-endpoint.ts (makes endpointToTool() resolve this endpoint
+  // back to update_stack_env_raw, not here).
   remove_stack_env_vars: { method: 'PUT', path: '/api/stacks/{name}/env/raw' },
 };
 

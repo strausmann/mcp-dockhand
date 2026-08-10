@@ -1,6 +1,9 @@
 /**
  * describeTool() — the single glue function `registerTool()` (src/utils/tool-helper.ts)
  * calls at registration time to derive a tool's MCP `description`. Ties together:
+ *   0. `TOOL_DESCRIPTION_OVERRIDES[name]` — a hand-written description WINS outright when
+ *      present, before any spec lookup (see description-overrides.ts for when/why this
+ *      escape hatch exists — a narrow, audited exception, not a general opt-out).
  *   1. `toolEndpoint(name)` — which Dockhand endpoint does this tool call?
  *   2. `specOperation(endpoint)` — what does docs/dockhand-openapi.json say about it?
  *   3. `deriveToolDescription(op, endpointToTool)` — summary + resolved cross-refs.
@@ -16,8 +19,12 @@
 import { deriveToolDescription } from './derive-description.js';
 import { toolEndpoint, endpointToTool } from './tool-endpoint.js';
 import { specOperation } from './spec-loader.js';
+import { TOOL_DESCRIPTION_OVERRIDES } from './description-overrides.js';
 
 export function describeTool(name: string): string {
+  const override = TOOL_DESCRIPTION_OVERRIDES[name];
+  if (override) return override;
+
   const endpoint = toolEndpoint(name);
   if (!endpoint) {
     console.error(
