@@ -45,10 +45,15 @@ export class DockhandClient {
 
   /**
    * Make an authenticated DELETE request.
+   *
+   * `body` is optional because most DELETE endpoints take no payload — but a few
+   * real Dockhand endpoints (e.g. `DELETE /api/users/{id}/roles`) read their
+   * target from `request.json()` rather than from query params or the path, so
+   * the client needs to support sending one. See `remove_user_role`.
    */
-  async delete<T = unknown>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+  async delete<T = unknown>(path: string, params?: Record<string, string | number | undefined>, body?: unknown): Promise<T> {
     const url = this.buildUrl(path, params);
-    return this.request<T>('DELETE', url);
+    return this.request<T>('DELETE', url, body);
   }
 
   /**
