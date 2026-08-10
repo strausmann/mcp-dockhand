@@ -52,13 +52,13 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'trigger_git_webhook', 'Fire the incoming webhook for a Git-based stack to trigger a manual deploy; use `get_git_webhook` to inspect webhook details before firing.',
+  registerTool(server, 'trigger_git_webhook', "Fire a Git-based stack's webhook via the real GET manual-trigger path to force a deploy check; the POST path is reserved for GitHub/GitLab's own signed webhook calls (verified via request headers) and cannot be triggered manually. Use `get_git_webhook` to inspect webhook details before firing.",
     {
       stackId: z.number().describe('Git stack ID'),
-      token: z.string().optional().describe('Webhook secret token'),
+      secret: z.string().describe("Webhook secret, matched against the stack's configured secret (required by the real endpoint)"),
     },
-    async ({ stackId, token }) => {
-      return jsonResponse(await client.post(`/api/git/stacks/${encodePath(stackId)}/webhook`, undefined, token ? { token } : undefined));
+    async ({ stackId, secret }) => {
+      return jsonResponse(await client.get(`/api/git/stacks/${encodePath(stackId)}/webhook`, { secret }));
     }
   );
 

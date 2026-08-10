@@ -9,6 +9,9 @@ const systemSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'system.
 const usersSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'users.ts'), 'utf-8');
 const containersSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'containers.ts'), 'utf-8');
 const registriesSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'registries.ts'), 'utf-8');
+const imagesSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'images.ts'), 'utf-8');
+const dashboardSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'dashboard.ts'), 'utf-8');
+const gitStacksSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'git-stacks.ts'), 'utf-8');
 
 function extractToolBlock(source: string, toolName: string): string {
   const startPattern = new RegExp(
@@ -153,5 +156,112 @@ describe('Dockhand API contract alignment', () => {
     expect(block).toMatch(/client\.get\('\/api\/registry\/catalog'/);
     expect(block).not.toMatch(/environmentId/);
     expect(block).not.toMatch(/\benv:\s*environmentId\b/);
+  });
+
+  it('write_system_file sends path in the POST body, not as a query param (real endpoint only creates a directory)', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/system/files/+server.ts, commit 905c4a0):
+    // `export const POST: RequestHandler = async ({ request, cookies }) => { const body = await
+    // request.json(); const path = body.path; if (!path || typeof path !== 'string') return
+    // json({ error: 'Path is required' }, { status: 400 }); ... mkdirSync(path, { recursive:
+    // true }); return json({ success: true, path }); }`. The handler reads `path` exclusively
+    // from the parsed JSON body — it never touches `url.searchParams` at all. The old tool sent
+    // `client.post('/api/system/files', { content }, { path })`: `path` went out as a query
+    // param the handler never reads, so `body.path` was always undefined and every call 400ed
+    // with "Path is required". The handler also never reads `content` from anywhere — this
+    // endpoint creates an (empty) directory, it does not write file content.
+    const block = extractToolBlock(systemSource, 'write_system_file');
+
+    expect(block).toMatch(/path:\s*z\.string\(\)/);
+    expect(block).toMatch(/client\.post\('\/api\/system\/files',\s*\{\s*path\s*\}\)/);
+    expect(block).not.toMatch(/content:\s*z\.string\(\)/);
+  });
+
+  it('list_image_scans matches the real GET /api/images/scan contract: image (required), env + scanner (optional)', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/images/scan/+server.ts, commit 905c4a0):
+    // `export const GET: RequestHandler = async ({ url, cookies }) => { const imageName =
+    // url.searchParams.get('image'); const envIdParam = url.searchParams.get('env'); const
+    // scanner = url.searchParams.get('scanner') as 'grype' | 'trivy' | undefined; ... if
+    // (!imageName) return json({ error: 'Image name is required' }, { status: 400 }); ... }`.
+    // This is a single-image cached-result lookup (returns { found, result }), not a listing
+    // across the whole environment. The old tool only sent `env` and never `image` — every call
+    // 400ed with "Image name is required".
+    const block = extractToolBlock(imagesSource, 'list_image_scans');
+
+    expect(block).toMatch(/image:\s*z\.string\(\)/);
+    expect(block).toMatch(/environmentId:\s*z\.number\(\)\.optional\(\)/);
+    expect(block).toMatch(/client\.get\('\/api\/images\/scan',\s*query\)/);
+    expect(block).toMatch(/\{\s*image\s*\}/);
+    expect(block).toMatch(/query\.env\s*=\s*environmentId/);
+  });
+
+  it('reset_scanner_settings matches the real DELETE /api/settings/scanner contract: env + removeImages (required), scanner (optional)', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/settings/scanner/+server.ts, commit
+    // 905c4a0): `export const DELETE: RequestHandler = async ({ url, cookies }) => { const
+    // removeImagesFlag = url.searchParams.get('removeImages') === 'true'; const scanner =
+    // url.searchParams.get('scanner'); const envId = url.searchParams.get('env'); ... if
+    // (!removeImagesFlag) return json({ error: 'removeImages parameter required' }, { status:
+    // 400 }); if (!parsedEnvId) return json({ error: 'Environment ID required' }, { status: 400
+    // }); ... }`. The old tool called `client.delete('/api/settings/scanner')` with an empty
+    // input schema — no query params at all — so every call 400ed on the very first guard
+    // ("removeImages parameter required").
+    const block = extractToolBlock(systemSource, 'reset_scanner_settings');
+
+    expect(block).toMatch(/environmentId:\s*z\.number\(\)/);
+    expect(block).toMatch(/removeImages:\s*z\.boolean\(\)/);
+    expect(block).toMatch(/scanner:\s*z\.enum\(\[['"]grype['"],\s*['"]trivy['"]\]\)\.optional\(\)/);
+    expect(block).toMatch(/client\.delete\('\/api\/settings\/scanner'/);
+    expect(block).toMatch(/env:\s*environmentId/);
+    expect(block).toMatch(/removeImages\s*=\s*['"]true['"]/);
+  });
+
+  it('delete_user forwards confirmDisableAuth as a query param (conditionally required on the last-admin path)', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/users/[id]/+server.ts, commit 905c4a0):
+    // `export const DELETE: RequestHandler = async (event) => { ... const confirmDisableAuth =
+    // url.searchParams.get('confirmDisableAuth') === 'true'; ... if (auth.authEnabled &&
+    // userIsAdmin) { const adminCount = await countAdminUsers(); if (adminCount <= 1) { if
+    // (!confirmDisableAuth) return json({ error: 'This is the last admin user', isLastAdmin:
+    // true, ... }, { status: 409 }); ... } } ... }`. Deleting a non-last-admin user works
+    // without it; deleting the sole remaining admin 409s unless `confirmDisableAuth=true` is
+    // sent. The old tool never sent this param at all, so that path could never be confirmed.
+    const block = extractToolBlock(usersSource, 'delete_user');
+
+    expect(block).toMatch(/confirmDisableAuth:\s*z\.boolean\(\)\.optional\(\)/);
+    expect(block).toMatch(/confirmDisableAuth\s*=\s*['"]true['"]/);
+    expect(block).toMatch(/client\.delete\(`\/api\/users\/\$\{encodePath\(userId\)\}`/);
+  });
+
+  it('clear_activity matches the real DELETE /api/activity contract: no query params, clears globally', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/activity/+server.ts, commit 905c4a0):
+    // `export const DELETE: RequestHandler = async ({ cookies }) => { const auth = await
+    // authorize(cookies); if (auth.authEnabled && !await auth.can('activity', 'delete')) return
+    // json({ error: 'Permission denied' }, { status: 403 }); try { await clearContainerEvents();
+    // return json({ success: true }); } ... }`. The handler destructures only `{ cookies }` —
+    // it never reads `url.searchParams` at all, so there is no environment scoping: a DELETE
+    // always clears the ENTIRE activity log. The old tool sent a required `environmentId` as
+    // `{ environmentId }` in the query string, which the real handler silently ignores.
+    const block = extractToolBlock(dashboardSource, 'clear_activity');
+
+    expect(block).toMatch(/client\.delete\('\/api\/activity'\)/);
+    expect(block).not.toMatch(/environmentId/);
+  });
+
+  it('trigger_git_webhook uses the real GET manual-trigger path with a `secret` query param, not POST+token', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/git/stacks/[id]/webhook/+server.ts, commit
+    // 905c4a0): the POST handler is reserved for GitHub/GitLab's own webhook calls — it verifies
+    // an HMAC signature read from the `x-hub-signature-256`/`x-gitlab-token` REQUEST HEADERS
+    // (`verifyWebhookSignature(payload, signature, gitStack.webhookSecret)`) and never reads any
+    // query param at all, so the old tool's `{ token }` query param on POST was always ignored —
+    // signature verification failed and every call 401ed. The handler also explicitly documents
+    // a GET path for this: `// Also support GET for simple polling/manual triggers` — `export
+    // const GET: RequestHandler = async (event) => { ... const secret =
+    // url.searchParams.get('secret'); if (secret !== gitStack.webhookSecret) return json({
+    // error: 'Invalid webhook secret' }, { status: 401 }); ... deployGitStack(id, { force: false
+    // }); ... }`. That GET+`secret` path is the correct, real manual-trigger contract.
+    const block = extractToolBlock(gitStacksSource, 'trigger_git_webhook');
+
+    expect(block).toMatch(/secret:\s*z\.string\(\)/);
+    expect(block).toMatch(/client\.get\(`\/api\/git\/stacks\/\$\{encodePath\(stackId\)\}\/webhook`,\s*\{\s*secret\s*\}\)/);
+    expect(block).not.toMatch(/client\.post\(`\/api\/git\/stacks/);
+    expect(block).not.toMatch(/\btoken\b/);
   });
 });

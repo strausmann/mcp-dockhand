@@ -76,12 +76,10 @@ export function registerDashboardTools(server: McpServer, client: DockhandClient
     }
   );
 
-  registerTool(server, 'clear_activity', 'Permanently delete (truncate) the activity log for the entire environment scope; pair with `get_activity_feed` to inspect the current entries before clearing, or `get_activity_stats` for aggregate counts that survive a clear.',
-    {
-      environmentId: z.number().describe('Environment ID'),
-    },
-    async ({ environmentId }) => {
-      return jsonResponse(await client.delete('/api/activity', { environmentId }));
+  registerTool(server, 'clear_activity', 'Permanently delete (truncate) the ENTIRE activity log across all environments — the real endpoint has no environment scoping and always clears globally; pair with `get_activity_feed` to inspect the current entries before clearing, or `get_activity_stats` for aggregate counts that survive a clear.',
+    {},
+    async () => {
+      return jsonResponse(await client.delete('/api/activity'));
     }
   );
 }

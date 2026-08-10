@@ -51,10 +51,15 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
     }
   );
 
-  registerTool(server, 'delete_user', 'Permanently delete a Dockhand user account by ID; use `list_users` to confirm the target before removing.',
-    { userId: z.number().describe('User ID') },
-    async ({ userId }) => {
-      return jsonResponse(await client.delete(`/api/users/${encodePath(userId)}`));
+  registerTool(server, 'delete_user', 'Permanently delete a Dockhand user account by ID; use `list_users` to confirm the target before removing. If this is the last remaining admin account, the real endpoint returns 409 unless `confirmDisableAuth` is set (deleting it disables authentication entirely).',
+    {
+      userId: z.number().describe('User ID'),
+      confirmDisableAuth: z.boolean().optional().describe('Confirm deleting the last remaining admin user, which disables authentication (only required when userId is the last admin — the real endpoint 409s without it)'),
+    },
+    async ({ userId, confirmDisableAuth }) => {
+      const query: Record<string, string | number | undefined> = {};
+      if (confirmDisableAuth) query.confirmDisableAuth = 'true';
+      return jsonResponse(await client.delete(`/api/users/${encodePath(userId)}`, query));
     }
   );
 

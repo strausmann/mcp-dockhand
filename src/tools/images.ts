@@ -89,12 +89,17 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'list_image_scans', 'List the cached vulnerability-scan results across all images in an environment (read-only summary view); contrast with `scan_image` (POST) which actually runs a fresh scan for a single image, or `get_image_history` for layer provenance instead of CVE data.',
+  registerTool(server, 'list_image_scans', 'Retrieve the cached vulnerability-scan result for a single image (read-only lookup, returns `{found, result}`); contrast with `scan_image` (POST) which actually runs a fresh scan, or `get_image_history` for layer provenance instead of CVE data.',
     {
-      environmentId: z.number().describe('Environment ID'),
+      image: z.string().describe('Image name/reference to look up (required by the real endpoint)'),
+      environmentId: z.number().optional().describe('Environment ID'),
+      scanner: z.enum(['grype', 'trivy']).optional().describe('Filter the cached result by scanner type'),
     },
-    async ({ environmentId }) => {
-      return jsonResponse(await client.get('/api/images/scan', { env: environmentId }));
+    async ({ image, environmentId, scanner }) => {
+      const query: Record<string, string | number | undefined> = { image };
+      if (environmentId !== undefined) query.env = environmentId;
+      if (scanner) query.scanner = scanner;
+      return jsonResponse(await client.get('/api/images/scan', query));
     }
   );
 
