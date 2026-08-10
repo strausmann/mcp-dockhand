@@ -146,24 +146,17 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'create_git_repository', 'Register a new Git repository configuration with a URL, branch, and optional credential; use `list_git_repositories` to verify the entry and `deploy_git_repository` to trigger the first deploy.',
+  registerTool(server, 'create_git_repository', 'Register a new Git repository configuration with a name, URL, branch, and optional credential; use `list_git_repositories` to verify the entry and `deploy_git_repository` to trigger the first deploy.',
     {
+      name: z.string().describe('Repository name (required by the real endpoint)'),
       url: z.string().describe('Git repository URL (HTTPS or SSH)'),
-      branch: z.string().optional().describe('Branch to track (default: main or master)'),
+      branch: z.string().optional().describe('Branch to track (default: main)'),
       credentialId: z.number().optional().describe('ID of the Git credential to use for authentication'),
-      composePath: z.string().optional().describe('Path to docker-compose file within the repository'),
-      envFilePath: z.string().optional().describe('Path to .env file within the repository'),
-      stackName: z.string().optional().describe('Name for the stack created from this repository'),
-      additionalConfig: z.record(z.string(), z.unknown()).optional().describe('Additional configuration not covered by explicit parameters'),
     },
-    async ({ url, branch, credentialId, composePath, envFilePath, stackName, additionalConfig }) => {
-      // Fix #30 (MEDIUM): Merge additionalConfig FIRST so explicit fields always win (PR #29)
-      const body: Record<string, unknown> = { ...additionalConfig, url };
+    async ({ name, url, branch, credentialId }) => {
+      const body: Record<string, unknown> = { name, url };
       if (branch !== undefined) body.branch = branch;
       if (credentialId !== undefined) body.credentialId = credentialId;
-      if (composePath !== undefined) body.composePath = composePath;
-      if (envFilePath !== undefined) body.envFilePath = envFilePath;
-      if (stackName !== undefined) body.stackName = stackName;
       return jsonResponse(await client.post('/api/git/repositories', body));
     }
   );
@@ -208,10 +201,23 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'request_git_preview_env', 'Request a transient preview environment configuration for Git-based deployments; complements `deploy_git_stack` and `deploy_git_repository` for ephemeral testing workflows.',
-    {},
-    async () => {
-      return jsonResponse(await client.post('/api/git/preview-env'));
+  registerTool(server, 'request_git_preview_env', 'Clone a Git repository (existing `repositoryId` or a new `url`) to a temp directory and read its env files for a preview environment editor; complements `deploy_git_stack` and `deploy_git_repository` for ephemeral testing workflows.',
+    {
+      composePath: z.string().describe('Path to the compose file within the repository (required by the real endpoint)'),
+      repositoryId: z.number().optional().describe('Existing repository ID; use this OR url'),
+      url: z.string().optional().describe('New repository URL; use this OR repositoryId'),
+      branch: z.string().optional().describe('Branch to use when url is given (default: main)'),
+      credentialId: z.number().optional().describe('Credential ID to use when url is given'),
+      envFilePath: z.string().optional().describe('Path to an additional .env file within the repository'),
+    },
+    async ({ composePath, repositoryId, url, branch, credentialId, envFilePath }) => {
+      const body: Record<string, unknown> = { composePath };
+      if (repositoryId !== undefined) body.repositoryId = repositoryId;
+      if (url !== undefined) body.url = url;
+      if (branch !== undefined) body.branch = branch;
+      if (credentialId !== undefined) body.credentialId = credentialId;
+      if (envFilePath !== undefined) body.envFilePath = envFilePath;
+      return jsonResponse(await client.post('/api/git/preview-env', body));
     }
   );
 

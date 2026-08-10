@@ -62,20 +62,29 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
   registerTool(server, 'push_image', 'Push a locally tagged Docker image to a remote registry (outbound registry transfer); to apply or change a tag before pushing use `tag_image`, or use `pull_image` for the opposite inbound direction.',
     {
       environmentId: z.number().describe('Environment ID'),
-      image: z.string().describe('Image name with tag'),
+      imageId: z.string().describe('Local image ID to push (required by the real endpoint)'),
+      registryId: z.number().describe('Target registry ID (required by the real endpoint)'),
+      imageName: z.string().optional().describe('Source tag to push if the image has multiple/no resolvable tag (falls back to the image\'s first RepoTag)'),
+      newTag: z.string().optional().describe('Custom target tag/name in the registry (default: derived from the source image name)'),
     },
-    async ({ environmentId, image }) => {
-      return jsonResponse(await client.post('/api/images/push', { image }, { env: environmentId }));
+    async ({ environmentId, imageId, registryId, imageName, newTag }) => {
+      const body: Record<string, unknown> = { imageId, registryId };
+      if (imageName !== undefined) body.imageName = imageName;
+      if (newTag !== undefined) body.newTag = newTag;
+      return jsonResponse(await client.post('/api/images/push', body, { env: environmentId }));
     }
   );
 
   registerTool(server, 'scan_image', 'Run a vulnerability scan (CVE analysis via Trivy/Grype) against a Docker image; for layer provenance use `get_image_history` instead, and use `export_image` to extract the image filesystem for offline analysis.',
     {
       environmentId: z.number().describe('Environment ID'),
-      imageId: z.string().describe('Image ID to scan'),
+      imageName: z.string().describe('Image name/reference to scan (required by the real endpoint)'),
+      scanner: z.enum(['grype', 'trivy']).optional().describe('Force a specific scanner instead of the configured default'),
     },
-    async ({ environmentId, imageId }) => {
-      return jsonResponse(await client.post('/api/images/scan', { imageId }, { env: environmentId }));
+    async ({ environmentId, imageName, scanner }) => {
+      const body: Record<string, unknown> = { imageName };
+      if (scanner !== undefined) body.scanner = scanner;
+      return jsonResponse(await client.post('/api/images/scan', body, { env: environmentId }));
     }
   );
 
