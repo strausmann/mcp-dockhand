@@ -43,6 +43,44 @@ const UPDATE_CONTAINER_ALLOWED_SETTINGS_KEYS = new Set([
   'usernsMode', 'domainname',
 ]);
 
+/**
+ * Fields accepted by `update_container_runtime`'s in-place update, i.e.
+ * Docker's `POST /containers/{id}/update` — the only Docker API that
+ * changes container properties without recreating the container.
+ *
+ * Source of truth: Finsys/dockhand v1.0.41 (commit 905c4a0),
+ * `IN_PLACE_UPDATE_FIELDS` in src/lib/server/docker.ts:1236-1280. Dockhand
+ * filters the request body against exactly this allowlist server-side and
+ * silently drops anything outside it (not an error) — by design, so a
+ * caller cannot sneak a recreate-only field (image, env, ports, ...)
+ * through this path (src/routes/api/containers/[id]/update-runtime/+server.ts).
+ *
+ * This tool still sends `config` unfiltered (`z.record`) and lets the
+ * server enforce the allowlist (#155 keeps this non-breaking) — this
+ * constant exists only to name the accepted keys in the tool/schema
+ * description below, and to anchor the regression test in
+ * tests/update-container-runtime-fields.test.ts.
+ *
+ * Update this list (and the description strings below) when re-validating
+ * against a newer Dockhand release
+ * (.claude/skills/dockhand-mcp-dev/references/upstream-validation.md).
+ */
+export const UPDATE_CONTAINER_RUNTIME_ACCEPTED_FIELDS = [
+  // Restart policy — the headline use case (dockhand#1153)
+  'RestartPolicy',
+  // CPU
+  'CpuShares', 'CpuPeriod', 'CpuQuota', 'CpuRealtimePeriod', 'CpuRealtimeRuntime',
+  'CpusetCpus', 'CpusetMems', 'NanoCpus',
+  // Memory
+  'Memory', 'MemorySwap', 'MemoryReservation', 'MemorySwappiness', 'KernelMemory',
+  // Block I/O
+  'BlkioWeight', 'BlkioWeightDevice',
+  'BlkioDeviceReadBps', 'BlkioDeviceWriteBps',
+  'BlkioDeviceReadIOps', 'BlkioDeviceWriteIOps',
+  // Misc
+  'PidsLimit',
+] as const;
+
 export function registerContainerTools(server: McpServer, client: DockhandClient): void {
 
   registerTool(server, 'list_containers', 'List all containers in a Dockhand environment, returning summary fields for every container; use `get_container` for a single container\'s details or `inspect_container` for the full low-level Docker JSON.',
@@ -474,11 +512,11 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
     }
   );
 
-  registerTool(server, 'update_container_runtime', 'Update the runtime configuration (e.g. resource limits, restart policy) of an existing container in place; for image or environment changes use `update_container`, and for lifecycle actions see `restart_container`.',
+  registerTool(server, 'update_container_runtime', 'Update the runtime configuration (restart policy, CPU/memory limits, block I/O weights, pids limit) of an existing container in place via Docker native update API, never recreating the container. Accepts config keys RestartPolicy, CpuShares, CpuPeriod, CpuQuota, CpuRealtimePeriod, CpuRealtimeRuntime, CpusetCpus, CpusetMems, NanoCpus, Memory, MemorySwap, MemoryReservation, MemorySwappiness, KernelMemory, BlkioWeight, BlkioWeightDevice, BlkioDeviceReadBps, BlkioDeviceWriteBps, BlkioDeviceReadIOps, BlkioDeviceWriteIOps, PidsLimit; any other key is silently ignored by the server, not an error. For image or environment changes use `update_container`, and for lifecycle actions see `restart_container`.',
     {
       containerId: z.string().describe('Container ID or name'),
       environmentId: z.number().describe('Environment ID'),
-      config: z.record(z.string(), z.unknown()).describe('Runtime configuration to apply'),
+      config: z.record(z.string(), z.unknown()).describe('Runtime configuration to apply. Accepted keys (Docker in-place update allowlist): RestartPolicy, CpuShares, CpuPeriod, CpuQuota, CpuRealtimePeriod, CpuRealtimeRuntime, CpusetCpus, CpusetMems, NanoCpus, Memory, MemorySwap, MemoryReservation, MemorySwappiness, KernelMemory, BlkioWeight, BlkioWeightDevice, BlkioDeviceReadBps, BlkioDeviceWriteBps, BlkioDeviceReadIOps, BlkioDeviceWriteIOps, PidsLimit. Any other key is silently ignored by the server, not an error.'),
     },
     async ({ containerId, environmentId, config }) => {
       return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/update-runtime`, config, { env: environmentId }));
