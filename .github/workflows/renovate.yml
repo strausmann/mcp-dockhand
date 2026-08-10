@@ -1,0 +1,31 @@
+name: renovate
+# Self-hosted Renovate: liest renovate.json und oeffnet Dependency-PRs. Der Token
+# (GitHub-PAT, repo-scope) kommt aus Infisical (Projekt fileee-server-ci / env prod),
+# damit die geoeffneten PRs auch die CI-Checks triggern (der Standard-GITHUB_TOKEN kann das nicht).
+on:
+  schedule:
+    - cron: "0 2 * * *"   # taeglich 02:00 UTC
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: RENOVATE_TOKEN aus Infisical holen
+        uses: Infisical/secrets-action@v1.0.16
+        with:
+          method: universal
+          client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
+          client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          project-slug: fileee-server-ci
+          env-slug: prod
+          secret-path: /
+          domain: https://secretsmanager.strausmann.cloud
+      - uses: renovatebot/github-action@v46.2.1
+        with:
+          token: ${{ env.RENOVATE_TOKEN }}
+          configurationFile: renovate.json
+        env:
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
