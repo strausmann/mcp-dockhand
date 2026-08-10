@@ -217,20 +217,26 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'write_system_file', 'Create or overwrite a file on the Dockhand server filesystem (not inside a container — use `write_container_file_content` for that). Pair with `list_system_files` to discover the path namespace and `get_system_file_content` to read back the result.',
+  registerTool(server, 'write_system_file', 'Create a directory on the Dockhand server filesystem at an absolute path (not inside a container — use `write_container_file_content` for that). The real endpoint only creates directories; it does not accept or persist file content. Pair with `list_system_files` to discover the path namespace and `get_system_file_content` to read back existing files.',
     {
-      path: z.string().describe('Absolute path on the Dockhand server'),
-      content: z.string().describe('File content to write'),
+      path: z.string().describe('Absolute path on the Dockhand server to create as a directory'),
     },
-    async ({ path, content }) => {
-      return jsonResponse(await client.post('/api/system/files', { content }, { path }));
+    async ({ path }) => {
+      return jsonResponse(await client.post('/api/system/files', { path }));
     }
   );
 
-  registerTool(server, 'reset_scanner_settings', 'Permanently reset the vulnerability-scanner settings (Trivy/Grype) to their defaults; read the current values first with `get_scanner_settings`, or use `update_scanner_settings` for targeted changes instead of a full reset.',
-    {},
-    async () => {
-      return jsonResponse(await client.delete('/api/settings/scanner'));
+  registerTool(server, 'reset_scanner_settings', 'Permanently reset the vulnerability-scanner settings (Trivy/Grype) to their defaults by removing the scanner images for an environment; read the current values first with `get_scanner_settings`, or use `update_scanner_settings` for targeted changes instead of a full reset.',
+    {
+      environmentId: z.number().describe('Environment ID (required by the real endpoint)'),
+      removeImages: z.boolean().describe('Must be true to confirm scanner image removal (required by the real endpoint)'),
+      scanner: z.enum(['grype', 'trivy']).optional().describe('Limit removal to one scanner; omit to remove both'),
+    },
+    async ({ environmentId, removeImages, scanner }) => {
+      const query: Record<string, string | number | undefined> = { env: environmentId };
+      if (removeImages) query.removeImages = 'true';
+      if (scanner) query.scanner = scanner;
+      return jsonResponse(await client.delete('/api/settings/scanner', query));
     }
   );
 
