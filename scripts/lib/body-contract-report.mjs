@@ -28,6 +28,23 @@ const FINDING_DESCRIPTIONS = {
 };
 
 /**
+ * Rendert die "Feld"-Zelle einer Finding-Tabellenzeile. Ein `field` (die meisten
+ * Finding-Typen) hat Vorrang; ein `UNTYPED_PASSTHROUGH`-Finding hat stattdessen (optional)
+ * `expectedRequired` -- die Liste der laut Contract required Felder, die der Collector wegen
+ * des `z.record(...)`-Ganzkörper-Bodys nicht einzeln prüfen konnte (Task P2.1 Fix 1). Ohne
+ * eines von beidem bleibt es beim Platzhalter-Strich.
+ * @param {{field?: string, expectedRequired?: string[]}} finding
+ * @returns {string}
+ */
+function renderFieldCell(finding) {
+  if (finding.field) return `\`${finding.field}\``;
+  if (finding.expectedRequired?.length) {
+    return finding.expectedRequired.map((f) => `\`${f}\``).join(', ');
+  }
+  return '-';
+}
+
+/**
  * Gruppiert die Findings nach Typ, in der festen FINDING_ORDER-Reihenfolge (kritischste
  * zuerst), jede Gruppe intern nach Tool-Name sortiert.
  * @param {Array<{type: string, field?: string, toolName: string, httpMethod: string, path: string, file: string, line: number}>} bodyFindings
@@ -114,7 +131,7 @@ function buildBodyContractDoc({ generatedAt, bodyFindings }) {
     lines.push('| Tool | HTTP | Pfad | Feld | Datei |');
     lines.push('|------|------|------|------|-------|');
     for (const e of entries) {
-      lines.push(`| \`${e.toolName}\` | ${e.httpMethod} | \`${e.path}\` | ${e.field ? `\`${e.field}\`` : '-'} | ${e.file}:${e.line} |`);
+      lines.push(`| \`${e.toolName}\` | ${e.httpMethod} | \`${e.path}\` | ${renderFieldCell(e)} | ${e.file}:${e.line} |`);
     }
     lines.push('');
   }
