@@ -11,7 +11,9 @@ services:
       - DOCKHAND_PASSWORD=${DOCKHAND_PASSWORD}
       - MCP_PORT=8080
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      # 127.0.0.1, not localhost: avoids the IPv6-loopback resolution issue
+      # on Alpine/musl (see Dockerfile HEALTHCHECK comment, fixes #92, #84).
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
       interval: 30s
       timeout: 5s
       retries: 3
