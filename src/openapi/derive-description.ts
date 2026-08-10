@@ -13,15 +13,22 @@
  *   - operation-wide `description` prose: `<field> from <METHOD> /api/<path>`
  * Different phrasing (`see GET /api/...`, `cf. .../...`) is not recognized —
  * that is a binding constraint of the upstream contract, not a gap here.
+ *
+ * `HTTP_METHODS`/`PROSE_CROSS_REF_SOURCE`/`PAREN_CROSS_REF_SOURCE` (and the two extraction
+ * functions built on them) are exported ONLY so `tests/derive-description-crossref-parity.
+ * test.ts` can compare them against the deliberately-duplicated copy in
+ * `scripts/lib/crossref-checks.mjs` (see that file's header for why the duplication itself
+ * exists — a TS/JS module-system boundary, not an oversight). No other caller should import
+ * these; use `deriveToolDescription()`.
  */
 
-const HTTP_METHODS = 'GET|POST|PUT|DELETE|PATCH';
+export const HTTP_METHODS = 'GET|POST|PUT|DELETE|PATCH';
 
 /** `<field> from <METHOD> /api/<path>` — used in operation-wide description prose. */
-const PROSE_CROSS_REF_SOURCE = `([A-Za-z_][A-Za-z0-9_]*) from (${HTTP_METHODS}) (\\/api\\/[^\\s.,;)]+)`;
+export const PROSE_CROSS_REF_SOURCE = `([A-Za-z_][A-Za-z0-9_]*) from (${HTTP_METHODS}) (\\/api\\/[^\\s.,;)]+)`;
 
 /** `(from <METHOD> /api/<path>)` — used in path/query parameter descriptions. */
-const PAREN_CROSS_REF_SOURCE = `\\(from (${HTTP_METHODS}) (\\/api\\/[^\\s)]+)\\)`;
+export const PAREN_CROSS_REF_SOURCE = `\\(from (${HTTP_METHODS}) (\\/api\\/[^\\s)]+)\\)`;
 
 const FALLBACK_DESCRIPTION = 'No description available.';
 
@@ -55,8 +62,12 @@ interface ParamCrossRef {
   path: string;
 }
 
-/** Extracts every `<field> from <METHOD> /api/<path>` reference from the operation's description prose. */
-function extractBodyCrossRefs(description: string | undefined): BodyCrossRef[] {
+/**
+ * Extracts every `<field> from <METHOD> /api/<path>` reference from the operation's
+ * description prose. Exported for `tests/derive-description-crossref-parity.test.ts` only
+ * — see the export note at the top of this file.
+ */
+export function extractBodyCrossRefs(description: string | undefined): BodyCrossRef[] {
   if (!description) return [];
   const refs: BodyCrossRef[] = [];
   const re = new RegExp(PROSE_CROSS_REF_SOURCE, 'g');
@@ -67,8 +78,12 @@ function extractBodyCrossRefs(description: string | undefined): BodyCrossRef[] {
   return refs;
 }
 
-/** Extracts the `(from <METHOD> /api/<path>)` reference from each path/query parameter's description. */
-function extractParamCrossRefs(parameters: OpenApiParameter[] | undefined): ParamCrossRef[] {
+/**
+ * Extracts the `(from <METHOD> /api/<path>)` reference from each path/query parameter's
+ * description. Exported for `tests/derive-description-crossref-parity.test.ts` only — see
+ * the export note at the top of this file.
+ */
+export function extractParamCrossRefs(parameters: OpenApiParameter[] | undefined): ParamCrossRef[] {
   if (!parameters) return [];
   const refs: ParamCrossRef[] = [];
   for (const param of parameters) {

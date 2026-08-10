@@ -53,6 +53,32 @@ describe('endpointToTool', () => {
       expect(toolEndpoint(resolved!)).toEqual(entry);
     }
   });
+
+  describe('shared-endpoint tiebreak is deterministic, not alphabetical (Finding 2, P3 Final Fix Wave, Refs #57)', () => {
+    // All four currently-known shared endpoints (see tool-endpoint-map-multi-call.test.ts
+    // for how "shared" here differs from that file's "multi-endpoint tool" concept -- this
+    // is the reverse case: ONE endpoint, MULTIPLE tools). Before the fix, alphabetical
+    // insertion order picked the WRONG tool as the endpoint's owner for three of these four
+    // (the one WITH a description override -- see description-overrides.ts) purely because
+    // its name sorted first. The fix: prefer whichever tool has NO description override --
+    // an override exists precisely because the spec text does not describe that tool.
+
+    it('PUT /api/stacks/{name}/env/raw resolves to update_stack_env_raw, not remove_stack_env_vars', () => {
+      expect(endpointToTool('PUT', '/api/stacks/{name}/env/raw')).toBe('update_stack_env_raw');
+    });
+
+    it('GET /api/stacks/{name}/env resolves to get_stack_env, not check_stack_env_collisions', () => {
+      expect(endpointToTool('GET', '/api/stacks/{name}/env')).toBe('get_stack_env');
+    });
+
+    it('DELETE /api/users/{id}/roles resolves to remove_user_role, not clear_user_roles', () => {
+      expect(endpointToTool('DELETE', '/api/users/{id}/roles')).toBe('remove_user_role');
+    });
+
+    it('GET /api/git/stacks/{id}/webhook resolves to trigger_git_webhook, not get_git_stack_webhook', () => {
+      expect(endpointToTool('GET', '/api/git/stacks/{id}/webhook')).toBe('trigger_git_webhook');
+    });
+  });
 });
 
 describe('tool-endpoint-map completeness', () => {

@@ -14,6 +14,7 @@
  */
 
 import { TOOL_ENDPOINT_MAP, type ToolEndpointEntry } from './tool-endpoint-map.js';
+import { TOOL_DESCRIPTION_OVERRIDES } from './description-overrides.js';
 
 /**
  * Resolves a registered MCP tool name to the {method, path} of the Dockhand endpoint
@@ -34,9 +35,21 @@ function endpointIndexKey(method: string, path: string): string {
  * Lazily-built, memoized inverse of TOOL_ENDPOINT_MAP: `"METHOD /api/path" -> toolName`.
  * Built once from the same static map `toolEndpoint()` reads — there is no separate
  * generated file to keep in sync, so forward and reverse lookups can never drift from
- * each other. If two tools happen to share an endpoint, the one that appears first when
- * iterating TOOL_ENDPOINT_MAP's insertion order (the generator emits entries sorted
- * alphabetically by tool name) wins; both still resolve correctly via `toolEndpoint()`.
+ * each other. Both tools of a shared endpoint still resolve correctly via `toolEndpoint()`
+ * regardless of which one wins here.
+ *
+ * Tiebreak (Finding 2, P3 Final Fix Wave, Refs #57): when two tools share an endpoint, the
+ * one WITHOUT a `TOOL_DESCRIPTION_OVERRIDES` entry wins — deterministically, not by
+ * insertion/alphabetical order. An override exists precisely because that tool's own
+ * derived description (spec summary + cross-refs) does NOT match its actual
+ * fields/behavior (see description-overrides.ts for the four currently-known cases and
+ * why each mismatch was confirmed against the real handler code, not assumed). The
+ * non-overridden sibling is therefore the tool the spec operation actually describes —
+ * exactly the tool a cross-reference to this endpoint should resolve to. When neither or
+ * both share the same override status, the first-seen (insertion-order) entry still wins,
+ * unchanged from the previous behavior — this rule only ever REDIRECTS an endpoint away
+ * from a tool that is independently known to be mismatched, never introduces a new
+ * ambiguity.
  */
 let endpointToToolIndex: Map<string, string> | undefined;
 
@@ -45,7 +58,16 @@ function getEndpointToToolIndex(): Map<string, string> {
     const index = new Map<string, string>();
     for (const [name, entry] of Object.entries(TOOL_ENDPOINT_MAP)) {
       const key = endpointIndexKey(entry.method, entry.path);
-      if (!index.has(key)) index.set(key, name);
+      const existing = index.get(key);
+      if (!existing) {
+        index.set(key, name);
+        continue;
+      }
+      const existingIsOverridden = existing in TOOL_DESCRIPTION_OVERRIDES;
+      const currentIsOverridden = name in TOOL_DESCRIPTION_OVERRIDES;
+      if (existingIsOverridden && !currentIsOverridden) {
+        index.set(key, name);
+      }
     }
     endpointToToolIndex = index;
   }

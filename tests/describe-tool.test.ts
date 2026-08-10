@@ -40,4 +40,51 @@ describe('describeTool', () => {
     expect(description.length).toBeGreaterThan(0);
     expect(errorSpy).toHaveBeenCalled();
   });
+
+  describe('description overrides (P3 Final Fix Wave, Finding 1, Refs #57)', () => {
+    // Four tool pairs share a single Dockhand endpoint (see tool-endpoint-map.ts). The
+    // spec operation for a shared endpoint describes only ONE of the two tools correctly;
+    // `endpointToTool()`'s alphabetical tiebreak picks the other as the endpoint's "owner"
+    // for the wrong reason, so its OWN derived description also inherits the mismatch.
+    // `TOOL_DESCRIPTION_OVERRIDES` (description-overrides.ts) replaces exactly those four.
+
+    it('remove_stack_env_vars: no longer suggests a "content" field or raw-file-write semantics', () => {
+      const description = describeTool('remove_stack_env_vars');
+      expect(description).not.toMatch(/\bcontent\b/i);
+      expect(description).not.toMatch(/write raw \.env file/i);
+      expect(description).toMatch(/remove environment variables/i);
+      expect(description).toMatch(/keys/i);
+    });
+
+    it('check_stack_env_collisions: no longer claims to return the full variable list', () => {
+      const description = describeTool('check_stack_env_collisions');
+      expect(description).not.toMatch(/get all environment variables/i);
+      expect(description).toMatch(/collision|duplicate/i);
+    });
+
+    it('clear_user_roles: no longer references roleId/environmentId cross-refs it does not accept', () => {
+      const description = describeTool('clear_user_roles');
+      expect(description).not.toMatch(/roleId/);
+      expect(description).not.toMatch(/environmentId/);
+      expect(description).toMatch(/every role assignment/i);
+    });
+
+    it('get_git_stack_webhook: no longer claims it sends the secret query parameter', () => {
+      const description = describeTool('get_git_stack_webhook');
+      expect(description).not.toMatch(/secret passed as the `secret` query parameter/i);
+      expect(description).toMatch(/retrieve the inbound webhook/i);
+    });
+
+    it('leaves the OTHER tool in each shared-endpoint pair on the normal spec-derived path', () => {
+      // update_stack_env_raw, get_stack_env, remove_user_role, trigger_git_webhook are the
+      // tools the spec operation's summary actually describes — they must keep getting the
+      // plain derived text (no override entry for them).
+      expect(describeTool('update_stack_env_raw')).toMatch(/write raw \.env file/i);
+      expect(describeTool('get_stack_env')).toMatch(/get all environment variables/i);
+      expect(describeTool('remove_user_role')).toMatch(/remove a role assignment/i);
+      expect(describeTool('trigger_git_webhook')).toMatch(
+        /secret passed as the `secret` query parameter/i,
+      );
+    });
+  });
 });

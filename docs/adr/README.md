@@ -8,6 +8,7 @@ ADR nach dem Schema `NNNN-<slug>.md`.
 | Nr. | Titel | Status | Datum |
 |-----|-------|--------|-------|
 | [0001](0001-omission-registry.md) | Omission-Registry für bewusst nicht gespiegelte Dockhand-Endpunkte | accepted | 2026-08-10 |
+| [0002](0002-description-override-map.md) | Description-override map for shared-endpoint tools | accepted | 2026-08-10 |
 
 ## Wann ein ADR anlegen?
 

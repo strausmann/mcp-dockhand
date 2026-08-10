@@ -30,8 +30,10 @@
  * the existing (optional, gracefully-skippable) body-shape collector -- disproportionate for
  * two small, stable regexes that are themselves the documented, versioned contract, not an
  * implementation detail likely to drift silently. Should the two definitions ever diverge,
- * `tests/derive-description-crossref-parity.test.ts` is the intended regression guard (not
- * part of this task).
+ * `tests/derive-description-crossref-parity.test.ts` is the regression guard: it compares
+ * the regex source strings for byte-identity AND runs both extractors over a shared table
+ * of example operations to confirm they still agree on results (P3 Final Fix Wave,
+ * Finding 3, Refs #57).
  */
 
 const HTTP_METHODS = 'GET|POST|PUT|DELETE|PATCH';
@@ -150,4 +152,15 @@ function checkCrossRefs(entries, endpointToTool) {
   return findings;
 }
 
-export { checkCrossRefs, extractCrossRefsFromOperation, buildCrossRefEntries };
+// HTTP_METHODS/PROSE_CROSS_REF_SOURCE/PAREN_CROSS_REF_SOURCE are exported ONLY so
+// tests/derive-description-crossref-parity.test.ts can compare them against the
+// deliberately-duplicated TS copy in src/openapi/derive-description.ts (see this file's
+// header for why the duplication exists). No other caller should import these directly.
+export {
+  checkCrossRefs,
+  extractCrossRefsFromOperation,
+  buildCrossRefEntries,
+  HTTP_METHODS,
+  PROSE_CROSS_REF_SOURCE,
+  PAREN_CROSS_REF_SOURCE,
+};
