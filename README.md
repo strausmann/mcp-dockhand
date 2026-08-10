@@ -457,6 +457,16 @@ DOCKHAND_PASSWORD=secret \
 npm run dev
 ```
 
+### Linting
+
+There is currently no `npm run lint` script. `typescript-eslint` (the only maintained
+ESLint/TypeScript integration) does not yet support the pinned `typescript@^7.0.2`
+devDependency — it refuses to run at all against TS 7.0 (hard runtime error, not just a
+peer-dependency warning): see
+[typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940).
+Re-add `eslint` + `typescript-eslint` as devDependencies once that's resolved upstream —
+`tsc --noEmit` (via `npm run typecheck`) is the only static check enforced today.
+
 ## License
 
 [MIT](LICENSE)
