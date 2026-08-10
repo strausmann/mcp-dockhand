@@ -26,6 +26,15 @@
  *   MCP-Tool bedient (Tippfehler in der Annotation oder bewusst ausgelassener Endpunkt) --
  *   advisory, Task P3.6 (siehe scripts/lib/crossref-checks.mjs)
  *
+ * MISSING_TOOL wird seit Task P3.7 (ADR docs/adr/0001-omission-registry.md, Refs #57) weiter
+ * unterteilt: ein Treffer in der Omission-Registry (docs/omitted-endpoints.json -- Endpunkte,
+ * die WIR BEWUSST NIE als Tool aufnehmen, z.B. das in #171 entfernte
+ * `POST /api/git/stacks/{id}/env-files`) wandert nach `deliberatelyOmitted` statt
+ * `missingTool` -- sichtbar in docs/coverage.md unter "Deliberately omitted", aber nicht
+ * mehr als offene Lücke gemeldet. Eine ECHTE Lücke (z.B. die Backup-API, #164, 29 fehlende
+ * Tools -- geplant, nur noch nicht gebaut) bleibt unverändert `missingTool`. Siehe
+ * scripts/lib/omission-registry.mjs (`partitionMissingTools()`).
+ *
  * Required vs. optional kommt aus dem Schema (von extract-dockhand-api.mjs anhand des
  * echten `if (!x) { ... status: 4xx ... }`-Guards im Handler klassifiziert) — es gibt
  * KEINEN manuellen Re-Check mehr. Ein fehlender REQUIRED Query-Param ist ein harter
@@ -49,6 +58,7 @@ import { resolveQueryParamKeys } from './lib/query-params.mjs';
 import { getBodyContract, getOperationParamNames, loadOpenApiSpec } from './lib/openapi-contract-source.mjs';
 import { computeBodyFindings } from './lib/body-checks.mjs';
 import { checkCrossRefs, buildCrossRefEntries } from './lib/crossref-checks.mjs';
+import { partitionMissingTools } from './lib/omission-registry.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -58,6 +68,7 @@ const SCHEMA_FILE = join(PROJECT_ROOT, 'docs', 'dockhand-api-schema.json');
 const TOOLS_DIR = join(PROJECT_ROOT, 'src', 'tools');
 const REPORT_FILE = join(PROJECT_ROOT, 'validation-report.md');
 const COLLECT_SHAPES_SCRIPT = join(__dirname, 'collect-tool-shapes.mjs');
+const OMITTED_ENDPOINTS_FILE = join(PROJECT_ROOT, 'docs', 'omitted-endpoints.json');
 
 /**
  * HTTP-Methoden, für die die Body-Contract-Checks (Task P1.4) überhaupt sinnvoll sind --
@@ -110,6 +121,20 @@ function loadSchema() {
     process.exit(2);
   }
   return JSON.parse(readFileSync(SCHEMA_FILE, 'utf8'));
+}
+
+/**
+ * Lädt die Omission-Registry (docs/omitted-endpoints.json, ADR
+ * docs/adr/0001-omission-registry.md, Task P3.7). Anders als loadSchema() bricht ein
+ * fehlendes File hier NICHT ab -- die Registry ist eine bewusst optionale Verfeinerung von
+ * MISSING_TOOL, kein Pflicht-Artefakt wie das API-Schema. Fehlt die Datei (z.B. in einem
+ * Kontext, der nur das Repo teilweise auscheckt), verhält sich partitionMissingTools() mit
+ * `[]` identisch zum Vor-P3.7-Verhalten: alles bleibt `realGaps`.
+ * @returns {Array<{method: string, path: string, reason: string, adr?: string, date?: string}>}
+ */
+function loadOmissionRegistry() {
+  if (!existsSync(OMITTED_ENDPOINTS_FILE)) return [];
+  return JSON.parse(readFileSync(OMITTED_ENDPOINTS_FILE, 'utf8'));
 }
 
 // --- Query-Param-Key-Extraktion für Aufruf-Argumente ---
@@ -571,13 +596,20 @@ function computeBodyFindingsForCalls(toolCalls, toolBodyShapes, openApiPathIndex
  *   immer `[]`, alle bestehenden Buckets/Exit-Code-Verhalten bleiben UNVERÄNDERT. Damit
  *   bleiben bestehende Aufrufer wie generate-coverage-doc.mjs (2 Argumente) unverändert
  *   kompatibel.
+ * @param {Array<{method: string, path: string, reason: string, adr?: string, date?: string}>} [registry]
+ *   Rückgabe von loadOmissionRegistry() (Task P3.7, ADR docs/adr/0001-omission-registry.md).
+ *   `[]` (Default) lässt `missingTool` unverändert (alles bleibt in diesem Bucket, wie vor
+ *   P3.7) -- bestehende Aufrufer mit 2/3 Argumenten bleiben kompatibel. Ein Registry-Treffer
+ *   wandert aus `missingTool` nach `deliberatelyOmitted`, siehe partitionMissingTools()
+ *   (scripts/lib/omission-registry.mjs).
  * @returns {{
- *   covered: Array, missingTool: Array, orphanedTool: Array, paramMismatch: Array,
- *   missingEncode: Array, queryParamMissingRequired: Array, queryParamUnknown: Array,
- *   bodyFindings: Array, crossRefFindings: Array, excludedCount: number
+ *   covered: Array, missingTool: Array, deliberatelyOmitted: Array, orphanedTool: Array,
+ *   paramMismatch: Array, missingEncode: Array, queryParamMissingRequired: Array,
+ *   queryParamUnknown: Array, bodyFindings: Array, crossRefFindings: Array,
+ *   excludedCount: number
  * }}
  */
-function computeValidation(schema, toolCalls, toolBodyShapes = null) {
+function computeValidation(schema, toolCalls, toolBodyShapes = null, registry = []) {
   // Baue Lookup-Maps
   const schemaEndpoints = new Map();
   for (const ep of schema.endpoints) {
@@ -716,9 +748,19 @@ function computeValidation(schema, toolCalls, toolBodyShapes = null) {
   // siehe computeCrossRefFindings() JSDoc.
   const crossRefFindings = computeCrossRefFindings(toolCalls, openApiPathIndex);
 
+  // 8. Omission-Governance (Task P3.7, ADR docs/adr/0001-omission-registry.md) -- trennt die
+  // rohen MISSING_TOOL-Funde aus Schritt 1 in `realGaps` (kein Registry-Treffer, bleibt
+  // MISSING_TOOL wie bisher -- war nie Teil von hasCriticalErrors(), Exit-Code-Verhalten
+  // also unverändert) und `deliberatelyOmitted` (Registry-Treffer, mit reason/adr
+  // angereichert -- sichtbar in docs/coverage.md, aber nicht mehr als Lücke gemeldet). Mit
+  // `registry = []` (Default) ist `realGaps` identisch zum rohen `missingTool` von vor
+  // P3.7 -- bestehende 2-/3-Argument-Aufrufer bleiben unverändert.
+  const { realGaps, deliberatelyOmitted } = partitionMissingTools(missingTool, registry);
+
   return {
     covered,
-    missingTool,
+    missingTool: realGaps,
+    deliberatelyOmitted,
     orphanedTool,
     paramMismatch,
     missingEncode,
@@ -816,9 +858,16 @@ function validate() {
     console.error(`[validate] Body-Shapes: ${Object.keys(toolBodyShapes).length} Tools erfasst (tsx-Collector)`);
   }
 
+  // Omission-Registry (Task P3.7) -- optional, siehe loadOmissionRegistry() JSDoc.
+  const registry = loadOmissionRegistry();
+  if (registry.length > 0) {
+    console.error(`[validate] Omission-Registry: ${registry.length} bewusst ausgelassene Endpunkte (docs/omitted-endpoints.json)`);
+  }
+
   const {
     covered,
     missingTool,
+    deliberatelyOmitted,
     orphanedTool,
     paramMismatch,
     missingEncode,
@@ -826,13 +875,14 @@ function validate() {
     queryParamUnknown,
     bodyFindings,
     crossRefFindings,
-  } = computeValidation(schema, toolCalls, toolBodyShapes);
+  } = computeValidation(schema, toolCalls, toolBodyShapes, registry);
 
   // Report generieren
   const report = generateReport({
     schema,
     covered,
     missingTool,
+    deliberatelyOmitted,
     orphanedTool,
     paramMismatch,
     missingEncode,
@@ -848,7 +898,8 @@ function validate() {
   // Zusammenfassung
   console.error('\n--- Validierungs-Ergebnis ---');
   console.error(`  COVERED:            ${covered.length} Endpunkte haben MCP-Tools`);
-  console.error(`  MISSING_TOOL:       ${missingTool.length} Endpunkte ohne MCP-Tool`);
+  console.error(`  MISSING_TOOL:       ${missingTool.length} Endpunkte ohne MCP-Tool (echte Lücken)`);
+  console.error(`  DELIBERATELY_OMITTED (informativ, kein Exit-Code-Effekt): ${deliberatelyOmitted.length} bewusst ausgelassene Endpunkte (Registry-Treffer)`);
   console.error(`  ORPHANED_TOOL:      ${orphanedTool.length} MCP-Tools referenzieren nicht-existente Endpunkte`);
   console.error(`  PARAM_MISMATCH:     ${paramMismatch.length} Path-Parameter-Inkonsistenzen`);
   console.error(`  MISSING_ENCODE:     ${missingEncode.length} fehlende encodePath()-Aufrufe`);
@@ -897,7 +948,7 @@ function validate() {
 /**
  * Generiert den Markdown-Report
  */
-function generateReport({ schema, covered, missingTool, orphanedTool, paramMismatch, missingEncode, queryParamMissingRequired, queryParamUnknown, bodyFindings = [], crossRefFindings = [] }) {
+function generateReport({ schema, covered, missingTool, deliberatelyOmitted = [], orphanedTool, paramMismatch, missingEncode, queryParamMissingRequired, queryParamUnknown, bodyFindings = [], crossRefFindings = [] }) {
   const lines = [];
   const now = new Date().toISOString();
   // Task P2.2: BODY_PARAM_MISSING_REQUIRED bekommt eine eigene Kritisch-Section (analog zu
@@ -920,6 +971,7 @@ function generateReport({ schema, covered, missingTool, orphanedTool, paramMisma
   lines.push('|--------|--------|');
   lines.push(`| COVERED | ${covered.length} |`);
   lines.push(`| MISSING_TOOL | ${missingTool.length} |`);
+  lines.push(`| DELIBERATELY_OMITTED (informativ) | ${deliberatelyOmitted.length} |`);
   lines.push(`| ORPHANED_TOOL | ${orphanedTool.length} |`);
   lines.push(`| PARAM_MISMATCH | ${paramMismatch.length} |`);
   lines.push(`| MISSING_ENCODE | ${missingEncode.length} |`);
@@ -1084,6 +1136,26 @@ function generateReport({ schema, covered, missingTool, orphanedTool, paramMisma
     lines.push('');
   }
 
+  // Deliberately omitted (Task P3.7, ADR docs/adr/0001-omission-registry.md) -- Registry-
+  // Treffer aus MISSING_TOOL, SICHTBAR mit Begründung statt kommentarlos zu verschwinden.
+  // Kein Gate -- beeinflusst den Exit-Code nicht (MISSING_TOOL tat das schon vorher nicht).
+  if (deliberatelyOmitted.length > 0) {
+    lines.push('## Deliberately omitted (with reason)');
+    lines.push('');
+    lines.push(
+      'Endpunkte, die laut Schema existieren, aber laut `docs/omitted-endpoints.json` bewusst ' +
+        'NIE ein MCP-Tool bekommen sollen (siehe `docs/adr/0001-omission-registry.md`) -- ' +
+        'unterscheidet sich von MISSING_TOOL oben: das dort sind echte, noch offene Lücken.'
+    );
+    lines.push('');
+    lines.push('| HTTP | Pfad | Begründung | ADR |');
+    lines.push('|------|------|------------|-----|');
+    for (const t of deliberatelyOmitted) {
+      lines.push(`| ${t.method} | \`${t.path}\` | ${t.reason} | ${t.adr ?? '-'} |`);
+    }
+    lines.push('');
+  }
+
   // Coverage
   if (covered.length > 0) {
     lines.push('<details>');
@@ -1127,6 +1199,7 @@ export {
   computeCrossRefFindings,
   computeValidation,
   loadSchema,
+  loadOmissionRegistry,
   CRITICAL_BODY_FINDING_TYPES,
   partitionBodyFindings,
   hasCriticalErrors,

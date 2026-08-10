@@ -4,18 +4,19 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-08-10T09:28:04.886Z
+**Erzeugt:** 2026-08-10T19:48:41.982Z
 **Dockhand-Upstream-Commit:** `905c4a004dafe1cbad4ed2babc2c532d7f4018b8`
 **Schema-Endpunkte gesamt:** 235
 
 ## Coverage
 
-**88.7%** (282/318 in-Scope-Endpunkte haben ein MCP-Tool)
+**88.6%** (281/317 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
-| COVERED | 282 |
+| COVERED | 281 |
 | MISSING_TOOL | 36 |
+| Deliberately omitted (Registry, siehe unten) | 1 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
 
@@ -89,6 +90,16 @@ ersten Pfad-Segment nach `/api/`:
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
 | GET | `/api/stacks/{name}/delete-preview` | name |
+
+## Deliberately omitted (with reason)
+
+Endpunkte, die laut Schema existieren, aber laut `docs/omitted-endpoints.json` bewusst
+NIE ein MCP-Tool bekommen sollen. Unterscheidet sich von MISSING_TOOL oben: dort stehen
+echte, noch offene Lücken (z.B. die Backup-API, siehe #164).
+
+| HTTP | Pfad | Begründung | ADR |
+|------|------|------------|-----|
+| POST | `/api/git/stacks/{id}/env-files` | Entfernt in #171 — read-only Aufgabe, redundant zu get_git_stack_env_files (GET) plus update_git_stack/update_stack_env für Änderungen. Kein zusätzliches Tool nötig. | docs/adr/0001-omission-registry.md |
 
 ## Details
 
