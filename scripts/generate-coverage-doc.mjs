@@ -11,6 +11,11 @@
  * kritische Mismatches findet und mit Exit 1 abbricht) — Coverage-Sichtbarkeit soll nicht
  * an einem unabhängigen Fehler (z.B. ORPHANED_TOOL) hängen.
  *
+ * Lädt seit Task P3.7 (ADR docs/adr/0001-omission-registry.md) zusätzlich die
+ * Omission-Registry (docs/omitted-endpoints.json) und reicht sie an computeValidation()
+ * weiter -- MISSING_TOOL enthält dadurch nur noch echte Lücken, bewusst ausgelassene
+ * Endpunkte erscheinen sichtbar (mit Begründung) im eigenen "Deliberately omitted"-Abschnitt.
+ *
  * Verwendung:
  *   node scripts/generate-coverage-doc.mjs
  */
@@ -18,7 +23,7 @@
 import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadSchema, extractToolCalls, computeValidation } from './validate-mcp-tools.mjs';
+import { loadSchema, extractToolCalls, computeValidation, loadOmissionRegistry } from './validate-mcp-tools.mjs';
 import { buildCoverageDoc } from './lib/coverage-report.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,7 +44,13 @@ function stripTimestamp(content) {
 function main() {
   const schema = loadSchema();
   const toolCalls = extractToolCalls();
-  const { covered, missingTool, orphanedTool, excludedCount } = computeValidation(schema, toolCalls);
+  const registry = loadOmissionRegistry();
+  const { covered, missingTool, deliberatelyOmitted, orphanedTool, excludedCount } = computeValidation(
+    schema,
+    toolCalls,
+    null,
+    registry
+  );
 
   const doc = buildCoverageDoc({
     generatedAt: new Date().toISOString(),
@@ -47,6 +58,7 @@ function main() {
     schemaEndpointCount: schema.endpointCount,
     covered,
     missingTool,
+    deliberatelyOmitted,
     orphanedTool,
     excludedCount,
   });

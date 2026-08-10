@@ -1,0 +1,163 @@
+[
+  {
+    "method": "POST",
+    "path": "/api/git/stacks/{id}/env-files",
+    "reason": "Entfernt in #171 — read-only Aufgabe, redundant zu get_git_stack_env_files (GET) plus update_git_stack/update_stack_env für Änderungen. Kein zusätzliches Tool nötig.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "POST",
+    "path": "/api/self-update",
+    "reason": "Self-Update-Trigger ist gefährlich über MCP auszulösen — kann den laufenden Dockhand-Prozess ersetzen/neu starten und damit alle aktiven MCP-Verbindungen kappen. Bewusst nie als Tool exponiert.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/self-update/check",
+    "reason": "Gehört zur Self-Update-Familie (siehe POST /api/self-update) — bewusst konsistent mitausgelassen, kein eigenständiger MCP-Anwendungsfall.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/self-update/progress",
+    "reason": "Gehört zur Self-Update-Familie (siehe POST /api/self-update) — bewusst konsistent mitausgelassen, kein eigenständiger MCP-Anwendungsfall.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/login",
+    "reason": "Login läuft über die Dockhand-UI/Session-Cookie, nicht über MCP — ein Tool würde Zugangsdaten durch die Tool-Aufruf-Kette reichen.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/auth/oidc/callback",
+    "reason": "OAuth-Redirect-Callback, wird vom Browser während des Login-Flows aufgerufen — kein sinnvoller eigenständiger MCP-Aufruf.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/containers/{id}/logs/stream",
+    "reason": "SSE-Stream-Endpunkt — wird über die postSSE-Client-Methode der Basis-Operation (get_container_logs) abgedeckt, kein eigenständiges Tool nötig.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/containers/stats/stream",
+    "reason": "SSE-Stream-Endpunkt — wird über die postSSE-Client-Methode der Basis-Operation (get_containers_stats) abgedeckt, kein eigenständiges Tool nötig.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/dashboard/stats/stream",
+    "reason": "SSE-Stream-Endpunkt — wird über die postSSE-Client-Methode der Basis-Operation (get_dashboard_stats) abgedeckt, kein eigenständiges Tool nötig.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/schedules/stream",
+    "reason": "SSE-Stream-Endpunkt — wird über die postSSE-Client-Methode der Basis-Operation (list_schedules) abgedeckt, kein eigenständiges Tool nötig.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/debug/memory",
+    "reason": "Interner Debug-Endpunkt für die Dockhand-Entwicklung, keine für MCP-Nutzer relevante Operation.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/events",
+    "reason": "Globaler SSE-Event-Stream (Server-Sent-Events) — kein für MCP sinnvoller Request/Response-Aufruf.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/jobs/{id}",
+    "reason": "Interne Job-Verwaltung (Dockhand-eigene Hintergrundprozesse), nicht für MCP-Nutzer gedacht.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/jobs/{id}",
+    "reason": "Interne Job-Verwaltung (Dockhand-eigene Hintergrundprozesse), nicht für MCP-Nutzer gedacht.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/hawser/connect",
+    "reason": "Hawser-Agent-WebSocket-Verbindungsaufbau (Node zu Dockhand), kein MCP-Anwendungsfall.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "POST",
+    "path": "/api/hawser/connect",
+    "reason": "Hawser-Agent-WebSocket-Verbindungsaufbau (Node zu Dockhand), kein MCP-Anwendungsfall.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/environments/{id}/icon",
+    "reason": "Binäres Icon-Upload/-Download — MCP-Tools transportieren aktuell keine Binärdaten in diesem Format.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "POST",
+    "path": "/api/environments/{id}/icon",
+    "reason": "Binäres Icon-Upload/-Download — MCP-Tools transportieren aktuell keine Binärdaten in diesem Format.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/environments/{id}/icon",
+    "reason": "Binäres Icon-Upload/-Download — MCP-Tools transportieren aktuell keine Binärdaten in diesem Format.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "GET",
+    "path": "/api/environments/{id}/disk-warning",
+    "reason": "Interner Health-Warnschwellenwert, wird von Dockhand selbst gesetzt und gelesen — kein MCP-Anwendungsfall.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "POST",
+    "path": "/api/environments/{id}/disk-warning",
+    "reason": "Interner Health-Warnschwellenwert, wird von Dockhand selbst gesetzt und gelesen — kein MCP-Anwendungsfall.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "POST",
+    "path": "/api/profile/avatar",
+    "reason": "Binäres Avatar-Upload — gleiche Einschränkung wie das Environment-Icon-Upload.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/profile/avatar",
+    "reason": "Binäres Avatar-Upload — gleiche Einschränkung wie das Environment-Icon-Upload.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-10"
+  }
+]

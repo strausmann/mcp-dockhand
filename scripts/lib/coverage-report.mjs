@@ -52,6 +52,11 @@ function groupMissingByArea(missingTool) {
  * @param {number} input.schemaEndpointCount Gesamtzahl der Endpunkte im Schema (inkl. ausgeschlossener)
  * @param {Array<{path: string, method: string, tools: string[]}>} input.covered
  * @param {Array<{path: string, method: string, pathParams?: string[]}>} input.missingTool
+ * @param {Array<{path: string, method: string, reason: string, adr?: string}>} [input.deliberatelyOmitted]
+ *   Registry-Treffer aus `partitionMissingTools()` (Task P3.7, ADR
+ *   docs/adr/0001-omission-registry.md) -- Endpunkte, die WIR BEWUSST NIE als Tool
+ *   aufnehmen. `[]` (Default) rendert keinen zusätzlichen Abschnitt -- Aufrufer ohne
+ *   Registry (z.B. bestehende Tests) bleiben unverändert kompatibel.
  * @param {Array<{toolName: string, httpMethod: string, path: string, file: string, line: number}>} input.orphanedTool
  * @param {number} input.excludedCount Anzahl bewusst ausgeschlossener Endpunkte (IGNORED_PATTERNS)
  * @returns {string}
@@ -62,6 +67,7 @@ function buildCoverageDoc({
   schemaEndpointCount,
   covered,
   missingTool,
+  deliberatelyOmitted = [],
   orphanedTool,
   excludedCount,
 }) {
@@ -94,6 +100,7 @@ function buildCoverageDoc({
   lines.push('|--------|--------|');
   lines.push(`| COVERED | ${covered.length} |`);
   lines.push(`| MISSING_TOOL | ${missingTool.length} |`);
+  lines.push(`| Deliberately omitted (Registry, siehe unten) | ${deliberatelyOmitted.length} |`);
   lines.push(`| ORPHANED_TOOL | ${orphanedTool.length} |`);
   lines.push(`| Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | ${excludedCount} |`);
   lines.push('');
@@ -122,6 +129,33 @@ function buildCoverageDoc({
     lines.push('## MISSING_TOOL');
     lines.push('');
     lines.push('Keine — alle in-Scope-Endpunkte haben ein MCP-Tool.');
+    lines.push('');
+  }
+
+  // Deliberately omitted (Task P3.7, ADR docs/adr/0001-omission-registry.md) --
+  // Registry-Treffer, die NICHT unter MISSING_TOOL oben auftauchen (Endpunkte, die WIR
+  // BEWUSST NIE als Tool exponieren, z.B. das in #171 entfernte
+  // POST /api/git/stacks/{id}/env-files). Sichtbar mit Begründung + ADR-Verweis statt
+  // kommentarlos zu verschwinden — unterscheidet sich damit von "Bewusst ausgeschlossen"
+  // oben (IGNORED_PATTERNS, aggregierte Zahl ohne Einzel-Begründung).
+  if (deliberatelyOmitted.length > 0) {
+    lines.push('## Deliberately omitted (with reason)');
+    lines.push('');
+    lines.push(
+      'Endpunkte, die laut Schema existieren, aber laut `docs/omitted-endpoints.json` bewusst'
+    );
+    lines.push(
+      'NIE ein MCP-Tool bekommen sollen. Unterscheidet sich von MISSING_TOOL oben: dort stehen'
+    );
+    lines.push('echte, noch offene Lücken (z.B. die Backup-API, siehe #164).');
+    lines.push('');
+    lines.push('| HTTP | Pfad | Begründung | ADR |');
+    lines.push('|------|------|------------|-----|');
+    for (const e of deliberatelyOmitted
+      .slice()
+      .sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method))) {
+      lines.push(`| ${e.method} | \`${e.path}\` | ${e.reason} | ${e.adr ?? '-'} |`);
+    }
     lines.push('');
   }
 
