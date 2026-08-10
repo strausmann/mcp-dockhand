@@ -8,6 +8,41 @@ import type { DockhandClient } from '../client/dockhand-client.js';
 import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
 import { encodePath } from '../utils/encode-path.js';
 
+/**
+ * Keys accepted in `update_container`'s `settings` fallback (#142).
+ *
+ * Source of truth: Finsys/dockhand v1.0.41 (commit 905c4a0).
+ *   - `startAfterUpdate` / `repullImage` are top-level control flags the handler
+ *     destructures out of the request body BEFORE the rest is treated as
+ *     `CreateContainerOptions` (src/routes/api/containers/[id]/update/+server.ts:26
+ *     `const { startAfterUpdate, repullImage, ...options } = body;`).
+ *   - Everything else must match a `CreateContainerOptions` field
+ *     (src/lib/server/docker.ts:1351-1453) exactly, or Dockhand silently drops it
+ *     while still recreating the container (see `createContainer()`, which only
+ *     ever reads named fields off `options` — an unknown key like `command`
+ *     instead of `cmd` is never referenced anywhere and has no effect).
+ *
+ * Update this set when re-validating against a newer Dockhand release
+ * (.claude/skills/dockhand-mcp-dev/references/upstream-validation.md).
+ */
+const UPDATE_CONTAINER_ALLOWED_SETTINGS_KEYS = new Set([
+  // top-level control flags, not part of CreateContainerOptions
+  'startAfterUpdate', 'repullImage',
+  // CreateContainerOptions fields
+  'name', 'image', 'ports', 'volumes', 'volumeBinds', 'env', 'labels', 'cmd',
+  'entrypoint', 'workingDir', 'restartPolicy', 'restartMaxRetries', 'networkMode',
+  'additionalNetworks', 'networks', 'networkAliases', 'networkIpv4Address',
+  'networkIpv6Address', 'networkGwPriority', 'networkConfigs', 'user', 'privileged',
+  'healthcheck', 'memory', 'memoryReservation', 'memorySwap', 'cpuShares', 'cpuQuota',
+  'cpuPeriod', 'nanoCpus', 'capAdd', 'capDrop', 'devices', 'dns', 'dnsSearch',
+  'dnsOptions', 'securityOpt', 'ulimits', 'tty', 'stdinOpen', 'oomKillDisable',
+  'pidsLimit', 'shmSize', 'tmpfs', 'sysctls', 'logDriver', 'logOptions', 'ipcMode',
+  'pidMode', 'utsMode', 'hostname', 'cgroupParent', 'stopSignal', 'init',
+  'stopTimeout', 'macAddress', 'extraHosts', 'deviceRequests', 'runtime',
+  'readonlyRootfs', 'cpusetCpus', 'cpusetMems', 'groupAdd', 'memorySwappiness',
+  'usernsMode', 'domainname',
+]);
+
 export function registerContainerTools(server: McpServer, client: DockhandClient): void {
 
   registerTool(server, 'list_containers', 'List all containers in a Dockhand environment, returning summary fields for every container; use `get_container` for a single container\'s details or `inspect_container` for the full low-level Docker JSON.',
@@ -133,14 +168,53 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
     }
   );
 
-  registerTool(server, 'update_container', 'Recreate a single container with updated settings (image, environment, restart policy, etc.) for a specific container ID; use `batch_update_containers` to pull the latest image for multiple containers at once, or `rename_container` to change only the container name.',
+  registerTool(server, 'update_container', 'Recreate a single container with updated settings for a specific container ID. Explicit parameters cover the common fields (image, cmd, entrypoint, env, labels, restartPolicy, networkMode, workingDir, startAfterUpdate); `settings` is a fallback for the remaining CreateContainerOptions fields (e.g. ports, volumeBinds, healthcheck, memory limits, repullImage) and is merged underneath the explicit parameters. Unrecognized `settings` keys are rejected — Dockhand silently ignores fields that do not match its own field names while still recreating the container (e.g. "cmd", not "command"). At least one field is required: Dockhand always recreates the container and has no meaningful no-argument update. Use `batch_update_containers` to pull the latest image for multiple containers at once, or `rename_container` to change only the container name.',
     {
       environmentId: z.number().describe('Environment ID'),
       containerId: z.string().describe('Container ID'),
-      settings: z.record(z.string(), z.unknown()).optional().describe('Container settings to update'),
+      image: z.string().optional().describe('Docker image (e.g. nginx:alpine)'),
+      cmd: z.array(z.string()).optional().describe('Command to run, overriding the image default (e.g. ["sleep", "7200"])'),
+      entrypoint: z.array(z.string()).optional().describe('Entrypoint override'),
+      env: z.array(z.string()).optional().describe('Environment variables (KEY=VALUE format)'),
+      labels: z.record(z.string(), z.string()).optional().describe('Container labels'),
+      restartPolicy: z.string().optional().describe('Restart policy (e.g. unless-stopped)'),
+      networkMode: z.string().optional().describe('Network mode'),
+      workingDir: z.string().optional().describe('Working directory inside the container'),
+      startAfterUpdate: z.boolean().optional().describe('Start the recreated container after updating'),
+      settings: z.record(z.string(), z.unknown()).optional().describe('Additional CreateContainerOptions fields not covered above (e.g. ports, volumeBinds, healthcheck, memory, capAdd, repullImage); merged underneath the explicit parameters, unrecognized keys are rejected'),
     },
-    async ({ environmentId, containerId, settings }) => {
-      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/update`, settings, { env: environmentId }));
+    async ({ environmentId, containerId, image, cmd, entrypoint, env: envVars, labels, restartPolicy, networkMode, workingDir, startAfterUpdate, settings }) => {
+      if (settings) {
+        const unknownKeys = Object.keys(settings).filter((key) => !UPDATE_CONTAINER_ALLOWED_SETTINGS_KEYS.has(key));
+        if (unknownKeys.length > 0) {
+          throw new Error(
+            `update_container: settings contains unrecognized key(s): ${unknownKeys.join(', ')}. ` +
+            'Dockhand silently drops fields that do not match its CreateContainerOptions field names ' +
+            'while still recreating the container — double-check the field name (e.g. "cmd", not "command").'
+          );
+        }
+      }
+
+      const body: Record<string, unknown> = {};
+      if (settings) Object.assign(body, settings);
+      if (image !== undefined) body.image = image;
+      if (cmd !== undefined) body.cmd = cmd;
+      if (entrypoint !== undefined) body.entrypoint = entrypoint;
+      if (envVars !== undefined) body.env = envVars;
+      if (labels !== undefined) body.labels = labels;
+      if (restartPolicy !== undefined) body.restartPolicy = restartPolicy;
+      if (networkMode !== undefined) body.networkMode = networkMode;
+      if (workingDir !== undefined) body.workingDir = workingDir;
+      if (startAfterUpdate !== undefined) body.startAfterUpdate = startAfterUpdate;
+
+      if (Object.keys(body).length === 0) {
+        throw new Error(
+          'update_container requires at least one field to update (e.g. image, cmd, restartPolicy, ' +
+          'or settings) — Dockhand always recreates the container and has no meaningful no-argument update.'
+        );
+      }
+
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/update`, body, { env: environmentId }));
     }
   );
 
