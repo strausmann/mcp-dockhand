@@ -18,6 +18,17 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        # Nötig ab hier (vorher lief dieser Workflow ohne npm ci -- extract-dockhand-api.mjs
+        # und validate-mcp-tools.mjs brauchen nur node-Builtins): validate-mcp-tools.mjs
+        # ruft jetzt intern `npx tsx scripts/collect-tool-shapes.mjs` auf (Task P1.4/P1.6),
+        # das echte Tool-Registrierungscode importiert (zod, @modelcontextprotocol/sdk) --
+        # ohne installierte node_modules würde dieser Subprozess fehlschlagen und die
+        # Body-Contract-Checks stillschweigend übersprungen (advisory-Fallback, siehe
+        # loadToolBodyShapes()) statt tatsächlich zu laufen.
+        run: npm ci
 
       - name: Extract Dockhand API Schema
         run: node scripts/extract-dockhand-api.mjs
@@ -45,6 +56,34 @@ jobs:
           git commit -m "chore: update Dockhand API schema (automated)"
           git push
 
+      - name: Fetch Dockhand OpenAPI body-contract spec
+        # Body-Contract-Quelle für Task P1.4 (scripts/lib/openapi-contract-source.mjs) --
+        # hält docs/dockhand-openapi.json aktuell mit dem gepinnten Commit auf
+        # strausmann/dockhand#feat/openapi-refresh (siehe scripts/fetch-openapi.mjs für die
+        # Pinning-Begründung; ein Update auf einen neueren Commit ist ein bewusster,
+        # separater Schritt, kein automatisches "immer der aktuelle Branch-Head").
+        run: node scripts/fetch-openapi.mjs
+
+      - name: Check for openapi spec changes
+        id: openapi-changes
+        run: |
+          if ! git diff --quiet docs/dockhand-openapi.json; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "OpenAPI Body-Contract-Spec hat sich geändert"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Keine Änderungen"
+          fi
+
+      - name: Commit openapi spec update
+        if: steps.openapi-changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/dockhand-openapi.json
+          git commit -m "chore: update Dockhand OpenAPI body-contract spec (automated)"
+          git push
+
       - name: Validate MCP tools against schema
         id: validate
         run: node scripts/validate-mcp-tools.mjs
@@ -68,6 +107,27 @@ jobs:
             git push
           else
             echo "docs/coverage.md unverändert — kein Commit"
+          fi
+
+      - name: Generate body-contract report
+        # Task P1.4/P1.6, rein advisory: siehe generate-body-contract-doc.mjs Kopf-
+        # kommentar. Läuft wie der Coverage-Schritt unabhängig vom Validate-Ergebnis --
+        # die Findings-Übersicht soll auch dann aktuell bleiben, wenn Validate wegen
+        # eines UNABHÄNGIGEN kritischen Mismatches (z.B. ORPHANED_TOOL) fehlschlägt.
+        if: always()
+        run: node scripts/generate-body-contract-doc.mjs
+
+      - name: Commit body-contract report update
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet docs/body-contract-report.md; then
+            git add docs/body-contract-report.md
+            git commit -m "docs: update body-contract findings report (automated)"
+            git push
+          else
+            echo "docs/body-contract-report.md unverändert — kein Commit"
           fi
 
       - name: Create issue on validation failure
