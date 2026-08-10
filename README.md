@@ -86,6 +86,35 @@ Add to your MCP settings:
 }
 ```
 
+#### Claude Desktop with a remote server (mcp-proxy)
+
+Claude Desktop can fail to connect to a **remote** mcp-dockhand server (not
+`localhost`) using the native `"url"` config above, even though the endpoint
+itself is reachable. The symptom is a generic `"not a valid MCP server"` error
+in Claude Desktop, while a plain browser/`curl` request to the same URL
+correctly returns `{"error":"Invalid or missing session ID"}`. This is a known
+limitation of Claude Desktop with remote Streamable HTTP servers, not a
+mcp-dockhand bug.
+
+**Workaround:** wrap the connection with
+[mcp-proxy](https://github.com/sparfenyuk/mcp-proxy), which translates
+Streamable HTTP to stdio — a transport Claude Desktop handles reliably:
+
+```json
+{
+  "mcpServers": {
+    "dockhand": {
+      "command": "/path/to/mcp-proxy",
+      "args": ["--transport", "streamablehttp", "http://your-server:8080/mcp"]
+    }
+  }
+}
+```
+
+All tools load and work correctly through the proxy. Thanks to
+[@deadrubberboy](https://github.com/deadrubberboy) for reporting this and
+sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/90)).
+
 ## Tool Reference
 
 ### Containers (27 tools)
