@@ -43,7 +43,7 @@ const PROJECT_ROOT = resolve(__dirname, '..');
 // nicht "immer der aktuelle Branch-Head".
 const SOURCE_REPO = 'https://github.com/strausmann/dockhand.git';
 const SOURCE_BRANCH = 'feat/openapi-refresh';
-const SOURCE_COMMIT = 'f583cc30ccfe7937fb5878bc526373d7120f5ffa';
+const SOURCE_COMMIT = 'db2a196f7241c12faf693cf7b2bc2e26df8dc75c';
 
 // Wo Dockhands eigener Generator die Spec im Quell-Klon ablegt (scripts/generate-openapi.ts).
 const GENERATED_RELATIVE_PATH = join('static', 'openapi.json');
@@ -96,7 +96,7 @@ function generateSpec(cloneDir) {
  * Normalisiert eine Spec für den Inhalts-Vergleich — entfernt ein eventuelles Top-Level-
  * `generatedAt`-Feld, das sich bei jedem Lauf ändern kann, ohne dass sich der eigentliche
  * Contract geändert hat (analog `stripTimestamp()` in generate-coverage-doc.mjs). Die
- * aktuell erzeugte Dockhand-Spec (2026-08-10, Commit f583cc3) enthält kein solches Feld —
+ * aktuell erzeugte Dockhand-Spec (2026-08-10, Commit db2a196) enthält kein solches Feld —
  * diese Funktion ist trotzdem defensiv für den Fall, dass ein künftiger Generator-Lauf
  * eines ergänzt.
  * @param {object} spec

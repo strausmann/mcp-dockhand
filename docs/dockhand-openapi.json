@@ -181,7 +181,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Filter to a single environment"
+            "description": "Filter to a single environment (from GET /api/environments)"
           },
           {
             "name": "containerId",
@@ -190,7 +190,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter by container ID"
+            "description": "Filter by container ID (from GET /api/containers)"
           },
           {
             "name": "containerName",
@@ -396,7 +396,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Filter to a single environment"
+            "description": "Filter to a single environment (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -476,7 +476,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Filter to a single environment"
+            "description": "Filter to a single environment (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -600,7 +600,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Filter to a single environment"
+            "description": "Filter to a single environment (from GET /api/environments)"
           },
           {
             "name": "labels",
@@ -791,7 +791,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Filter to a single environment"
+            "description": "Filter to a single environment (from GET /api/environments)"
           },
           {
             "name": "fromDate",
@@ -1122,7 +1122,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the LDAP configuration"
+            "description": "Numeric id of the LDAP configuration (from GET /api/auth/ldap)"
           }
         ],
         "responses": {
@@ -1206,7 +1206,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the LDAP configuration"
+            "description": "Numeric id of the LDAP configuration (from GET /api/auth/ldap)"
           }
         ],
         "responses": {
@@ -1356,7 +1356,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the LDAP configuration"
+            "description": "Numeric id of the LDAP configuration (from GET /api/auth/ldap)"
           }
         ],
         "responses": {
@@ -1422,7 +1422,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the LDAP configuration to test"
+            "description": "Numeric id of the LDAP configuration to test (from GET /api/auth/ldap)"
           }
         ],
         "responses": {
@@ -1824,7 +1824,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the OIDC configuration"
+            "description": "Numeric id of the OIDC configuration (from GET /api/auth/oidc)"
           }
         ],
         "responses": {
@@ -1901,7 +1901,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the OIDC configuration"
+            "description": "Numeric id of the OIDC configuration (from GET /api/auth/oidc)"
           }
         ],
         "responses": {
@@ -2038,7 +2038,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the OIDC configuration"
+            "description": "Numeric id of the OIDC configuration (from GET /api/auth/oidc)"
           }
         ],
         "responses": {
@@ -2097,7 +2097,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the OIDC provider"
+            "description": "Numeric id of the OIDC provider (from GET /api/auth/oidc)"
           },
           {
             "name": "redirect",
@@ -2142,7 +2142,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the OIDC provider"
+            "description": "Numeric id of the OIDC provider (from GET /api/auth/oidc)"
           }
         ],
         "responses": {
@@ -2213,7 +2213,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the OIDC configuration to test"
+            "description": "Numeric id of the OIDC configuration to test (from GET /api/auth/oidc)"
           }
         ],
         "responses": {
@@ -2798,7 +2798,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID to read settings for"
+            "description": "Environment ID to read settings for (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -2859,7 +2859,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment the container belongs to"
+            "description": "Environment the container belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -2934,7 +2934,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment the container belongs to"
+            "description": "Environment the container belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -3049,7 +3049,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment the container belongs to"
+            "description": "Environment the container belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -3121,7 +3121,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Filter by environment id"
+            "description": "Filter by environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -3136,7 +3136,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Permission denial (403, \"backups:view\") is produced by the shared requireBackups route guard."
       },
       "post": {
         "operationId": "post_api_backup_configs",
@@ -3167,6 +3168,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Permission denial (403, \"backups:manage\") is produced by the shared requireBackups route guard. A requested environmentId the caller can't access also 403s (enterprise). destinationId from GET /api/backup/destinations. environmentId from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3274,7 +3276,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup configuration id"
+            "description": "Backup configuration id (from GET /api/backup/configs)"
           }
         ],
         "responses": {
@@ -3289,7 +3291,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Permission (\"backups:view\") and environment-access denials (403) and not-found (404) are produced by the shared route guards."
       },
       "put": {
         "operationId": "put_api_backup_configs_id",
@@ -3305,7 +3308,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup configuration id"
+            "description": "Backup configuration id (from GET /api/backup/configs)"
           }
         ],
         "responses": {
@@ -3330,6 +3333,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Permission (\"backups:manage\") and environment-access denials (403) and not-found (404) are produced by the shared route guards. The environment is fixed at creation and cannot be changed here. destinationId from GET /api/backup/destinations.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3416,7 +3420,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup configuration id"
+            "description": "Backup configuration id (from GET /api/backup/configs)"
           }
         ],
         "responses": {
@@ -3434,7 +3438,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Permission (\"backups:manage\") and environment-access denials (403) and not-found (404) are produced by the shared route guards."
       }
     },
     "/api/backup/configs/{id}/run": {
@@ -3452,7 +3457,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup configuration id"
+            "description": "Backup configuration id (from GET /api/backup/configs)"
           }
         ],
         "responses": {
@@ -3467,7 +3472,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Returns a text/event-stream that emits `progress` events during the run and a final `result` event. Permission (\"backups:manage\") and environment-access denials (403) and not-found (404) are produced by the shared route guards."
       }
     },
     "/api/backup/configs/{id}/stop": {
@@ -3485,7 +3491,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup configuration id"
+            "description": "Backup configuration id (from GET /api/backup/configs)"
           }
         ],
         "responses": {
@@ -3503,7 +3509,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Permission (\"backups:manage\") and environment-access denials (403) and not-found (404) are produced by the shared route guards."
       }
     },
     "/api/backup/destinations": {
@@ -3526,7 +3533,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Permission denial (403, \"backups:view\") is produced by the shared requireBackups route guard."
       },
       "post": {
         "operationId": "post_api_backup_destinations",
@@ -3557,6 +3565,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Permission denial (403, \"backups:manage\") is produced by the shared requireBackups route guard.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3622,7 +3631,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup destination id"
+            "description": "Backup destination id (from GET /api/backup/destinations)"
           }
         ],
         "responses": {
@@ -3643,7 +3652,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Permission denial (403, \"backups:view\") is produced by the shared requireBackups route guard."
       },
       "put": {
         "operationId": "put_api_backup_destinations_id",
@@ -3659,7 +3669,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup destination id"
+            "description": "Backup destination id (from GET /api/backup/destinations)"
           }
         ],
         "responses": {
@@ -3687,6 +3697,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Permission denial (403, \"backups:manage\") is produced by the shared requireBackups route guard.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3740,7 +3751,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup destination id"
+            "description": "Backup destination id (from GET /api/backup/destinations)"
           }
         ],
         "responses": {
@@ -3764,7 +3775,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Permission denial (403, \"backups:manage\") is produced by the shared requireBackups route guard."
       }
     },
     "/api/backup/destinations/{id}/init": {
@@ -3782,7 +3794,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup destination id"
+            "description": "Backup destination id (from GET /api/backup/destinations)"
           }
         ],
         "responses": {
@@ -3806,7 +3818,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Permission denial (403, \"backups:manage\") is produced by the shared requireBackups route guard."
       }
     },
     "/api/backup/destinations/{id}/rotate-key": {
@@ -3824,7 +3837,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup destination id"
+            "description": "Backup destination id (from GET /api/backup/destinations)"
           }
         ],
         "responses": {
@@ -3852,6 +3865,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Permission denial (403, \"backups:manage\") is produced by the shared requireBackups route guard.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3895,7 +3909,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup destination id"
+            "description": "Backup destination id (from GET /api/backup/destinations)"
           }
         ],
         "responses": {
@@ -3920,6 +3934,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Permission denial (403, \"backups:manage\") is produced by the shared requireBackups route guard. Streamed via createJobResponse — a task failure never surfaces as an HTTP 500; it comes back as a 200 with a failed job result (JSON-preferring callers) or a job/SSE 'result' event with success:false (streaming callers).",
         "requestBody": {
           "required": true,
           "content": {
@@ -3958,7 +3973,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup destination id"
+            "description": "Backup destination id (from GET /api/backup/destinations)"
           }
         ],
         "responses": {
@@ -3979,7 +3994,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Permission denial (403, \"backups:manage\") is produced by the shared requireBackups route guard."
       }
     },
     "/api/backup/destinations/{id}/verify": {
@@ -3997,7 +4013,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Backup destination id"
+            "description": "Backup destination id (from GET /api/backup/destinations)"
           }
         ],
         "responses": {
@@ -4016,6 +4032,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Returns a text/event-stream that emits `progress` events and a final `result` event. Permission denial (403, \"backups:manage\") is produced by the shared requireBackups route guard.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4063,6 +4080,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Provide `destinationId` to test a saved destination using its stored credentials, or omit it and supply `repository`/`password`/`envVars` to test before saving. Permission denial (403, \"backups:manage\") is produced by the shared requireBackups route guard. destinationId from GET /api/backup/destinations.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4125,6 +4143,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Returns a text/event-stream that emits `progress` events and a final `result` event. An in-place restore is destructive and requires confirmOverwrite:true. Authorization and snapshot-environment access are checked before the request shape is validated. destinationId from GET /api/backup/destinations. snapshotId from GET /api/backup/snapshots. environmentId from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4222,6 +4241,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "destinationId from GET /api/backup/destinations. snapshotId from GET /api/backup/snapshots. environmentId from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4283,6 +4303,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "snapshotId from GET /api/backup/snapshots. environmentId from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4321,7 +4342,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "List snapshots for this backup configuration (matched by its stable config-id tag)"
+            "description": "List snapshots for this backup configuration (matched by its stable config-id tag) (from GET /api/backup/configs)"
           },
           {
             "name": "destinationId",
@@ -4330,7 +4351,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "List all snapshots in this destination (mutually exclusive with configId)"
+            "description": "List all snapshots in this destination (mutually exclusive with configId) (from GET /api/backup/destinations)"
           },
           {
             "name": "allDestinations",
@@ -4366,7 +4387,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "When allDestinations=true (with configId) all destinations are searched and a partial result is signalled via the X-Incomplete-Destinations response header. Enterprise callers only see snapshots for environments they can access."
       }
     },
     "/api/backup/snapshots/{id}": {
@@ -4384,7 +4406,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Restic snapshot id to forget"
+            "description": "Restic snapshot id to forget (from GET /api/backup/snapshots)"
           },
           {
             "name": "destinationId",
@@ -4393,7 +4415,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Destination holding the snapshot (required)"
+            "description": "Destination holding the snapshot (required) (from GET /api/backup/destinations)"
           },
           {
             "name": "env",
@@ -4402,7 +4424,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Optional environment id for an early enterprise access check; the authoritative gate resolves the snapshot's owning environment server-side"
+            "description": "Optional environment id for an early enterprise access check; the authoritative gate resolves the snapshot's owning environment server-side (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -4447,7 +4469,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Restic snapshot id to browse"
+            "description": "Restic snapshot id to browse (from GET /api/backup/snapshots)"
           },
           {
             "name": "destinationId",
@@ -4456,7 +4478,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Destination holding the snapshot (required)"
+            "description": "Destination holding the snapshot (required) (from GET /api/backup/destinations)"
           },
           {
             "name": "path",
@@ -4474,7 +4496,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Optional environment id for an early enterprise access check; the authoritative gate resolves the snapshot's owning environment server-side"
+            "description": "Optional environment id for an early enterprise access check; the authoritative gate resolves the snapshot's owning environment server-side (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -4516,7 +4538,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Restic snapshot id"
+            "description": "Restic snapshot id (from GET /api/backup/snapshots)"
           },
           {
             "name": "destinationId",
@@ -4525,7 +4547,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Destination holding the snapshot (required)"
+            "description": "Destination holding the snapshot (required) (from GET /api/backup/destinations)"
           },
           {
             "name": "path",
@@ -4579,7 +4601,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Paths are restricted to the /volumes and /metadata snapshot roots and rejected if they contain traversal (\"..\"). Permission (\"backups:view\") and environment-access denials are produced by the shared requireBackups/guardSnapshotEnvAccess route guards."
       }
     },
     "/api/backup/snapshots/{id}/metadata": {
@@ -4597,7 +4620,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Restic snapshot id"
+            "description": "Restic snapshot id (from GET /api/backup/snapshots)"
           },
           {
             "name": "destinationId",
@@ -4606,7 +4629,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Destination holding the snapshot (required)"
+            "description": "Destination holding the snapshot (required) (from GET /api/backup/destinations)"
           }
         ],
         "responses": {
@@ -4630,7 +4653,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Permission (\"backups:view\") and environment-access denials (403) are produced by the shared requireBackups/guardSnapshotEnvAccess route guards; the owning environment is resolved server-side from the snapshot's own tag, not a caller-supplied param."
       }
     },
     "/api/backup/snapshots/diff": {
@@ -4648,7 +4672,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Destination holding both snapshots (required)"
+            "description": "Destination holding both snapshots (required) (from GET /api/backup/destinations)"
           },
           {
             "name": "snapshotA",
@@ -4687,7 +4711,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Permission (\"backups:view\") and environment-access denials (403) are produced by the shared requireBackups/guardSnapshotEnvAccess route guards."
       }
     },
     "/api/backup/stack-dir-listing": {
@@ -4714,7 +4739,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -4762,7 +4787,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -4801,7 +4826,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the entities belong to"
+            "description": "Environment ID the entities belong to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -5412,7 +5437,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Config set ID"
+            "description": "Config set ID (from GET /api/config-sets)"
           }
         ],
         "responses": {
@@ -5591,7 +5616,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Config set ID"
+            "description": "Config set ID (from GET /api/config-sets)"
           }
         ],
         "responses": {
@@ -5874,7 +5899,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Config set ID"
+            "description": "Config set ID (from GET /api/config-sets)"
           }
         ],
         "responses": {
@@ -5937,7 +5962,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id — an empty array is returned if omitted"
+            "description": "Environment id — an empty array is returned if omitted (from GET /api/environments)"
           },
           {
             "name": "all",
@@ -6026,7 +6051,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -6188,7 +6213,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -6197,7 +6222,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -6237,7 +6262,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -6246,7 +6271,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           },
           {
             "name": "force",
@@ -6315,7 +6340,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "envId",
@@ -6324,7 +6349,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -6428,7 +6453,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -6437,7 +6462,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           },
           {
             "name": "path",
@@ -6497,7 +6522,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -6506,7 +6531,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -6614,7 +6639,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -6623,7 +6648,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           },
           {
             "name": "path",
@@ -6701,7 +6726,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -6710,7 +6735,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           },
           {
             "name": "path",
@@ -6814,7 +6839,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -6823,7 +6848,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -6925,7 +6950,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -6934,7 +6959,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           },
           {
             "name": "path",
@@ -7011,7 +7036,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -7020,7 +7045,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           },
           {
             "name": "path",
@@ -7083,7 +7108,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -7092,7 +7117,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -7194,7 +7219,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -7203,7 +7228,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           },
           {
             "name": "path",
@@ -7273,7 +7298,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Send `multipart/form-data` with one or more `files` parts; each file is tar-wrapped and written into the target directory. Partial success is reported per file in `uploaded`/`errors`."
       }
     },
     "/api/containers/{id}/inspect": {
@@ -7291,7 +7317,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -7300,7 +7326,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -7339,7 +7365,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -7348,7 +7374,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           },
           {
             "name": "tail",
@@ -7432,7 +7458,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -7441,7 +7467,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           },
           {
             "name": "tail",
@@ -7486,7 +7512,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Returns a `text/event-stream`. For Hawser Edge environments whose agent is not connected the stream body carries an error event. Docker stdout/stderr frames are demultiplexed server-side; TTY containers stream raw text."
       }
     },
     "/api/containers/{id}/pause": {
@@ -7504,7 +7531,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -7513,7 +7540,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -7570,7 +7597,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -7579,7 +7606,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -7663,7 +7690,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -7672,7 +7699,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -7732,7 +7759,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -7741,7 +7768,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -7821,7 +7848,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "On probe failure the endpoint still returns 200 with empty results rather than an error, so callers always get a usable shell list."
       }
     },
     "/api/containers/{id}/start": {
@@ -7839,7 +7867,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -7848,7 +7876,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -7908,7 +7936,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -7917,7 +7945,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -8027,7 +8055,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -8036,7 +8064,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -8096,7 +8124,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -8105,7 +8133,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -8169,7 +8197,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Uses the container 'inspect' permission. The `source` field indicates whether the result came from an in-container `ps` (`\"ps\"`) or the Docker top API fallback (`\"top\"`)."
       }
     },
     "/api/containers/{id}/unpause": {
@@ -8187,7 +8216,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -8196,7 +8225,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -8253,7 +8282,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container ID or name"
+            "description": "Container ID or name (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -8262,7 +8291,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -8310,6 +8339,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "The body carries the container create-options (image, name, env, ports, volumes, …) alongside the two control flags below; `repullImage` pulls the image before recreation and `startAfterUpdate` starts the new container once created.",
         "requestBody": {
           "required": true,
           "content": {
@@ -8357,7 +8387,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Container id"
+            "description": "Container id (from GET /api/containers)"
           },
           {
             "name": "env",
@@ -8366,7 +8396,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -8533,7 +8563,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -8635,6 +8665,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Containers are processed sequentially; the response reports per-container success/failure plus a summary. Use the streaming variant for live progress. containerIds from GET /api/containers.",
         "requestBody": {
           "required": true,
           "content": {
@@ -8679,7 +8710,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -8701,6 +8732,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Returns a `text/event-stream` reporting per-container progress. `vulnerabilityCriteria` (default \"never\") can block an update when a container's image scan exceeds the configured severity threshold. containerIds from GET /api/containers.",
         "requestBody": {
           "required": true,
           "content": {
@@ -8748,7 +8780,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -8824,7 +8856,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Returns the containers currently flagged as having a pending image update from the last check. Does not trigger a new check — use POST to run a fresh check."
       },
       "post": {
         "operationId": "post_api_containers_check-updates",
@@ -8840,7 +8873,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -8876,7 +8909,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (required)"
+            "description": "The target environment ID (required) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -8969,7 +9002,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (required)"
+            "description": "The target environment ID (required) (from GET /api/environments)"
           },
           {
             "name": "containerId",
@@ -8978,7 +9011,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The container ID whose pending update should be cleared (required)"
+            "description": "The container ID whose pending update should be cleared (required) (from GET /api/containers)"
           }
         ],
         "responses": {
@@ -9038,7 +9071,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -9077,7 +9110,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "The target environment ID (omit for the local/default Docker host)"
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
           },
           {
             "name": "debug",
@@ -9107,7 +9140,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Returns an empty array when no environment is configured or specified. With `debug=<name>` it returns the raw memory_stats for a single container instead. On internal error it returns an empty array with status 200."
       }
     },
     "/api/containers/stats/stream": {
@@ -9125,7 +9159,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id — an immediate \"done\" event is sent if omitted or no environments are configured"
+            "description": "Environment id — an immediate \"done\" event is sent if omitted or no environments are configured (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -9304,7 +9338,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Restrict the stats to a single environment (returns one object)"
+            "description": "Restrict the stats to a single environment (returns one object) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -9395,7 +9429,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Returns an array of per-environment stats. When env is supplied and matches, a single object is returned instead of an array. An empty array is returned on a fresh install with no environments."
       }
     },
     "/api/dashboard/stats/stream": {
@@ -9421,7 +9456,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Emits environments, partial, complete, error and done events as each environment's stats resolve. When the client sends Accept application/json, the stream is collected and returned as a single JSON payload instead."
       }
     },
     "/api/debug/memory": {
@@ -9818,7 +9854,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -9899,7 +9935,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -10053,7 +10089,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -10116,7 +10152,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -10189,7 +10225,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -10278,7 +10314,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -10312,7 +10348,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -10396,7 +10432,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -10458,7 +10494,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -10536,7 +10572,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -10645,7 +10681,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -10708,7 +10744,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -10793,7 +10829,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -10852,6 +10888,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "notificationId from GET /api/notifications.",
         "requestBody": {
           "required": true,
           "content": {
@@ -10903,7 +10940,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           },
           {
             "name": "notificationId",
@@ -10912,7 +10949,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Notification channel id"
+            "description": "Notification channel id (from GET /api/notifications)"
           }
         ],
         "responses": {
@@ -10992,7 +11029,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           },
           {
             "name": "notificationId",
@@ -11001,7 +11038,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Notification channel id"
+            "description": "Notification channel id (from GET /api/notifications)"
           }
         ],
         "responses": {
@@ -11105,7 +11142,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           },
           {
             "name": "notificationId",
@@ -11114,7 +11151,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Notification channel id"
+            "description": "Notification channel id (from GET /api/notifications)"
           }
         ],
         "responses": {
@@ -11177,7 +11214,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID"
+            "description": "Environment ID (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -11229,7 +11266,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID"
+            "description": "Environment ID (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -11311,7 +11348,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -11401,7 +11438,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -11459,7 +11496,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -11548,7 +11585,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -11631,7 +11668,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -11943,7 +11980,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id — without it, an \"info\" SSE message is sent and the stream ends"
+            "description": "Environment id — without it, an \"info\" SSE message is sent and the stream ends (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -12180,7 +12217,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git credential ID"
+            "description": "Git credential ID (from GET /api/git/credentials)"
           }
         ],
         "responses": {
@@ -12273,7 +12310,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git credential ID"
+            "description": "Git credential ID (from GET /api/git/credentials)"
           }
         ],
         "responses": {
@@ -12402,7 +12439,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git credential ID"
+            "description": "Git credential ID (from GET /api/git/credentials)"
           }
         ],
         "responses": {
@@ -12506,6 +12543,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "repositoryId from GET /api/git/repositories. credentialId from GET /api/git/credentials.",
         "requestBody": {
           "required": true,
           "content": {
@@ -12682,6 +12720,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "credentialId from GET /api/git/credentials.",
         "requestBody": {
           "required": true,
           "content": {
@@ -12733,7 +12772,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git repository ID"
+            "description": "Git repository ID (from GET /api/git/repositories)"
           }
         ],
         "responses": {
@@ -12813,7 +12852,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git repository ID"
+            "description": "Git repository ID (from GET /api/git/repositories)"
           }
         ],
         "responses": {
@@ -12878,6 +12917,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "credentialId from GET /api/git/credentials.",
         "requestBody": {
           "required": true,
           "content": {
@@ -12923,7 +12963,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git repository ID"
+            "description": "Git repository ID (from GET /api/git/repositories)"
           }
         ],
         "responses": {
@@ -12986,7 +13026,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git repository ID"
+            "description": "Git repository ID (from GET /api/git/repositories)"
           }
         ],
         "responses": {
@@ -13049,7 +13089,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git repository ID"
+            "description": "Git repository ID (from GET /api/git/repositories)"
           }
         ],
         "responses": {
@@ -13110,7 +13150,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git repository ID"
+            "description": "Git repository ID (from GET /api/git/repositories)"
           }
         ],
         "responses": {
@@ -13173,7 +13213,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git repository ID"
+            "description": "Git repository ID (from GET /api/git/repositories)"
           }
         ],
         "responses": {
@@ -13272,6 +13312,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "credentialId from GET /api/git/credentials.",
         "requestBody": {
           "required": true,
           "content": {
@@ -13318,7 +13359,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id — omitted returns stacks across all environments plus legacy null-scoped ones"
+            "description": "Environment id — omitted returns stacks across all environments plus legacy null-scoped ones (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -13462,6 +13503,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "environmentId from GET /api/environments. repositoryId from GET /api/git/repositories. credentialId from GET /api/git/credentials.",
         "requestBody": {
           "required": true,
           "content": {
@@ -13548,7 +13590,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack id"
+            "description": "Git stack id (from GET /api/git/stacks)"
           }
         ],
         "responses": {
@@ -13630,7 +13672,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack id"
+            "description": "Git stack id (from GET /api/git/stacks)"
           }
         ],
         "responses": {
@@ -13743,7 +13785,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack id"
+            "description": "Git stack id (from GET /api/git/stacks)"
           }
         ],
         "responses": {
@@ -13803,7 +13845,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack ID"
+            "description": "Git stack ID (from GET /api/git/stacks)"
           }
         ],
         "responses": {
@@ -13854,7 +13896,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack ID"
+            "description": "Git stack ID (from GET /api/git/stacks)"
           }
         ],
         "responses": {
@@ -13890,7 +13932,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Clients sending `Accept: application/json` get a synchronous, buffered SSE-as-JSON result; otherwise a jobId is returned immediately and progress is delivered out-of-band."
       }
     },
     "/api/git/stacks/{id}/env-files": {
@@ -13908,7 +13951,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack ID"
+            "description": "Git stack ID (from GET /api/git/stacks)"
           }
         ],
         "responses": {
@@ -13959,7 +14002,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Lists the `.env*` files in the git stack's synced repository checkout (read-only). Use this to discover which file to configure as the stack's `envFilePath`. This endpoint does not write — to choose the env file, PUT /api/git/stacks/{id} with `envFilePath`; to set env values, use the stack env endpoints."
       },
       "post": {
         "operationId": "post_api_git_stacks_id_env-files",
@@ -13975,7 +14019,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack ID"
+            "description": "Git stack ID (from GET /api/git/stacks)"
           }
         ],
         "responses": {
@@ -14023,6 +14067,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Reads and parses a single `.env` file (by `path`) from the git stack's synced repository checkout into a key/value map (read-only). There is no write counterpart — git-stack env is set via `envFilePath` (PUT /api/git/stacks/{id}) or the stack env endpoints.",
         "requestBody": {
           "required": true,
           "content": {
@@ -14061,7 +14106,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack ID"
+            "description": "Git stack ID (from GET /api/git/stacks)"
           }
         ],
         "responses": {
@@ -14124,7 +14169,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack ID"
+            "description": "Git stack ID (from GET /api/git/stacks)"
           }
         ],
         "responses": {
@@ -14187,7 +14232,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack ID"
+            "description": "Git stack ID (from GET /api/git/stacks)"
           },
           {
             "name": "secret",
@@ -14257,7 +14302,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack ID"
+            "description": "Git stack ID (from GET /api/git/stacks)"
           }
         ],
         "responses": {
@@ -14302,7 +14347,8 @@
             "description": "The deployment triggered by the webhook failed"
           }
         },
-        "security": []
+        "security": [],
+        "description": "Public endpoint authenticated by the stack's webhook secret via `X-Hub-Signature-256` (GitHub) or `X-Gitlab-Token` (GitLab); the raw request body is used for HMAC verification."
       }
     },
     "/api/git/webhook/{id}": {
@@ -14320,7 +14366,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git repository ID"
+            "description": "Git repository ID (from GET /api/git/repositories)"
           },
           {
             "name": "secret",
@@ -14386,7 +14432,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git repository ID"
+            "description": "Git repository ID (from GET /api/git/repositories)"
           }
         ],
         "responses": {
@@ -14427,7 +14473,8 @@
             "description": "The deployment triggered by the webhook failed"
           }
         },
-        "security": []
+        "security": [],
+        "description": "Public endpoint authenticated by the repository's webhook secret via `X-Hub-Signature-256` (GitHub) or `X-Gitlab-Token` (GitLab); the raw request body is used for HMAC verification."
       }
     },
     "/api/hawser/connect": {
@@ -14700,6 +14747,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "environmentId from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -14748,7 +14796,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the token to revoke"
+            "description": "ID of the token to revoke (from GET /api/hawser/tokens)"
           }
         ],
         "responses": {
@@ -14904,7 +14952,8 @@
             "description": "Unexpected error while checking database health"
           }
         },
-        "security": []
+        "security": [],
+        "description": "Returns HTTP 200 when healthy and 503 when unhealthy (schema drift or table loss); 500 on an unexpected error. Connection details and the migration tag are only included for authenticated callers with settings:view."
       }
     },
     "/api/host": {
@@ -14922,7 +14971,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment to describe (basic local info is returned when omitted)"
+            "description": "ID of the environment to describe (basic local info is returned when omitted) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -15041,7 +15090,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment whose images to list"
+            "description": "ID of the environment whose images to list (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -15120,7 +15169,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Image ID or name to remove"
+            "description": "Image ID or name to remove (from GET /api/images)"
           },
           {
             "name": "env",
@@ -15129,7 +15178,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment the image belongs to"
+            "description": "ID of the environment the image belongs to (from GET /api/environments)"
           },
           {
             "name": "force",
@@ -15198,7 +15247,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Image ID or name to export"
+            "description": "Image ID or name to export (from GET /api/images)"
           },
           {
             "name": "env",
@@ -15207,7 +15256,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment the image belongs to"
+            "description": "ID of the environment the image belongs to (from GET /api/environments)"
           },
           {
             "name": "compress",
@@ -15255,7 +15304,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Image ID or name whose history to return"
+            "description": "Image ID or name whose history to return (from GET /api/images)"
           },
           {
             "name": "env",
@@ -15264,7 +15313,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment the image belongs to"
+            "description": "ID of the environment the image belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -15339,7 +15388,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Image ID or name to tag"
+            "description": "Image ID or name to tag (from GET /api/images)"
           },
           {
             "name": "env",
@@ -15348,7 +15397,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment the image belongs to"
+            "description": "ID of the environment the image belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -15433,7 +15482,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment to pull into"
+            "description": "ID of the environment to pull into (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -15494,7 +15543,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment the source image belongs to"
+            "description": "ID of the environment the source image belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -15537,6 +15586,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "imageId from GET /api/images. registryId from GET /api/registries.",
         "requestBody": {
           "required": true,
           "content": {
@@ -15588,7 +15638,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment the image belongs to"
+            "description": "ID of the environment the image belongs to (from GET /api/environments)"
           },
           {
             "name": "image",
@@ -15675,7 +15725,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment the image belongs to"
+            "description": "ID of the environment the image belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -15739,7 +15789,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Image SHA/ID to export (falls back to the \"image\" param when omitted)"
+            "description": "Image SHA/ID to export (falls back to the \"image\" param when omitted) (from GET /api/images)"
           },
           {
             "name": "image",
@@ -16063,6 +16113,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "environmentIds from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -16397,7 +16448,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment the containers belong to"
+            "description": "Environment the containers belong to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -16436,7 +16487,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID to list networks from"
+            "description": "Environment ID to list networks from (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -16520,7 +16571,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID to create the network in"
+            "description": "Environment ID to create the network in (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -16653,7 +16704,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Docker network ID"
+            "description": "Docker network ID (from GET /api/networks)"
           },
           {
             "name": "env",
@@ -16662,7 +16713,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment the network belongs to"
+            "description": "Environment the network belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -16740,7 +16791,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Docker network ID"
+            "description": "Docker network ID (from GET /api/networks)"
           },
           {
             "name": "env",
@@ -16749,7 +16800,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment the network belongs to"
+            "description": "Environment the network belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -16806,7 +16857,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Docker network ID"
+            "description": "Docker network ID (from GET /api/networks)"
           },
           {
             "name": "env",
@@ -16815,7 +16866,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment the network belongs to"
+            "description": "Environment the network belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -16858,6 +16909,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "containerId from GET /api/containers.",
         "requestBody": {
           "required": true,
           "content": {
@@ -16900,7 +16952,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Docker network ID"
+            "description": "Docker network ID (from GET /api/networks)"
           },
           {
             "name": "env",
@@ -16909,7 +16961,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment the network belongs to"
+            "description": "Environment the network belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -16952,6 +17004,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "containerId from GET /api/containers.",
         "requestBody": {
           "required": true,
           "content": {
@@ -16998,7 +17051,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Docker network ID"
+            "description": "Docker network ID (from GET /api/networks)"
           },
           {
             "name": "env",
@@ -17007,7 +17060,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment the network belongs to"
+            "description": "Environment the network belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -17374,7 +17427,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Notification setting ID"
+            "description": "Notification setting ID (from GET /api/notifications)"
           }
         ],
         "responses": {
@@ -17500,7 +17553,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Notification setting ID"
+            "description": "Notification setting ID (from GET /api/notifications)"
           }
         ],
         "responses": {
@@ -17675,7 +17728,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Notification setting ID"
+            "description": "Notification setting ID (from GET /api/notifications)"
           }
         ],
         "responses": {
@@ -17738,7 +17791,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Notification setting ID"
+            "description": "Notification setting ID (from GET /api/notifications)"
           }
         ],
         "responses": {
@@ -18093,6 +18146,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "environmentId from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -18158,7 +18212,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID"
+            "description": "Environment ID (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -18289,6 +18343,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "environmentId from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -18369,7 +18424,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID"
+            "description": "Environment ID (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -18459,6 +18514,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "environmentId from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -19451,7 +19507,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Target environment id; scopes both the prune operation and the permission check (defaults to the local environment)"
+            "description": "Target environment id; scopes both the prune operation and the permission check (defaults to the local environment) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -19490,7 +19546,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Target environment id; scopes both the prune operation and the permission check (defaults to the local environment)"
+            "description": "Target environment id; scopes both the prune operation and the permission check (defaults to the local environment) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -19538,7 +19594,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Target environment id; scopes both the prune operation and the permission check (defaults to the local environment)"
+            "description": "Target environment id; scopes both the prune operation and the permission check (defaults to the local environment) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -19556,7 +19612,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Returns a text/event-stream. On completion a `result` event carries { success, result } on success or { success:false, error } on failure — the operation itself never returns a non-200 HTTP status once the permission check passes."
       }
     },
     "/api/prune/networks": {
@@ -19574,7 +19631,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Target environment id; scopes both the prune operation and the permission check (defaults to the local environment)"
+            "description": "Target environment id; scopes both the prune operation and the permission check (defaults to the local environment) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -19613,7 +19670,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Target environment id; scopes both the prune operation and the permission check (defaults to the local environment)"
+            "description": "Target environment id; scopes both the prune operation and the permission check (defaults to the local environment) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -19828,7 +19885,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Registry ID"
+            "description": "Registry ID (from GET /api/registries)"
           }
         ],
         "responses": {
@@ -19908,7 +19965,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Registry ID"
+            "description": "Registry ID (from GET /api/registries)"
           }
         ],
         "responses": {
@@ -20022,7 +20079,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Registry ID"
+            "description": "Registry ID (from GET /api/registries)"
           }
         ],
         "responses": {
@@ -20085,7 +20142,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Registry ID"
+            "description": "Registry ID (from GET /api/registries)"
           }
         ],
         "responses": {
@@ -20195,6 +20252,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Pass either a saved registryId or inline url/username/password. The outcome is always reported in a 200 body via the success/connectivity/authenticated fields, never as an HTTP error. registryId from GET /api/registries.",
         "requestBody": {
           "required": true,
           "content": {
@@ -20241,7 +20299,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the configured registry to query"
+            "description": "ID of the configured registry to query (from GET /api/registries)"
           },
           {
             "name": "last",
@@ -20350,7 +20408,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Docker Hub is rejected (no catalog API). For 401/403/404 from the upstream registry the same status is proxied back to the caller."
       }
     },
     "/api/registry/image": {
@@ -20368,7 +20427,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the configured registry"
+            "description": "ID of the configured registry (from GET /api/registries)"
           },
           {
             "name": "image",
@@ -20444,7 +20503,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Docker Hub deletion is rejected. Upstream 401 responses during manifest resolution/deletion are proxied back as 401."
       }
     },
     "/api/registry/search": {
@@ -20480,7 +20540,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the configured registry to search; omit to search Docker Hub"
+            "description": "ID of the configured registry to search; omit to search Docker Hub (from GET /api/registries)"
           }
         ],
         "responses": {
@@ -20546,7 +20606,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "With no registry parameter the search runs against Docker Hub; otherwise against the given registry, falling back to Docker Hub search when the registry is a Docker Hub mirror."
       }
     },
     "/api/registry/tag-info": {
@@ -20564,7 +20625,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Registry ID; omitted or Docker Hub registries return a graceful \"not supported\" result instead of a manifest fetch"
+            "description": "Registry ID; omitted or Docker Hub registries return a graceful \"not supported\" result instead of a manifest fetch (from GET /api/registries)"
           },
           {
             "name": "image",
@@ -20643,7 +20704,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the configured registry; omit to query Docker Hub"
+            "description": "ID of the configured registry; omit to query Docker Hub (from GET /api/registries)"
           },
           {
             "name": "image",
@@ -20765,7 +20826,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "With no registry parameter, Docker Hub is queried; V2 registries return all tags in one page. Upstream Docker Hub error status codes are proxied back."
       }
     },
     "/api/roles": {
@@ -20870,6 +20932,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "environmentIds from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -20933,7 +20996,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the role"
+            "description": "Numeric id of the role (from GET /api/roles)"
           }
         ],
         "responses": {
@@ -21013,7 +21076,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the role"
+            "description": "Numeric id of the role (from GET /api/roles)"
           }
         ],
         "responses": {
@@ -21044,6 +21107,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "environmentIds from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -21095,7 +21159,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the role"
+            "description": "Numeric id of the role (from GET /api/roles)"
           }
         ],
         "responses": {
@@ -21263,7 +21327,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Schedule id (semantics depend on type — container/git-stack/backup-config id, environment id, or a synthetic repo-policy id)"
+            "description": "Schedule id (semantics depend on type — container/git-stack/backup-config id, environment id, or a synthetic repo-policy id) (from GET /api/schedules)"
           }
         ],
         "responses": {
@@ -21332,7 +21396,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Schedule id (semantics depend on type)"
+            "description": "Schedule id (semantics depend on type) (from GET /api/schedules)"
           }
         ],
         "responses": {
@@ -21406,7 +21470,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Schedule id (semantics depend on type)"
+            "description": "Schedule id (semantics depend on type) (from GET /api/schedules)"
           }
         ],
         "responses": {
@@ -21480,7 +21544,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Filter by the numeric id of the schedule"
+            "description": "Filter by the numeric id of the schedule (from GET /api/schedules)"
           },
           {
             "name": "environmentId",
@@ -21489,7 +21553,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Filter by environment id (\"null\" for global/system schedules)"
+            "description": "Filter by environment id (\"null\" for global/system schedules) (from GET /api/environments)"
           },
           {
             "name": "status",
@@ -21651,7 +21715,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Execution id"
+            "description": "Execution id (from GET /api/schedules/executions)"
           }
         ],
         "responses": {
@@ -21728,7 +21792,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Execution id"
+            "description": "Execution id (from GET /api/schedules/executions)"
           }
         ],
         "responses": {
@@ -21925,7 +21989,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "System schedule id (1=schedule cleanup, 2=event cleanup, 4=scanner cleanup)"
+            "description": "System schedule id (1=schedule cleanup, 2=event cleanup, 4=scanner cleanup) (from GET /api/schedules)"
           }
         ],
         "responses": {
@@ -22123,7 +22187,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Updater container id (returned by POST /api/self-update)"
+            "description": "Updater container id (from POST /api/self-update)"
           }
         ],
         "responses": {
@@ -22808,7 +22872,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id to read scanner settings for (falls back to global defaults)"
+            "description": "Environment id to read scanner settings for (falls back to global defaults) (from GET /api/environments)"
           },
           {
             "name": "checkUpdates",
@@ -22983,7 +23047,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id whose scanner images should be removed (required)"
+            "description": "Environment id whose scanner images should be removed (required) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -23205,7 +23269,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id — an empty array is returned if omitted"
+            "description": "Environment id — an empty array is returned if omitted (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -23285,7 +23349,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id to create the stack in"
+            "description": "Environment id to create the stack in (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -23392,7 +23456,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -23401,7 +23465,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           },
           {
             "name": "force",
@@ -23491,7 +23555,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -23500,7 +23564,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -23595,7 +23659,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -23604,7 +23668,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -23678,7 +23742,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -23687,7 +23751,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -23787,7 +23851,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -23796,7 +23860,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -23880,7 +23944,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -23889,7 +23953,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -23951,7 +24015,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -23960,7 +24024,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -24032,7 +24096,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name (as shown in Dockhand, e.g. \"gitcheck\")"
+            "description": "Stack name (as shown in Dockhand, e.g. \"gitcheck\") (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -24041,7 +24105,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id to scope the lookup; omit for the default/legacy (null) scope"
+            "description": "Environment id to scope the lookup; omit for the default/legacy (null) scope (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -24126,7 +24190,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -24135,7 +24199,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -24250,7 +24314,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -24259,7 +24323,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -24317,7 +24381,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -24326,7 +24390,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -24413,7 +24477,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -24422,7 +24486,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -24553,7 +24617,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -24562,7 +24626,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -24709,7 +24773,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -24718,7 +24782,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           },
           {
             "name": "mode",
@@ -24763,7 +24827,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -24772,7 +24836,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -24826,7 +24890,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -24835,7 +24899,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id"
+            "description": "Environment id (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -24947,6 +25011,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "environmentId from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -25060,7 +25125,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID (scopes the path under the environment name)"
+            "description": "Environment ID (scopes the path under the environment name) (from GET /api/environments)"
           },
           {
             "name": "location",
@@ -25138,7 +25203,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name"
+            "description": "Stack name (from GET /api/stacks)"
           },
           {
             "name": "env",
@@ -25147,7 +25212,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to"
+            "description": "Environment ID the stack belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -25336,7 +25401,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID to scope the stacks"
+            "description": "Environment ID to scope the stacks (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -25444,7 +25509,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment to collect Docker info for (Docker fields are null when omitted or unreachable)"
+            "description": "ID of the environment to collect Docker info for (Docker fields are null when omitted or unreachable) (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -25542,7 +25607,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment to query disk usage for"
+            "description": "ID of the environment to query disk usage for (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -26285,7 +26350,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the template source to delete"
+            "description": "ID of the template source to delete (from GET /api/templates/sources)"
           }
         ],
         "responses": {
@@ -26526,7 +26591,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the user"
+            "description": "Numeric id of the user (from GET /api/users)"
           }
         ],
         "responses": {
@@ -26629,7 +26694,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the user"
+            "description": "Numeric id of the user (from GET /api/users)"
           }
         ],
         "responses": {
@@ -26772,7 +26837,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the user"
+            "description": "Numeric id of the user (from GET /api/users)"
           },
           {
             "name": "confirmDisableAuth",
@@ -26851,7 +26916,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the user"
+            "description": "Numeric id of the user (from GET /api/users)"
           }
         ],
         "responses": {
@@ -26952,7 +27017,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the user"
+            "description": "Numeric id of the user (from GET /api/users)"
           }
         ],
         "responses": {
@@ -27020,7 +27085,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the user"
+            "description": "Numeric id of the user (from GET /api/users)"
           }
         ],
         "responses": {
@@ -27095,7 +27160,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the user"
+            "description": "Numeric id of the user (from GET /api/users)"
           }
         ],
         "responses": {
@@ -27123,6 +27188,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "roleId from GET /api/roles. environmentId from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -27163,7 +27229,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the user"
+            "description": "Numeric id of the user (from GET /api/users)"
           }
         ],
         "responses": {
@@ -27209,6 +27275,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "roleId from GET /api/roles. environmentId from GET /api/environments.",
         "requestBody": {
           "required": true,
           "content": {
@@ -27251,7 +27318,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID to list volumes for"
+            "description": "Environment ID to list volumes for (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -27331,7 +27398,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID to create the volume in"
+            "description": "Environment ID to create the volume in (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -27433,7 +27500,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Docker volume name"
+            "description": "Docker volume name (from GET /api/volumes)"
           },
           {
             "name": "env",
@@ -27442,7 +27509,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the volume belongs to"
+            "description": "Environment ID the volume belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -27522,7 +27589,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Docker volume name"
+            "description": "Docker volume name (from GET /api/volumes)"
           },
           {
             "name": "env",
@@ -27531,7 +27598,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the volume belongs to"
+            "description": "Environment ID the volume belongs to (from GET /api/environments)"
           },
           {
             "name": "force",
@@ -27594,7 +27661,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Docker volume name"
+            "description": "Docker volume name (from GET /api/volumes)"
           },
           {
             "name": "env",
@@ -27603,7 +27670,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the volume belongs to"
+            "description": "Environment ID the volume belongs to (from GET /api/environments)"
           },
           {
             "name": "path",
@@ -27756,7 +27823,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Docker volume name"
+            "description": "Docker volume name (from GET /api/volumes)"
           },
           {
             "name": "path",
@@ -27774,7 +27841,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the volume belongs to"
+            "description": "Environment ID the volume belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -27845,7 +27912,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Docker volume name"
+            "description": "Docker volume name (from GET /api/volumes)"
           },
           {
             "name": "env",
@@ -27854,7 +27921,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the volume belongs to"
+            "description": "Environment ID the volume belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -27911,7 +27978,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Source Docker volume name"
+            "description": "Source Docker volume name (from GET /api/volumes)"
           },
           {
             "name": "env",
@@ -27920,7 +27987,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the volume belongs to"
+            "description": "Environment ID the volume belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -28006,7 +28073,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Docker volume name"
+            "description": "Docker volume name (from GET /api/volumes)"
           },
           {
             "name": "env",
@@ -28015,7 +28082,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the volume belongs to"
+            "description": "Environment ID the volume belongs to (from GET /api/environments)"
           },
           {
             "name": "path",
@@ -28075,7 +28142,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Docker volume name"
+            "description": "Docker volume name (from GET /api/volumes)"
           },
           {
             "name": "env",
@@ -28084,7 +28151,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the volume belongs to"
+            "description": "Environment ID the volume belongs to (from GET /api/environments)"
           }
         ],
         "responses": {
@@ -28207,7 +28274,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Accepts limit, offset, q, severity, image, container, stack, sort and dir query params (parsed centrally). Returns an empty page when no environment resolves."
       }
     },
     "/api/vulnerabilities/count": {
@@ -28339,7 +28407,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "ID of the environment whose images to scan"
+            "description": "ID of the environment whose images to scan (from GET /api/environments)"
           }
         ],
         "responses": {
