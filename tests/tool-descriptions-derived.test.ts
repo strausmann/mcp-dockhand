@@ -69,4 +69,26 @@ describe('derived tool descriptions', () => {
     expect(metrics).toBeDefined();
     expect(metrics!.description.length).toBeGreaterThan(0);
   });
+
+  // Regression guard for the "first client call wins" bug class found in PR #177 review
+  // (2026-08-10): scripts/generate-tool-endpoint-map.mjs's auto-extraction picks the
+  // FIRST client.<method>(...) call it sees for a tool. Two tools make more than one
+  // call and the first one isn't the tool's real, primary operation — a bare
+  // non-emptiness check (the tests above) can't catch this, since the WRONG endpoint's
+  // description is still non-empty. These assert on actual content instead.
+  describe('multi-call tools resolve to their real, primary endpoint (not just "first call wins")', () => {
+    it('update_environment describes an update, not a read (client.get(...) is only a conditional performance shortcut before the real client.put(...))', () => {
+      const updateEnvironment = tools.find((t) => t.name === 'update_environment');
+      expect(updateEnvironment).toBeDefined();
+      expect(updateEnvironment!.description).toMatch(/update an environment/i);
+      expect(updateEnvironment!.description).not.toMatch(/get a single environment/i);
+    });
+
+    it('remove_stack_env_vars describes a mutation that can delete, not a "save" (must not inherit update_stack_env\'s PUT .../env description)', () => {
+      const removeStackEnvVars = tools.find((t) => t.name === 'remove_stack_env_vars');
+      expect(removeStackEnvVars).toBeDefined();
+      expect(removeStackEnvVars!.description).not.toMatch(/^save environment variables/i);
+      expect(removeStackEnvVars!.description).toMatch(/delete/i);
+    });
+  });
 });

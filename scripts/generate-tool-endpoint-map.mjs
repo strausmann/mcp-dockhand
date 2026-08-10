@@ -17,9 +17,11 @@
  * matching the validator itself uses) resolves the great majority of tools reliably —
  * empirically 283 of 286 in a full run.
  *
- * BUT that extractor is a regex-based heuristic and misses two real, currently-
- * registered tools for structural reasons (verified 2026-08-10 against the actual
- * source in src/tools/stacks.ts):
+ * BUT that extractor is a regex-based heuristic and gets four real, currently-registered
+ * tools wrong for two distinct structural reasons (verified 2026-08-10 against the
+ * actual source in src/tools/stacks.ts and src/tools/environments.ts):
+ *
+ * (1) INVISIBLE to the extractor — it never sees a `client.<method>(` call at all:
  *   - `check_stack_env_collisions` calls `client.get<StackEnv>(...)` / `client.get<string>
  *     (...)` — the explicit generic type argument (`<StackEnv>`) sits between the method
  *     name and the opening `(`, which the extractor's `client\.(\w+)\s*\(` pattern does
@@ -28,13 +30,50 @@
  *     with a plain identifier (a `const` computed a few lines above) instead of a
  *     string/template literal directly in the call — the extractor only recognizes a
  *     quote character right after the opening paren.
- * Neither is a parser bug worth chasing here (the validator's ORPHANED_TOOL=0 gate
- * already proves the extractor is accurate for the calls it DOES see); a pure runtime
- * derivation would silently leave these two tools without a resolvable endpoint. An
- * explicit, generated-but-corrected registry lets both be added by hand, with the
- * reasoning captured in EXPLICIT_OVERRIDES below, and a completeness test
- * (the "tool-endpoint-map completeness" describe block in tests/tool-endpoint.test.ts)
- * that fails loudly if a future tool is missing.
+ *
+ * (2) WRONG CALL PICKED — the extractor sees multiple calls for one tool, and this
+ *     generator's own "first client call for a tool wins" rule (see `buildMap()` below)
+ *     picks the wrong one when a tool makes an earlier, CONDITIONAL call before its real,
+ *     unconditional mutating call. Found by code review of PR #177 (2026-08-10) after the
+ *     first two entries above shipped without catching this second failure mode:
+ *   - `update_environment` calls `client.get(...)` FIRST, but only as a conditional
+ *     performance shortcut ("Only fetch environment when connectionType is not provided,
+ *     avoids performance regression from PR #21") — the tool's actual, ALWAYS-executed
+ *     write is the `client.put(...)` a few lines later. First-wins picked the GET, so the
+ *     tool inherited `GET /api/environments/{id}`'s summary ("Get a single environment...")
+ *     instead of the real `PUT .../{id}` summary ("Update an environment; renaming also
+ *     renames its on-disk stacks/git-repos directories").
+ *   - `remove_stack_env_vars` calls `client.put(.../env, ...)` and `client.put(.../env/raw,
+ *     ...)`, both CONDITIONAL on which stores actually need a rewrite (there are also two
+ *     earlier `client.get<...>(...)` reads, invisible per case (1) above). First-wins
+ *     picked `PUT /api/stacks/{name}/env` — the SAME endpoint `update_stack_env` maps to —
+ *     so a key-removal tool inherited the summary "Save environment variables...", which
+ *     actively contradicts its purpose. No single spec endpoint describes "remove specific
+ *     keys" (verified: no DELETE endpoint exists for stack env vars at all, only the two
+ *     PUT endpoints above and their GET counterparts) — `PUT .../env/raw` was chosen as the
+ *     least-wrong anchor: its summary explicitly says "...empty content deletes the .env
+ *     file...", and unlike either GET it correctly signals that the tool is a MUTATION, not
+ *     a read. Test comments in tests/stack-env-tools.test.ts and tests/stack-env-merge.test.ts
+ *     document this as a KNOWN REGRESSION: the derived description does not (and cannot,
+ *     from this endpoint alone) convey "safe way to delete variables — update_stack_env in
+ *     merge mode cannot remove keys", which the original hand-written text stated
+ *     explicitly and which is not recoverable from any surviving `.describe()` either.
+ *
+ * `update_stack_compose` also makes two statically-visible calls (`client.putSSE(...)` when
+ * `restart` is set, `client.put(...)` otherwise) but both target the IDENTICAL endpoint
+ * (`PUT /api/stacks/{name}/compose`) — first-wins is harmless there, verified, no override
+ * needed. Every OTHER tool with more than one extracted call was checked the same way
+ * (2026-08-10 review) — these four are the only ones affected.
+ *
+ * None of this is a parser bug worth chasing here (the validator's ORPHANED_TOOL=0 gate
+ * already proves the extractor is accurate for individual call recognition); a pure runtime
+ * derivation would silently get these wrong on every server start. An explicit,
+ * generated-but-corrected registry lets all four be fixed by hand, with the reasoning
+ * captured in EXPLICIT_OVERRIDES below, and a completeness test (the "tool-endpoint-map
+ * completeness" describe block in tests/tool-endpoint.test.ts) that fails loudly if a
+ * future tool is missing — though note that test only catches MISSING entries, not wrong
+ * ones from this same "first call wins" class; see tests/tool-endpoint-map-multi-call.test.ts
+ * for a regression guard specifically against reintroducing this class of bug.
  *
  * `get_prometheus_metrics` (GET /api/metrics) is deliberately left OUT of the registry:
  * `/api/metrics` is not a SvelteKit route (see the matching comment in
@@ -64,7 +103,7 @@ const OUT_FILE = join(PROJECT_ROOT, 'src', 'openapi', 'tool-endpoint-map.ts');
  * these tools' client calls change shape.
  * @type {Record<string, {method: string, path: string}>}
  */
-const EXPLICIT_OVERRIDES = {
+export const EXPLICIT_OVERRIDES = {
   // client.put(envPath, ...) where envPath = `/api/stacks/${encodePath(name)}/env` —
   // the tool's primary write target (DB-backed secrets); the .env-file write via
   // envRawPath is a secondary effect of the same call, not separately represented.
@@ -73,6 +112,25 @@ const EXPLICIT_OVERRIDES = {
   // no single dedicated REST endpoint; anchored on the structured-read side as the
   // closest available summary (secrets-masked variable listing).
   check_stack_env_collisions: { method: 'GET', path: '/api/stacks/{name}/env' },
+  // client.get(...) is a CONDITIONAL performance shortcut ("Only fetch environment when
+  // connectionType is not provided ... avoids performance regression from PR #21") —
+  // client.put(...) a few lines later is the tool's real, unconditionally-executed write.
+  // First-wins previously picked the GET; fixed 2026-08-10 after code review of PR #177.
+  update_environment: { method: 'PUT', path: '/api/environments/{id}' },
+  // Composes two conditional client.put(...) calls (DB store, .env-raw store) plus two
+  // earlier client.get<...>(...) reads (invisible to the extractor, see file header case
+  // (1)) — no dedicated REST endpoint for "remove specific keys" exists (verified: no
+  // DELETE endpoint for stack env vars at all). Anchored on PUT .../env/raw: unlike either
+  // GET it correctly signals the tool is a mutation, and its summary is the only one in
+  // the whole endpoint family that mentions "deletes" at all ("...empty content deletes
+  // the .env file..."). PUT .../env (what first-wins previously picked, matching
+  // update_stack_env) was rejected: its summary "Save environment variables..." directly
+  // contradicts a key-removal tool's purpose. KNOWN REGRESSION either way: the disambiguation
+  // from update_stack_env's merge-mode limitation ("safe way to delete variables —
+  // update_stack_env in merge mode cannot remove keys") has no surviving textual home at
+  // all (not the spec, not any .describe()) — see tests/stack-env-tools.test.ts and
+  // tests/stack-env-merge.test.ts, and the Task 5 fix-round report.
+  remove_stack_env_vars: { method: 'PUT', path: '/api/stacks/{name}/env/raw' },
 };
 
 /**
@@ -167,4 +225,10 @@ function main() {
   console.error(`[generate-tool-endpoint-map] Wrote ${map.size} entries to ${OUT_FILE}`);
 }
 
-main();
+// Only run (and write to disk) when executed directly as a CLI script — not when imported
+// (e.g. by tests/tool-endpoint-map-multi-call.test.ts, which imports EXPLICIT_OVERRIDES to
+// guard against the "first call wins" bug class without triggering a regeneration side
+// effect on every test run). Mirrors the same guard in scripts/validate-mcp-tools.mjs.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}
