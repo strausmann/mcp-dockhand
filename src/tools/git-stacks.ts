@@ -226,9 +226,12 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'create_git_stack', 'Register a new Git-based stack from a repository URL + branch + optional credential, ready to deploy with `deploy_git_stack`; use `list_git_stacks` to verify or `update_git_stack` to amend afterwards.',
     {
       config: z.record(z.string(), z.unknown()).describe('Git stack configuration (url, branch, credentialId, composePath, environmentId, etc.)'),
+      envFilePath: z.string().optional().describe('Path to the .env file within the repository this Git stack should use on deploy; also settable via `config.envFilePath` — this explicit field wins on collision. See `get_git_stack_env_files` to discover available .env files in the repository.'),
     },
-    async ({ config }) => {
-      return jsonResponse(await client.post('/api/git/stacks', config));
+    async ({ config, envFilePath }) => {
+      const body: Record<string, unknown> = { ...config };
+      if (envFilePath !== undefined) body.envFilePath = envFilePath;
+      return jsonResponse(await client.post('/api/git/stacks', body));
     }
   );
 
@@ -236,9 +239,12 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     {
       stackId: z.number().describe('Git stack ID'),
       config: z.record(z.string(), z.unknown()).describe('Git stack configuration to merge'),
+      envFilePath: z.string().optional().describe('Path to the .env file within the repository this Git stack should use on deploy; also settable via `config.envFilePath` — this explicit field wins on collision. See `get_git_stack_env_files` to discover available .env files in the repository.'),
     },
-    async ({ stackId, config }) => {
-      return jsonResponse(await client.put(`/api/git/stacks/${encodePath(stackId)}`, config));
+    async ({ stackId, config, envFilePath }) => {
+      const body: Record<string, unknown> = { ...config };
+      if (envFilePath !== undefined) body.envFilePath = envFilePath;
+      return jsonResponse(await client.put(`/api/git/stacks/${encodePath(stackId)}`, body));
     }
   );
 

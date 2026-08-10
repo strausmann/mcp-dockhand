@@ -9,7 +9,7 @@
 > Body-Contract-Validierungs-Plans ist bewusst informativ; die Beförderung ins Gate (mindestens
 > `BODY_PARAM_MISSING_REQUIRED`) ist Phase P2, nach einer FP-freien Voll-Sweep-Triage.
 
-**Erzeugt:** 2026-08-10T14:10:42.559Z
+**Erzeugt:** 2026-08-10T14:11:51.166Z
 
 ## Zusammenfassung
 
@@ -31,7 +31,7 @@ Ein laut OpenAPI-Contract required Body-Feld wird vom Tool nicht als required ge
 | `adopt_stack` | POST | `/api/stacks/adopt` | `stacks` | stacks.ts:465 |
 | `create_config_set` | POST | `/api/config-sets` | `name` | users.ts:269 |
 | `create_environment_notification` | POST | `/api/environments/{environmentId}/notifications` | `notificationId` | environments.ts:236 |
-| `create_git_stack` | POST | `/api/git/stacks` | `stackName` | git-stacks.ts:231 |
+| `create_git_stack` | POST | `/api/git/stacks` | `stackName` | git-stacks.ts:234 |
 | `create_ldap_provider` | POST | `/api/auth/ldap` | `name` | auth.ts:65 |
 | `create_ldap_provider` | POST | `/api/auth/ldap` | `serverUrl` | auth.ts:65 |
 | `create_ldap_provider` | POST | `/api/auth/ldap` | `baseDn` | auth.ts:65 |
@@ -84,7 +84,7 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `create_container` | POST | `/api/containers` | - | containers.ts:284 |
 | `create_environment_notification` | POST | `/api/environments/{environmentId}/notifications` | - | environments.ts:236 |
 | `create_git_credential` | POST | `/api/git/credentials` | - | git-stacks.ts:98 |
-| `create_git_stack` | POST | `/api/git/stacks` | - | git-stacks.ts:231 |
+| `create_git_stack` | POST | `/api/git/stacks` | - | git-stacks.ts:234 |
 | `create_ldap_provider` | POST | `/api/auth/ldap` | - | auth.ts:65 |
 | `create_network` | POST | `/api/networks` | - | networks.ts:60 |
 | `create_notification` | POST | `/api/notifications` | - | notifications.ts:25 |
@@ -109,8 +109,8 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `update_environment_notification` | PUT | `/api/environments/{environmentId}/notifications/{notificationId}` | - | environments.ts:267 |
 | `update_general_settings` | POST | `/api/settings/general` | - | system.ts:97 |
 | `update_git_credential` | PUT | `/api/git/credentials/{credentialId}` | - | git-stacks.ts:129 |
-| `update_git_repository` | PUT | `/api/git/repositories/{repositoryId}` | - | git-stacks.ts:274 |
-| `update_git_stack` | PUT | `/api/git/stacks/{stackId}` | - | git-stacks.ts:241 |
+| `update_git_repository` | PUT | `/api/git/repositories/{repositoryId}` | - | git-stacks.ts:280 |
+| `update_git_stack` | PUT | `/api/git/stacks/{stackId}` | - | git-stacks.ts:247 |
 | `update_ldap_provider` | PUT | `/api/auth/ldap/{providerId}` | - | auth.ts:155 |
 | `update_notification` | PUT | `/api/notifications/{notificationId}` | - | notifications.ts:42 |
 | `update_oidc_provider` | PUT | `/api/auth/oidc/{providerId}` | - | auth.ts:179 |
@@ -132,7 +132,7 @@ Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehl
 | `check_container_updates` | POST | `/api/containers/check-updates` | - | containers.ts:421 |
 | `deploy_git_repository` | POST | `/api/git/repositories/{repositoryId}/deploy` | - | git-stacks.ts:174 |
 | `deploy_git_stack` | POST | `/api/git/stacks/{stackId}/deploy` | - | git-stacks.ts:30 |
-| `deploy_git_stack_stream` | POST | `/api/git/stacks/{stackId}/deploy-stream` | - | git-stacks.ts:255 |
+| `deploy_git_stack_stream` | POST | `/api/git/stacks/{stackId}/deploy-stream` | - | git-stacks.ts:261 |
 | `logout` | POST | `/api/auth/logout` | - | auth.ts:210 |
 | `pause_container` | POST | `/api/containers/{containerId}/pause` | - | containers.ts:184 |
 | `prune_all` | POST | `/api/prune/all` | - | system.ts:157 |
@@ -140,7 +140,7 @@ Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehl
 | `prune_images` | POST | `/api/prune/images` | - | system.ts:171 |
 | `prune_networks` | POST | `/api/prune/networks` | - | system.ts:178 |
 | `prune_volumes` | POST | `/api/prune/volumes` | - | system.ts:185 |
-| `receive_git_webhook` | POST | `/api/git/webhook/{webhookId}` | - | git-stacks.ts:298 |
+| `receive_git_webhook` | POST | `/api/git/webhook/{webhookId}` | - | git-stacks.ts:304 |
 | `release_volume_browse` | POST | `/api/volumes/{volumeName}/browse/release` | - | volumes.ts:75 |
 | `restart_container` | POST | `/api/containers/{containerId}/restart` | - | containers.ts:174 |
 | `restart_stack` | POST | `/api/stacks/{name}/restart` | - | stacks.ts:76 |
