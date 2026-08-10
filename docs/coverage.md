@@ -4,18 +4,18 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-08-10T19:48:41.982Z
+**Erzeugt:** 2026-08-10T21:00:07.457Z
 **Dockhand-Upstream-Commit:** `905c4a004dafe1cbad4ed2babc2c532d7f4018b8`
 **Schema-Endpunkte gesamt:** 235
 
 ## Coverage
 
-**88.6%** (281/317 in-Scope-Endpunkte haben ein MCP-Tool)
+**90.5%** (287/317 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
-| COVERED | 281 |
-| MISSING_TOOL | 36 |
+| COVERED | 287 |
+| MISSING_TOOL | 30 |
 | Deliberately omitted (Registry, siehe unten) | 1 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -59,37 +59,11 @@ ersten Pfad-Segment nach `/api/`:
 | GET | `/api/backup/stack-dir-listing` | - |
 | GET | `/api/backup/stack-path` | - |
 
-### environments (2)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/api/environments/{id}/remote-stacks-dir` | id |
-| POST | `/api/environments/{id}/remote-stacks-dir` | id |
-
 ### git (1)
 
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
 | POST | `/api/git/stacks/{id}/webhook` | id |
-
-### registry (1)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/api/registry/tag-info` | - |
-
-### settings (2)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/api/settings/navigation` | - |
-| PUT | `/api/settings/navigation` | - |
-
-### stacks (1)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/api/stacks/{name}/delete-preview` | name |
 
 ## Deliberately omitted (with reason)
 
