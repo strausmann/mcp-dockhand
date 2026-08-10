@@ -8,10 +8,13 @@
  * validate-mcp-tools.mjs) und bauen daraus Markdown. Der eigentliche Datei-Schreib-
  * Vorgang lebt in `generate-body-contract-doc.mjs`.
  *
- * BEWUSST ADVISORY (Task P1.6 / P1-Plan Global Constraints): dieses Dokument ist eine
- * Übersicht, kein Gate. Die Beförderung von BODY_PARAM_MISSING_REQUIRED zu einem harten
- * CI-Fail ist Phase P2 (erst nach FP-freier Voll-Sweep-Triage, siehe Task P2.1/P2.2 im
- * Body-Contract-Validierungs-Plan) — bis dahin ist dieses Dokument rein informativ.
+ * BEWUSST ADVISORY (Task P1.6 / P1-Plan Global Constraints): dieses Dokument selbst ist eine
+ * reine Übersicht und löst keinen CI-Fail aus — unabhängig vom Finding-Typ. Seit Task P2.2
+ * ist BODY_PARAM_MISSING_REQUIRED (nach FP-freier Voll-Sweep-Triage, Task P2.1, und #171)
+ * zusätzlich ein hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-`api-change`-
+ * Issue, siehe dessen `hasCriticalErrors()`/`validation-report.md`) — hier wird es weiterhin
+ * mitgelistet, rein zur Übersicht. Die übrigen drei Typen (BODY_PARAM_UNKNOWN,
+ * UNTYPED_PASSTHROUGH, BODY_CONTRACT_UNRESOLVED) bleiben vollständig advisory.
  */
 
 const FINDING_ORDER = ['BODY_PARAM_MISSING_REQUIRED', 'BODY_PARAM_UNKNOWN', 'UNTYPED_PASSTHROUGH', 'BODY_CONTRACT_UNRESOLVED'];
@@ -94,12 +97,15 @@ function buildBodyContractDoc({ generatedAt, bodyFindings }) {
   lines.push('> siehe `scripts/fetch-openapi.mjs`) gegen die registrierten Zod-Shapes unserer MCP-Tools.');
   lines.push('');
   lines.push(
-    '> **ADVISORY — kein CI-Gate.** Diese Findings beeinflussen keinen Exit-Code. Phase P1 des'
+    '> **ADVISORY — kein CI-Gate.** Dieses Dokument selbst löst keinen Exit-Code aus. Seit Task'
   );
   lines.push(
-    '> Body-Contract-Validierungs-Plans ist bewusst informativ; die Beförderung ins Gate (mindestens'
+    '> P2.2 ist `BODY_PARAM_MISSING_REQUIRED` (nach FP-freier Voll-Sweep-Triage, Task P2.1) ein'
   );
-  lines.push('> `BODY_PARAM_MISSING_REQUIRED`) ist Phase P2, nach einer FP-freien Voll-Sweep-Triage.');
+  lines.push(
+    '> hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-Issue) — hier weiterhin nur'
+  );
+  lines.push('> zur Übersicht gelistet. Die übrigen drei Typen bleiben vollständig advisory.');
   lines.push('');
   lines.push(`**Erzeugt:** ${generatedAt}`);
   lines.push('');
