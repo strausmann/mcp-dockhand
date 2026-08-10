@@ -44,6 +44,35 @@ describe('computeBodyShape', () => {
     expect(result.sentFields).toEqual(['name', 'config']);
   });
 
+  it('flags passthrough:true for an OPTIONAL z.record(...) -- the real-world shape', () => {
+    // Every actual passthrough field in this codebase (e.g. update_container's `settings`)
+    // is wrapped in .optional(): `z.record(z.string(), z.unknown()).optional()`. Zod v4
+    // represents that as a top-level "optional" wrapper node whose `def.innerType` is the
+    // record -- NOT a top-level `def.type === 'record'` node. A detector that only checks
+    // the outermost def.type (without unwrapping .optional()/.nullable()/.default() first)
+    // silently reports passthrough:false for this shape, which is the shape that appears
+    // in real code. Verified live against src/tools/containers.ts (update_container):
+    // running scripts/collect-tool-shapes.mjs against the real registered tool reported
+    // passthrough:false for its optional `settings: z.record(...).optional()` field before
+    // this fix.
+    const shape = {
+      name: z.string(),
+      settings: z.record(z.string(), z.unknown()).optional(),
+    };
+
+    const result = computeBodyShape(shape);
+
+    expect(result.passthrough).toBe(true);
+  });
+
+  it('flags passthrough:true for a NULLABLE z.record(...) too (same wrapper-unwrapping need)', () => {
+    const shape = {
+      config: z.record(z.string(), z.unknown()).nullable(),
+    };
+
+    expect(computeBodyShape(shape).passthrough).toBe(true);
+  });
+
   it('treats an empty shape as zero fields, not an error', () => {
     expect(computeBodyShape({})).toEqual({
       sentFields: [],

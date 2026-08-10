@@ -20,6 +20,38 @@
 const RECORD_ZOD_TYPE = 'record';
 
 /**
+ * Zod v4 wrapper type names whose `def.innerType` holds the actual wrapped type. A field
+ * declared as `z.record(...).optional()` -- the real-world shape for every passthrough
+ * field in this codebase (e.g. update_container's `settings`) -- is represented as a
+ * top-level "optional" node, NOT a top-level "record" node; the record lives one level
+ * down at `def.innerType`. Without unwrapping these first, isRecordZodType() below would
+ * silently report `passthrough:false` for every actual passthrough field, since none of
+ * them are declared as a bare, non-optional z.record(...) in real tool code.
+ */
+const UNWRAPPABLE_ZOD_TYPES = new Set(['optional', 'nullable', 'default', 'catch', 'readonly']);
+const MAX_UNWRAP_DEPTH = 10;
+
+/**
+ * Follows `def.innerType` through wrapper nodes (.optional(), .nullable(), .default(), ...)
+ * until it reaches a non-wrapper node, or gives up after MAX_UNWRAP_DEPTH levels (defensive
+ * bound -- real Zod schemas never nest this deep, but an unbounded loop must never be
+ * possible here).
+ * @param {unknown} zodType
+ * @returns {unknown} The innermost non-wrapper Zod type, or the original value if it
+ *   was never a wrapper (or not a Zod type at all).
+ */
+function unwrapZodType(zodType) {
+  let current = zodType;
+  for (let depth = 0; depth < MAX_UNWRAP_DEPTH; depth++) {
+    if (!current || typeof current !== 'object') return current;
+    const def = current.def ?? current._def;
+    if (!def || !UNWRAPPABLE_ZOD_TYPES.has(def.type) || !def.innerType) return current;
+    current = def.innerType;
+  }
+  return current;
+}
+
+/**
  * @param {unknown} zodType A single Zod schema value (e.g. z.string(), z.number().optional())
  * @returns {boolean}
  */
@@ -33,8 +65,9 @@ function isOptionalZodType(zodType) {
  * @returns {boolean} true if this exact field is an untyped `z.record(...)` passthrough
  */
 function isRecordZodType(zodType) {
-  if (!zodType || typeof zodType !== 'object') return false;
-  const def = zodType.def ?? zodType._def;
+  const unwrapped = unwrapZodType(zodType);
+  if (!unwrapped || typeof unwrapped !== 'object') return false;
+  const def = unwrapped.def ?? unwrapped._def;
   return def?.type === RECORD_ZOD_TYPE;
 }
 
