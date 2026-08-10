@@ -130,12 +130,13 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'activate_license', 'Activate a new Dockhand license key, registering it with the backend to unlock the corresponding feature tier; use `get_license` to verify the result after activation.',
+  registerTool(server, 'activate_license', 'Activate a new Dockhand license by name and key, registering it with the backend to unlock the corresponding feature tier; use `get_license` to verify the result after activation.',
     {
+      name: z.string().describe('License holder/organization name (required by the real endpoint alongside the key)'),
       licenseKey: z.string().describe('License key'),
     },
-    async ({ licenseKey }) => {
-      return jsonResponse(await client.post('/api/license', { key: licenseKey }));
+    async ({ name, licenseKey }) => {
+      return jsonResponse(await client.post('/api/license', { name, key: licenseKey }));
     }
   );
 
@@ -187,10 +188,24 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
 
   // --- Batch ---
 
-  registerTool(server, 'list_batch_operations', 'List the batch operations that have been submitted or completed, providing a history view of bulk container actions; use `batch_update_containers` to start a new batch update, or `start_container` / `stop_container` for single-container lifecycle actions.',
-    {},
-    async () => {
-      return jsonResponse(await client.post('/api/batch'));
+  registerTool(server, 'execute_batch', 'Run one bulk operation (start/stop/restart/pause/unpause/remove/down, depending on entity type) across many containers, images, volumes, networks, or stacks in a single call; use `batch_update_containers` for the specialized pull-and-recreate update flow, or `start_container` / `stop_container` for single-entity lifecycle actions.',
+    {
+      environmentId: z.number().optional().describe('Environment ID the entities belong to'),
+      operation: z.string().describe('Operation to run. Valid per entityType: containers = start|stop|restart|pause|unpause|remove; images|volumes|networks = remove; stacks = start|stop|restart|down|remove (required by the real endpoint)'),
+      entityType: z.enum(['containers', 'images', 'volumes', 'networks', 'stacks']).describe('Type of entity the batch operation targets (required by the real endpoint)'),
+      items: z.array(z.object({
+        id: z.string().describe('Entity ID or name to operate on'),
+        name: z.string().describe('Entity display name (used for cleanup bookkeeping on container removal, and in progress reporting)'),
+      })).min(1).describe('Entities to process; must be a non-empty array (required by the real endpoint)'),
+      options: z.object({
+        force: z.boolean().optional().describe('Force the operation where applicable (e.g. force-remove a running container or in-use image/volume)'),
+        removeVolumes: z.boolean().optional().describe('For stacks with operation "down": also remove named volumes'),
+      }).optional().describe('Optional per-operation flags'),
+    },
+    async ({ environmentId, operation, entityType, items, options }) => {
+      const body: Record<string, unknown> = { operation, entityType, items };
+      if (options !== undefined) body.options = options;
+      return jsonResponse(await client.post('/api/batch', body, { env: environmentId }));
     }
   );
 

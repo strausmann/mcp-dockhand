@@ -226,9 +226,12 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'create_git_stack', 'Register a new Git-based stack from a repository URL + branch + optional credential, ready to deploy with `deploy_git_stack`; use `list_git_stacks` to verify or `update_git_stack` to amend afterwards.',
     {
       config: z.record(z.string(), z.unknown()).describe('Git stack configuration (url, branch, credentialId, composePath, environmentId, etc.)'),
+      envFilePath: z.string().optional().describe('Path to the .env file within the repository this Git stack should use on deploy; also settable via `config.envFilePath` — this explicit field wins on collision. See `get_git_stack_env_files` to discover available .env files in the repository.'),
     },
-    async ({ config }) => {
-      return jsonResponse(await client.post('/api/git/stacks', config));
+    async ({ config, envFilePath }) => {
+      const body: Record<string, unknown> = { ...config };
+      if (envFilePath !== undefined) body.envFilePath = envFilePath;
+      return jsonResponse(await client.post('/api/git/stacks', body));
     }
   );
 
@@ -236,9 +239,12 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     {
       stackId: z.number().describe('Git stack ID'),
       config: z.record(z.string(), z.unknown()).describe('Git stack configuration to merge'),
+      envFilePath: z.string().optional().describe('Path to the .env file within the repository this Git stack should use on deploy; also settable via `config.envFilePath` — this explicit field wins on collision. See `get_git_stack_env_files` to discover available .env files in the repository.'),
     },
-    async ({ stackId, config }) => {
-      return jsonResponse(await client.put(`/api/git/stacks/${encodePath(stackId)}`, config));
+    async ({ stackId, config, envFilePath }) => {
+      const body: Record<string, unknown> = { ...config };
+      if (envFilePath !== undefined) body.envFilePath = envFilePath;
+      return jsonResponse(await client.put(`/api/git/stacks/${encodePath(stackId)}`, body));
     }
   );
 
@@ -253,16 +259,6 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     { stackId: z.number().describe('Git stack ID') },
     async ({ stackId }) => {
       return jsonResponse(await client.postSSE(`/api/git/stacks/${encodePath(stackId)}/deploy-stream`));
-    }
-  );
-
-  registerTool(server, 'set_git_stack_env_files', 'Upload or replace the environment files (`.env` content + overrides) used by a Git-based stack on its next deploy; read current files with `get_git_stack_env_files` and trigger the deploy via `deploy_git_stack` or `sync_git_stack`.',
-    {
-      stackId: z.number().describe('Git stack ID'),
-      envFiles: z.record(z.string(), z.string()).describe('Map of filename to file contents (e.g. {".env": "FOO=bar\\n"})'),
-    },
-    async ({ stackId, envFiles }) => {
-      return jsonResponse(await client.post(`/api/git/stacks/${encodePath(stackId)}/env-files`, { envFiles }));
     }
   );
 

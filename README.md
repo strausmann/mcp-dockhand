@@ -141,13 +141,14 @@ sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/
 | `exec_container` | Create a terminal exec session (execId + WS connectionInfo); does NOT run a one-shot command or return output — no such endpoint exists in the Dockhand API |
 | `list_container_files` | Browse files inside container |
 | `get_container_file_content` | Read file from container |
-| `create_container_file` | Create file in container |
+| `create_container_file` | Create an empty file or directory in container (no content — use `write_container_file_content` for that) |
 | `delete_container_file` | Delete file in container |
 | `rename_container_file` | Rename file in container |
 | `chmod_container_file` | Change file permissions |
 | `check_container_updates` | Check for image updates |
 | `get_pending_updates` | Get pending updates |
 | `batch_update_containers` | Batch update containers |
+| `execute_batch` | Run a bulk lifecycle operation (start/stop/restart/remove/etc.) across containers, images, volumes, networks, or stacks |
 | `get_container_sizes` | Get container disk sizes |
 | `get_containers_stats` | Get aggregated stats |
 
@@ -310,7 +311,7 @@ sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/
 | `delete_notification` | Delete notification |
 | `test_notification` | Test notification |
 | `test_notification_config` | Test without saving |
-| `trigger_test_notification` | Trigger test event |
+| `trigger_test_notification` | Trigger a real test event for a given event type + payload |
 
 ### Registries (10 tools)
 
@@ -347,7 +348,7 @@ sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/
 | `get_scanner_settings` | Scanner settings |
 | `update_scanner_settings` | Update scanner |
 | `get_license` | License info |
-| `activate_license` | Activate license |
+| `activate_license` | Activate license by name and key |
 | `get_prometheus_metrics` | Prometheus metrics |
 | `prune_all` | Prune all resources |
 
@@ -364,9 +365,10 @@ sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/
 | `enable_user_mfa` | Enable MFA |
 | `disable_user_mfa` | Disable MFA |
 | `get_user_roles` | Get user roles |
-| `set_user_roles` | Set user roles |
+| `add_user_role` | Assign one role to a user (no bulk-replace) |
+| `remove_user_role` | Unassign one role from a user |
 | `list_roles` | List roles |
-| `create_role` | Create role |
+| `create_role` | Create role with name + permissions object |
 | `get_role` | Get role |
 | `update_role` | Update role |
 | `delete_role` | Delete role |
