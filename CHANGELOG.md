@@ -5,6 +5,30 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0](https://github.com/strausmann/mcp-dockhand/compare/v1.10.0...v1.11.0) (2026-08-10)
+
+### Features
+
+* **tools:** extend validate-mcp-tools.mjs with query-param diff ([59ec907](https://github.com/strausmann/mcp-dockhand/commit/59ec90705d227bd924ea58b31423ceeaa649b696)), references [#81](https://github.com/strausmann/mcp-dockhand/issues/81) [#95](https://github.com/strausmann/mcp-dockhand/issues/95)
+
+### Bug Fixes
+
+* **auth:** normalize base URL for login + surface tool errors ([#159](https://github.com/strausmann/mcp-dockhand/issues/159)) ([600a25d](https://github.com/strausmann/mcp-dockhand/commit/600a25d2a37959c70fe43ad920aa1f7d259601cc)), closes [#116](https://github.com/strausmann/mcp-dockhand/issues/116) [#116](https://github.com/strausmann/mcp-dockhand/issues/116), references [#116](https://github.com/strausmann/mcp-dockhand/issues/116)
+* **docker:** healthcheck uses 127.0.0.1 to avoid IPv6 localhost failure on Alpine ([#158](https://github.com/strausmann/mcp-dockhand/issues/158)) ([af6c513](https://github.com/strausmann/mcp-dockhand/commit/af6c513f1dfac248eb4e4b40acea88607d72019d)), closes [#92](https://github.com/strausmann/mcp-dockhand/issues/92) [#84](https://github.com/strausmann/mcp-dockhand/issues/84)
+* **registries:** align get_registry_catalog with the real /api/registry/catalog contract ([6511cf2](https://github.com/strausmann/mcp-dockhand/commit/6511cf2350bb5bc37f09f31981cb389188b095fd)), closes [#147](https://github.com/strausmann/mcp-dockhand/issues/147) [#150](https://github.com/strausmann/mcp-dockhand/issues/150)
+* **registries:** align search_registry with the real /api/registry/search contract ([62d7799](https://github.com/strausmann/mcp-dockhand/commit/62d7799817006f13ab441f6e4a222a0123d5a633)), closes [#146](https://github.com/strausmann/mcp-dockhand/issues/146)
+* **release:** keep package version in sync via @semantic-release/npm (npmPublish:false) ([15c5f3a](https://github.com/strausmann/mcp-dockhand/commit/15c5f3a915a25eb288215eec38dff4353ab24174)), closes [#139](https://github.com/strausmann/mcp-dockhand/issues/139)
+* **release:** relax conventional-changelog-writer override to ^9.2.0 ([7c15fd4](https://github.com/strausmann/mcp-dockhand/commit/7c15fd4ab9888fc8d24c1adf58db1aefc3829efa)), closes [#139](https://github.com/strausmann/mcp-dockhand/issues/139), references [semantic-release/release-notes-generator#1021](https://github.com/semantic-release/release-notes-generator/issues/1021)
+* **tools:** align exec_container with the real Docker-exec-instance contract ([ec79b47](https://github.com/strausmann/mcp-dockhand/commit/ec79b47207d46e538659f94d692d3af70d72d287)), closes [#81](https://github.com/strausmann/mcp-dockhand/issues/81), references [#81](https://github.com/strausmann/mcp-dockhand/issues/81) [#81](https://github.com/strausmann/mcp-dockhand/issues/81)
+* **tools:** correct image-prune settings and trigger HTTP methods ([#141](https://github.com/strausmann/mcp-dockhand/issues/141)) ([6bfce61](https://github.com/strausmann/mcp-dockhand/commit/6bfce61919f1afd47ab3eb44bf86dc6ac1176602)), closes [#138](https://github.com/strausmann/mcp-dockhand/issues/138)
+* **tools:** correct required/optional query params for 6 tools ([#153](https://github.com/strausmann/mcp-dockhand/issues/153)) ([bffc498](https://github.com/strausmann/mcp-dockhand/commit/bffc4980c784e34df93ef8c2955c7b17ebb237b7)), closes [#152](https://github.com/strausmann/mcp-dockhand/issues/152)
+* **tools:** required/optional-aware query-param check, no manual triage ([7e79e54](https://github.com/strausmann/mcp-dockhand/commit/7e79e544e0138aa23eb8a3169b45aee67152312c)), references [#148](https://github.com/strausmann/mcp-dockhand/issues/148)
+* **tools:** update_container — optional settings, explicit fields, reject unknown keys ([#154](https://github.com/strausmann/mcp-dockhand/issues/154)) ([65a71b2](https://github.com/strausmann/mcp-dockhand/commit/65a71b2919691955418f83ce2b0f69480a34b8a1)), closes [#142](https://github.com/strausmann/mcp-dockhand/issues/142)
+
+### Documentation
+
+* **readme:** document mcp-proxy workaround for Claude Desktop (remote) ([#157](https://github.com/strausmann/mcp-dockhand/issues/157)) ([cef7aaf](https://github.com/strausmann/mcp-dockhand/commit/cef7aaf6ef3dd36da1b0b15d7d866aa216aa56a2)), closes [#90](https://github.com/strausmann/mcp-dockhand/issues/90)
+
 ## [1.10.0](https://github.com/strausmann/mcp-dockhand/compare/v1.9.1...v1.10.0) (2026-08-09)
 
 ### Features

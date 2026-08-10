@@ -1,6 +1,6 @@
 {
   "name": "mcp-dockhand",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "description": "MCP Server for Dockhand Docker Management - exposes 130+ API endpoints as MCP tools",
   "type": "module",
   "main": "dist/index.js",
