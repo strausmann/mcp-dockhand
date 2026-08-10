@@ -41,7 +41,7 @@ describe('registerTool error logging', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const server = fakeServer();
 
-    registerTool(server as never, 'health_check', 'desc', {}, async () => {
+    registerTool(server as never, 'health_check', {}, async () => {
       throw new Error('Dockhand login failed (HTTP 307): redirected to "/login?redirect=..." instead of authenticating');
     });
 
@@ -60,7 +60,7 @@ describe('registerTool error logging', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const server = fakeServer();
 
-    registerTool(server as never, 'get_system_info', 'desc', {}, async () => {
+    registerTool(server as never, 'get_system_info', {}, async () => {
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw 'boom';
     });
@@ -78,7 +78,7 @@ describe('registerTool error logging', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const server = fakeServer();
 
-    registerTool(server as never, 'get_host_info', 'desc', { id: z.number() }, async ({ id }) => {
+    registerTool(server as never, 'get_host_info', { id: z.number() }, async ({ id }) => {
       return { content: [{ type: 'text' as const, text: JSON.stringify({ id }) }] };
     });
 
@@ -92,7 +92,7 @@ describe('registerTool error logging', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const server = fakeServer();
 
-    registerTool(server as never, 'list_containers', 'desc', {}, async () => {
+    registerTool(server as never, 'list_containers', {}, async () => {
       throw new Error('fetch failed: ECONNREFUSED 100.100.200.50:443');
     });
 

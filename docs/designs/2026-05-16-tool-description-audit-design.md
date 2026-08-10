@@ -1,9 +1,26 @@
 # Tool Description Audit — Design
 
 **Date:** 2026-05-16
-**Status:** Approved
+**Status:** Superseded (2026-08-10) — see note below
 **Owner:** repo maintainer
 **Implementation branch:** `feat/tool-description-audit`
+
+> **Superseded by P3 (2026-08-10):** hand-written description literals in `src/tools/*.ts`
+> were removed; `registerTool()` now derives every tool's description at registration time
+> from `docs/dockhand-openapi.json` (`src/openapi/describe-tool.ts`). The static-analysis
+> audit this design describes (`tests/tool-descriptions.test.ts`, C1–C4 criteria over
+> hand-written text) was removed for the same reason — there is no literal text left to
+> audit. Quality of the underlying spec `summary`/`description` text is now governed
+> upstream, at the Dockhand annotation source, per
+> `docs/openapi-annotations.md` in the `Finsys/dockhand` repo (`feat/openapi-refresh` /
+> `feat/openapi-scalar`) — not by a downstream check in this repo. See
+> `docs/superpowers/plans/2026-08-10-mcp-dockhand-description-quality-governance.md`
+> (Task 5) in `homelab-management` for the full design and rationale, including the
+> specific, deliberate trade-offs this caused (some hand-written cross-tool "see also"
+> references and wrapper-specific safety notes have no equivalent in the derived text —
+> documented per-case in `tests/stack-env-merge.test.ts`,
+> `tests/stack-env-tools.test.ts`, and `tests/update-container-runtime-fields.test.ts`).
+> This document is kept for historical context (why the original C1–C4 criteria existed).
 
 ## Problem
 

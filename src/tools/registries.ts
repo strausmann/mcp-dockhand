@@ -10,14 +10,14 @@ import { encodePath } from '../utils/encode-path.js';
 
 export function registerRegistryTools(server: McpServer, client: DockhandClient): void {
 
-  registerTool(server, 'list_registries', 'List all configured Docker registries; use `get_registry` to fetch a single entry or `create_registry` to add one.',
+  registerTool(server, 'list_registries',
     {},
     async () => {
       return jsonResponse(await client.get('/api/registries'));
     }
   );
 
-  registerTool(server, 'create_registry', 'Add a new Docker registry with credentials; verify the result with `get_registry` or browse all via `list_registries`.',
+  registerTool(server, 'create_registry',
     {
       config: z.record(z.string(), z.unknown()).describe('Registry configuration (name, url, username, password, etc.)'),
     },
@@ -26,14 +26,14 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'get_registry', 'Get full details of a single Docker registry by ID; see `list_registries` for all IDs or `update_registry` to modify.',
+  registerTool(server, 'get_registry',
     { registryId: z.number().describe('Registry ID') },
     async ({ registryId }) => {
       return jsonResponse(await client.get(`/api/registries/${encodePath(registryId)}`));
     }
   );
 
-  registerTool(server, 'update_registry', 'Update an existing Docker registry configuration (URL, credentials, name); use `get_registry` to read the current state first.',
+  registerTool(server, 'update_registry',
     {
       registryId: z.number().describe('Registry ID'),
       config: z.record(z.string(), z.unknown()).describe('Updated registry configuration'),
@@ -43,14 +43,14 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'delete_registry', 'Permanently delete a Docker registry configuration; verify the ID with `get_registry` before removing.',
+  registerTool(server, 'delete_registry',
     { registryId: z.number().describe('Registry ID') },
     async ({ registryId }) => {
       return jsonResponse(await client.delete(`/api/registries/${encodePath(registryId)}`));
     }
   );
 
-  registerTool(server, 'set_default_registry', 'Mark a registry as the default so it is used when no explicit registry is specified; see `list_registries` for available IDs.',
+  registerTool(server, 'set_default_registry',
     { registryId: z.number().describe('Registry ID') },
     async ({ registryId }) => {
       return jsonResponse(await client.post(`/api/registries/${encodePath(registryId)}/default`));
@@ -59,7 +59,7 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
 
   // --- Registry Search ---
 
-  registerTool(server, 'search_registry', 'Search the configured registry for images matching a query; use `get_registry_catalog` for a full image list or `get_registry_tags` for available tags.',
+  registerTool(server, 'search_registry',
     {
       term: z.string().describe('Search term'),
       limit: z.number().optional().describe('Maximum number of results (default: 25)'),
@@ -70,7 +70,7 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'get_registry_catalog', 'Retrieve the full image catalog of a configured Docker registry (registries are global, not scoped to an environment); use `search_registry` for filtered results or `get_registry_tags` for image tags.',
+  registerTool(server, 'get_registry_catalog',
     {
       registry: z.number().describe('Registry ID (use list_registries to discover)'),
       last: z.string().optional().describe('Pagination cursor from a previous response (opaque, returned as pagination.nextLast)'),
@@ -82,7 +82,7 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'get_registry_tags', 'List all available tags for a specific image in the configured registry; use `get_registry_catalog` to discover image names or `search_registry` to search.',
+  registerTool(server, 'get_registry_tags',
     {
       image: z.string().describe('Image name'),
       environmentId: z.number().optional().describe('Environment ID'),
@@ -92,7 +92,7 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'delete_registry_image', 'Permanently delete a specific image from a configured remote registry (destructive — the registry copy is removed). Target the registry by its registered ID (use `list_registries` to find), name the image (and optionally tag); pair with `search_registry` or `get_registry_tags` to verify what is available before deleting.',
+  registerTool(server, 'delete_registry_image',
     {
       registry: z.number().describe('Registry ID (use list_registries to discover)'),
       image: z.string().describe('Image name (e.g. "library/nginx")'),
@@ -105,7 +105,7 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
-  registerTool(server, 'test_registry', 'Test connectivity and credentials of a registry configuration before saving it; add the verified registry with `create_registry` or update an existing one via `update_registry`.',
+  registerTool(server, 'test_registry',
     {
       config: z.record(z.string(), z.unknown()).describe('Registry configuration to test (url, username, password, etc.)'),
     },

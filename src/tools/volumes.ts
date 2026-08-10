@@ -10,14 +10,14 @@ import { encodePath } from '../utils/encode-path.js';
 
 export function registerVolumeTools(server: McpServer, client: DockhandClient): void {
 
-  registerTool(server, 'list_volumes', 'List all Docker volumes in an environment; use `get_volume` for a single volume summary or `inspect_volume` for full JSON details.',
+  registerTool(server, 'list_volumes',
     { environmentId: z.number().describe('Environment ID (required)') },
     async ({ environmentId }) => {
       return jsonResponse(await client.get('/api/volumes', { env: environmentId }));
     }
   );
 
-  registerTool(server, 'get_volume', 'Return a summary of a named Docker volume (name, driver, mountpoint, labels); use `inspect_volume` for the full low-level docker-inspect JSON payload.',
+  registerTool(server, 'get_volume',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
@@ -27,7 +27,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'inspect_volume', 'Return the full docker-inspect JSON for a volume, including scope, options, and status fields not exposed by `get_volume`.',
+  registerTool(server, 'inspect_volume',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
@@ -37,7 +37,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'browse_volume', 'Acquire a browse session and list files inside a Docker volume at a given path; call `release_volume_browse` when done to tear down the helper container.',
+  registerTool(server, 'browse_volume',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
@@ -51,7 +51,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'get_volume_file_content', 'Read the text content of a single file inside a Docker volume; requires an active `browse_volume` session on the same volume.',
+  registerTool(server, 'get_volume_file_content',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
@@ -66,7 +66,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'release_volume_browse', 'Release the browse session opened by `browse_volume`, stopping and removing the ephemeral helper container to free resources.',
+  registerTool(server, 'release_volume_browse',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
@@ -76,7 +76,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'clone_volume', 'Create a new Docker volume as a full data copy of the source volume; unlike `export_volume` this produces a live volume rather than a tar archive.',
+  registerTool(server, 'clone_volume',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Source volume name'),
@@ -87,7 +87,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'export_volume', 'Export the contents of a Docker volume as a downloadable tar archive; use `clone_volume` instead to duplicate data into a new live volume.',
+  registerTool(server, 'export_volume',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
@@ -97,7 +97,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'remove_volume', 'Permanently delete a Docker volume and all its data (destructive, irreversible); ensure no containers are using it before calling; see `list_volumes` to confirm the volume name.',
+  registerTool(server, 'remove_volume',
     {
       environmentId: z.number().describe('Environment ID'),
       volumeName: z.string().describe('Volume name'),
@@ -107,7 +107,7 @@ export function registerVolumeTools(server: McpServer, client: DockhandClient): 
     }
   );
 
-  registerTool(server, 'create_volume', 'Create a new Docker volume with the supplied name, driver, and driver options; use `list_volumes` to verify the result, `inspect_volume` for full details, or `remove_volume` to delete it later.',
+  registerTool(server, 'create_volume',
     {
       environmentId: z.number().describe('Environment ID'),
       config: z.record(z.string(), z.unknown()).describe('Volume creation payload (e.g. {name, driver, driverOpts, labels})'),

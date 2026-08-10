@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { z } from 'zod';
 import { jsonResponse, textResponse, errorResponse } from './response.js';
+import { describeTool } from '../openapi/describe-tool.js';
 
 // Re-export response helpers for convenience
 export { jsonResponse, textResponse, errorResponse };
@@ -18,14 +19,23 @@ type ZodShape = Record<string, z.ZodTypeAny>;
 /**
  * Register an MCP tool with automatic try/catch error handling.
  * Preserves full Zod type inference for the callback args.
+ *
+ * The `description` is no longer a hand-written literal at the call site — it is
+ * derived at registration time from the generated OpenAPI spec via `describeTool(name)`
+ * (src/openapi/describe-tool.ts), which resolves the tool's endpoint
+ * (src/openapi/tool-endpoint.ts) against docs/dockhand-openapi.json
+ * (src/openapi/spec-loader.ts) and formats it via `deriveToolDescription`
+ * (src/openapi/derive-description.ts). See
+ * docs/superpowers/plans/2026-08-10-mcp-dockhand-description-quality-governance.md
+ * (Task 5) in the homelab-management repo for the full design.
  */
 export function registerTool<T extends ZodShape>(
   server: McpServer,
   name: string,
-  description: string,
   schema: T,
   callback: (args: z.output<z.ZodObject<T>>) => Promise<ToolResponse>
 ): void {
+  const description = describeTool(name);
   /* eslint-disable @typescript-eslint/no-explicit-any */
   (server as any).tool(name, description, schema, async (args: any) => {
     try {
