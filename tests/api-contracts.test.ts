@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { describeTool } from '../src/openapi/describe-tool.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const stacksSource = readFileSync(join(__dirname, '..', 'src', 'tools', 'stacks.ts'), 'utf-8');
@@ -117,9 +118,15 @@ describe('Dockhand API contract alignment', () => {
     expect(block).not.toMatch(/body\.workingDir/);
     expect(block).not.toMatch(/body\.tty/);
 
-    // Description must not promise one-shot command execution/output the API cannot deliver.
-    expect(block).not.toMatch(/Execute a one-shot command/i);
-    expect(block).toMatch(/does not run|cannot run|no.*output|terminal attach/i);
+    // Description (derived from the spec — P3 Task 5, no hand-written literal here
+    // anymore, see src/openapi/describe-tool.ts) must not promise one-shot command
+    // execution/output the API cannot deliver. The real spec summary
+    // (docs/dockhand-openapi.json `/api/containers/{id}/exec` POST) frames this
+    // correctly as creating an exec instance for a terminal WebSocket, not running a
+    // command and returning its output — assert that framing survives derivation.
+    const description = describeTool('exec_container');
+    expect(description).not.toMatch(/Execute a one-shot command/i);
+    expect(description).toMatch(/websocket|terminal/i);
   });
 
   it('search_registry matches the real /api/registry/search contract: term (required), limit + registry (optional), no env', () => {

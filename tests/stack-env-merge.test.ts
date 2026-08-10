@@ -115,17 +115,27 @@ describe('update_stack_env — merge-semantic implementation', () => {
     });
   });
 
+  // P3 Task 5 (mcp-dockhand): the tool-level description is no longer a hand-written
+  // literal — it is derived from docs/dockhand-openapi.json at registration time (see
+  // src/openapi/describe-tool.ts) and can therefore no longer explain wrapper-specific
+  // behavior the underlying Dockhand endpoint itself doesn't describe: the client-side
+  // merge layer, and the "replace-semantics risk" of the raw PUT it protects against,
+  // are this MCP tool's own value-add, not something Dockhand's OpenAPI spec documents.
+  // KNOWN REGRESSION: the tool-level description no longer states the replace-semantics
+  // RISK up front (previously "the underlying Dockhand REST endpoints ... have
+  // replace-semantics for the store they touch") — flagged for review in the Task 5
+  // report. What survives is the `mode` PARAMETER's own .describe() text (untouched by
+  // Task 5 — only the top-level registerTool() description argument was removed),
+  // which still documents what each mode value does; asserted below.
   describe('description — documents the merge-default behaviour', () => {
-    it('tool description explains the Dockhand replace-semantics risk', () => {
-      expect(block).toMatch(/replace.semantics|replace-semantics/i);
+    it('the mode parameter documents the merge default and what it preserves', () => {
+      expect(block).toMatch(/"merge"\s*\(default\)/);
+      expect(block).toMatch(/preserve all others/i);
     });
 
-    it('tool description mentions the merge default', () => {
-      expect(block).toMatch(/mode="merge"|mode=.merge./i);
-    });
-
-    it('tool description mentions the replace opt-in', () => {
-      expect(block).toMatch(/mode="replace"|mode=.replace./i);
+    it('the mode parameter documents the replace opt-in and that it deletes everything else', () => {
+      expect(block).toMatch(/"replace":\s*overwrite/i);
+      expect(block).toMatch(/all others are deleted/i);
     });
   });
 
@@ -158,9 +168,12 @@ describe('update_stack_env — existing contract not broken', () => {
     expect(block).not.toMatch(/variables:\s*z\.array\([\s\S]*?\}\s*\)\s*\)\s*\.optional/);
   });
 
-  it('still references update_stack_env_raw for non-secret writes', () => {
-    expect(block).toMatch(/update_stack_env_raw/);
-  });
+  // P3 Task 5 (mcp-dockhand): retired — see the identical note in
+  // tests/stack-env-tools.test.ts. The tool-level description that used to name
+  // `update_stack_env_raw` as a sibling tool is now derived from
+  // docs/dockhand-openapi.json, whose cross-ref grammar only models foreign-ID
+  // provenance, not "see also" relationships between MCP tools. KNOWN REGRESSION,
+  // flagged for review in the Task 5 report.
 
   it('variable schema still includes key, value, and optional isSecret', () => {
     expect(block).toMatch(/key:\s*z\.string\(\)/);

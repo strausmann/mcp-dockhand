@@ -13,6 +13,14 @@ COPY --from=build /app/package*.json ./
 # excluded by --omit=dev). Runtime install needs no install-side scripts.
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=build /app/dist ./dist
+# src/openapi/spec-loader.ts (compiled to dist/openapi/spec-loader.js) reads
+# docs/dockhand-openapi.json at runtime, resolved relative to its own compiled
+# location — src/openapi/describe-tool.ts (via registerTool(), src/utils/tool-helper.ts)
+# derives every MCP tool's description from it at registration time (P3 Task 5). Without
+# this file the server still starts and serves fine, but every tool description falls
+# back to the generic default and each tool logs a startup advisory — copy it alongside
+# dist/ so the real, spec-derived descriptions are what actually ships.
+COPY --from=build /app/docs/dockhand-openapi.json ./docs/dockhand-openapi.json
 USER mcp
 EXPOSE 8080
 # Use 127.0.0.1 explicitly, not localhost: on Alpine/musl, BusyBox wget

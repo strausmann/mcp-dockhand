@@ -13,14 +13,14 @@ import type { EnvDiff } from '../utils/env-helpers.js';
 
 export function registerStackTools(server: McpServer, client: DockhandClient): void {
 
-  registerTool(server, 'list_stacks', 'List all Docker Compose stacks in an environment; use `create_stack` to add a new stack or `scan_stacks` to discover untracked ones.',
+  registerTool(server, 'list_stacks',
     { environmentId: z.number().describe('Environment ID (required)') },
     async ({ environmentId }) => {
       return jsonResponse(await client.get('/api/stacks', { env: environmentId }));
     }
   );
 
-  registerTool(server, 'create_stack', 'Create a new Docker Compose stack and optionally deploy it; use `delete_stack` to remove it or `adopt_stack` for pre-existing stacks.',
+  registerTool(server, 'create_stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -47,7 +47,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'start_stack', 'Start a stopped stack (docker compose up -d); use `stop_stack` to stop or `restart_stack` for a quick cycle without going down.',
+  registerTool(server, 'start_stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -57,7 +57,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'stop_stack', 'Stop running containers in a stack without removing them (docker compose stop); use `down_stack` to also remove containers, or `start_stack` to restart.',
+  registerTool(server, 'stop_stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -67,7 +67,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'restart_stack', 'Restart all containers in a stack in one step (docker compose restart); convenience alternative to calling `stop_stack` then `start_stack` separately.',
+  registerTool(server, 'restart_stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -77,7 +77,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'down_stack', 'Tear down and remove containers for a stack (docker compose down); more destructive than `stop_stack` — containers are removed, though volumes are preserved unless removeVolumes is true.',
+  registerTool(server, 'down_stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -89,7 +89,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'delete_stack', 'Permanently delete a stack and its configuration from Dockhand (irreversible); use `down_stack` first to stop containers, or `list_stacks` to confirm the stack name before deletion.',
+  registerTool(server, 'delete_stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -103,7 +103,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'get_stack_compose', 'Read the current docker-compose.yml content of a stack; use `update_stack_compose` to modify the compose definition.',
+  registerTool(server, 'get_stack_compose',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -113,7 +113,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'update_stack_compose', 'Update the docker-compose.yml of a stack and optionally redeploy; use `get_stack_compose` to read the current content before making changes.',
+  registerTool(server, 'update_stack_compose',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -132,7 +132,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'get_stack_env', 'Read the database-backed environment variables of a stack (structured list with secret flags); use `get_stack_env_raw` to read the plain .env file instead, or `update_stack_env` to modify.',
+  registerTool(server, 'get_stack_env',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -143,7 +143,6 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
   );
 
   registerTool(server, 'update_stack_env',
-    'Set environment variables across both Dockhand stores in one call. Variables flagged isSecret:true are stored in the Dockhand database (encrypted at rest) and injected into containers via shell-env at deploy time. Variables with isSecret:false/omitted are written to the .env file on disk — the same file Docker Compose reads at container start — so they take effect without any extra step; equivalent in effect to `update_stack_env_raw` but merged in automatically. Never flag credentials isSecret:false.\n\n**IMPORTANT — merge vs replace semantics:** The underlying Dockhand REST endpoints (`PUT /api/stacks/{name}/env` and `PUT /api/stacks/{name}/env/raw`) both have replace-semantics for the store they touch. This tool therefore defaults to `mode="merge"`: it fetches the current DB-backed variables and the current .env content first, merges your payload in by key (new values win on collision), then writes each store only with what it now needs — the secrets to the database, the non-secrets upserted into .env. Use `mode="replace"` only when you intentionally want to wipe all existing variables and set exactly the provided list (the .env file is rebuilt from scratch; comments are lost).',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -323,7 +322,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'get_stack_env_raw', 'Read the raw .env file of a stack directly from disk; use `get_stack_env` for the structured database-backed view, or `validate_stack_env` to check for issues.',
+  registerTool(server, 'get_stack_env_raw',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -334,7 +333,6 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
   );
 
   registerTool(server, 'update_stack_env_raw',
-    'Write the raw .env file of a stack to disk. Use this for non-secret variables that Docker Compose reads at container start. For secrets that should be encrypted in the Dockhand database and injected via shell-env at deploy time, use `update_stack_env` with isSecret:true on each variable.',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -346,7 +344,6 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
   );
 
   registerTool(server, 'remove_stack_env_vars',
-    'Remove environment variables from a stack across BOTH stores. Database-backed keys (secrets, and non-secrets that live in the database for git stacks) are dropped by rebuilding the full remaining database set — remaining secrets stay masked as "***"; .env-backed non-secret keys are removed by rewriting the .env file. Result reports `removed` (all keys actually removed, from either store) and `not_found` (keys present in neither). This is the safe way to delete variables — `update_stack_env` in the default merge mode cannot remove keys.',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -410,7 +407,6 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
   );
 
   registerTool(server, 'check_stack_env_collisions',
-    'Read-only check reporting variable keys defined BOTH as a database-backed secret and in the plain .env file. Such duplicates are ambiguous: at deploy the secret (shell environment) wins over the .env value. Remove the duplicate copy with `remove_stack_env_vars`.',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -433,7 +429,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'validate_stack_env', 'Validate the environment variables of a stack for completeness and correctness without mutating; use `update_stack_env` or `update_stack_env_raw` to fix any reported issues.',
+  registerTool(server, 'validate_stack_env',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -443,14 +439,14 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'scan_stacks', 'Scan the filesystem for existing Docker Compose stacks not yet tracked by Dockhand; use `adopt_stack` to import a discovered stack, or `list_stacks` to see already-managed stacks.',
+  registerTool(server, 'scan_stacks',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
       return jsonResponse(await client.post('/api/stacks/scan', undefined, { env: environmentId }));
     }
   );
 
-  registerTool(server, 'adopt_stack', 'Adopt an existing untracked stack into Dockhand management; use `scan_stacks` to discover candidates or `create_stack` to create a brand-new managed stack.',
+  registerTool(server, 'adopt_stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name to adopt'),
@@ -469,7 +465,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'relocate_stack', 'Move a stack to a different filesystem path on the host; use `check_stack_path_change` to verify the move is safe before calling this, or `validate_stack_path` to pre-validate the destination.',
+  registerTool(server, 'relocate_stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -484,21 +480,21 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'get_stack_sources', 'Retrieve the available stack source types (e.g. compose, git) supported by this environment; use `create_stack` to create a plain-compose stack or `list_git_stacks` for git-backed stacks.',
+  registerTool(server, 'get_stack_sources',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
       return jsonResponse(await client.get('/api/stacks/sources', { env: environmentId }));
     }
   );
 
-  registerTool(server, 'get_stack_base_path', 'Retrieve the configured base directory under which all stacks are stored on this environment; see `get_stack_default_path` for the suggested path for a new stack, or `get_stack_path_hints` for a list of candidate paths.',
+  registerTool(server, 'get_stack_base_path',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
       return jsonResponse(await client.get('/api/stacks/base-path', { env: environmentId }));
     }
   );
 
-  registerTool(server, 'get_stack_path_hints', 'Retrieve a list of suggested filesystem paths for placing a stack; complements `get_stack_default_path` (single default) and `get_stack_base_path` (root base dir).',
+  registerTool(server, 'get_stack_path_hints',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -508,7 +504,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'validate_stack_path', 'Validate that a filesystem path is acceptable for a new stack without creating anything; use `get_stack_path_hints` for suggested paths, or `check_stack_path_change` to validate moving an existing stack.',
+  registerTool(server, 'validate_stack_path',
     {
       environmentId: z.number().describe('Environment ID'),
       path: z.string().describe('Path to validate'),
@@ -520,7 +516,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
 
   // --- Missing endpoints ---
 
-  registerTool(server, 'get_stack_default_path', 'Retrieve the default suggested path for a stack on this environment; use `get_stack_path_hints` for multiple alternatives, or `validate_stack_path` to confirm a chosen path.',
+  registerTool(server, 'get_stack_default_path',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -530,7 +526,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'check_stack_path_change', 'Check whether moving a stack to a new compose path is safe (e.g. no conflicts, writable); call before `relocate_stack` to avoid data issues, or use `validate_stack_path` for a new-stack path check.',
+  registerTool(server, 'check_stack_path_change',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
@@ -541,7 +537,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
-  registerTool(server, 'deploy_stack', 'Explicit deploy operation for an existing stack: pulls newer images (unless pull:false) and recreates services whose configuration changed, from the current compose file. Set forceRecreate to also recreate containers whose config is unchanged. Use `start_stack` if you just want to start without re-pulling, or `update_stack_compose` to change the compose file before deploying.',
+  registerTool(server, 'deploy_stack',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),

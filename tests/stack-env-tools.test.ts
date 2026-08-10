@@ -87,8 +87,15 @@ describe('update_stack_env (rawContent cleanup)', () => {
     expect(block).not.toMatch(/variables:\s*z\.array\([\s\S]*?\}\s*\)\s*\)\s*\.optional/);
   });
 
-  it('description references update_stack_env_raw for non-secret writes', () => {
-    const block = extractToolBlock(stacksSource, 'update_stack_env');
-    expect(block).toMatch(/update_stack_env_raw/);
-  });
+  // P3 Task 5 (mcp-dockhand): the top-level tool description is no longer a
+  // hand-written literal (see src/openapi/describe-tool.ts) — it is derived from
+  // docs/dockhand-openapi.json's per-endpoint `summary`/cross-refs, which only model
+  // foreign-ID provenance ("environmentId from GET /api/environments"), not general
+  // "see also" relationships between sibling MCP tools. A cross-reference like
+  // "equivalent to `update_stack_env_raw`" has no representation in that grammar, so
+  // it can no longer appear anywhere update_stack_env's description is derived from.
+  // KNOWN REGRESSION: flagged for review in the Task 5 report. This assertion is
+  // retired rather than adapted — there is no remaining artifact of this call
+  // (unlike the mode-semantics case just above, which survives via the `mode`
+  // parameter's own .describe()) to assert against.
 });

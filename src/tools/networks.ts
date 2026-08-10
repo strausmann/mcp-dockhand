@@ -10,14 +10,14 @@ import { encodePath } from '../utils/encode-path.js';
 
 export function registerNetworkTools(server: McpServer, client: DockhandClient): void {
 
-  registerTool(server, 'list_networks', 'List all Docker networks in an environment; use `get_network` for summary details on a specific network or `inspect_network` for full low-level inspection.',
+  registerTool(server, 'list_networks',
     { environmentId: z.number().describe('Environment ID (required)') },
     async ({ environmentId }) => {
       return jsonResponse(await client.get('/api/networks', { env: environmentId }));
     }
   );
 
-  registerTool(server, 'get_network', 'Retrieve summary details (name, driver, IPAM, containers) for a specific Docker network; for the full raw Docker-inspect payload use `inspect_network`.',
+  registerTool(server, 'get_network',
     {
       environmentId: z.number().describe('Environment ID'),
       networkId: z.string().describe('Network ID'),
@@ -27,7 +27,7 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
     }
   );
 
-  registerTool(server, 'inspect_network', 'Fetch the full low-level Docker-inspect JSON for a network, including IPAM config and all container endpoints; use `get_network` for a lighter summary view.',
+  registerTool(server, 'inspect_network',
     {
       environmentId: z.number().describe('Environment ID'),
       networkId: z.string().describe('Network ID'),
@@ -37,7 +37,7 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
     }
   );
 
-  registerTool(server, 'create_network', 'Create a new Docker network with the specified driver, IPAM settings, and labels; use `remove_network` to delete it when no longer needed.',
+  registerTool(server, 'create_network',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Network name'),
@@ -61,7 +61,7 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
     }
   );
 
-  registerTool(server, 'remove_network', 'Permanently remove a Docker network; the network must have no active container connections — use `disconnect_container_from_network` first if needed.',
+  registerTool(server, 'remove_network',
     {
       environmentId: z.number().describe('Environment ID'),
       networkId: z.string().describe('Network ID'),
@@ -71,7 +71,7 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
     }
   );
 
-  registerTool(server, 'connect_container_to_network', 'Attach a running container to a Docker network so it can communicate with other containers on that network; reverse with `disconnect_container_from_network`.',
+  registerTool(server, 'connect_container_to_network',
     {
       environmentId: z.number().describe('Environment ID'),
       networkId: z.string().describe('Network ID'),
@@ -82,7 +82,7 @@ export function registerNetworkTools(server: McpServer, client: DockhandClient):
     }
   );
 
-  registerTool(server, 'disconnect_container_from_network', 'Disconnect a container from a Docker network, removing its network access and aliases on that network; use `connect_container_to_network` to re-attach.',
+  registerTool(server, 'disconnect_container_from_network',
     {
       environmentId: z.number().describe('Environment ID'),
       networkId: z.string().describe('Network ID'),
