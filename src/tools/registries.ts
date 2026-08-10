@@ -92,6 +92,17 @@ export function registerRegistryTools(server: McpServer, client: DockhandClient)
     }
   );
 
+  registerTool(server, 'get_registry_tag_info',
+    {
+      registry: z.number().optional().describe('Registry ID (use list_registries to discover); omit or a Docker Hub registry returns a graceful "not supported" result instead of a manifest fetch — Docker Hub tags already carry size/date via get_registry_tags'),
+      image: z.string().describe('Image repository/name'),
+      tag: z.string().describe('Tag name or digest'),
+    },
+    async ({ registry, image, tag }) => {
+      return jsonResponse(await client.get('/api/registry/tag-info', { registry, image, tag }));
+    }
+  );
+
   registerTool(server, 'delete_registry_image',
     {
       registry: z.number().describe('Registry ID (use list_registries to discover)'),
