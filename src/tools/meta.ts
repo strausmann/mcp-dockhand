@@ -3,8 +3,14 @@
  * server itself, distinct from the Dockhand tools it wraps.
  */
 
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
+import type { DockhandClient } from '../client/dockhand-client.js';
 import { getServerVersion, getGitSha, getBuildDate, getUptimeSeconds } from '../version.js';
-import type { ToolEndpointEntry } from '../openapi/tool-endpoint-map.js';
+import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { TOOL_ENDPOINT_MAP, type ToolEndpointEntry } from '../openapi/tool-endpoint-map.js';
+import { PINNED_DOCKHAND_OPENAPI_COMMIT } from '../openapi/pinned.js';
+import { specInfoVersion } from '../openapi/spec-loader.js';
 
 export interface ServerInfo {
   version: string;
@@ -156,4 +162,64 @@ export function buildToolManifest(deps: {
     dockhandOpenApiVersion: deps.openApiVersion,
     generatedAt: deps.generatedAt,
   };
+}
+
+/**
+ * Registers the three M1 self-help tools, wiring the pure builders above to their real
+ * dependencies:
+ *   - `get_server_info`: `dockhandUrl` from the same `DOCKHAND_URL` env var the server
+ *     itself requires at startup (src/index.ts) — a URL, never a secret. The Dockhand
+ *     server version is read from `GET /api/changelog` (`src/tools/system.ts`'s
+ *     `get_changelog` tool hits the same endpoint): the changelog is generated newest-first,
+ *     so its first entry's `version` is the running server's version. That call is
+ *     best-effort — `buildServerInfo()` already degrades any throw (network error, empty
+ *     changelog, auth failure) to `dockhandServerVersion: null` rather than failing the
+ *     tool. `mcpProtocolVersion` is the SDK's own `LATEST_PROTOCOL_VERSION` constant.
+ *   - `check_for_update`: compares this server's own build-injected version
+ *     (`getServerVersion()`, src/version.js) against the latest GitHub release.
+ *   - `get_tool_manifest`: the real generated `TOOL_ENDPOINT_MAP`, the pinned Dockhand
+ *     OpenAPI source commit (`PINNED_DOCKHAND_OPENAPI_COMMIT`, src/openapi/pinned.ts),
+ *     and that same pinned spec's own `info.version` (`specInfoVersion()`,
+ *     src/openapi/spec-loader.ts) — so a client can tell which Dockhand API version this
+ *     server's tools were generated against.
+ *
+ * All three take no input arguments.
+ */
+export function registerMetaTools(server: McpServer, client: DockhandClient): void {
+  registerTool(server, 'get_server_info',
+    {},
+    async () => {
+      const info = await buildServerInfo({
+        dockhandUrl: process.env['DOCKHAND_URL'] ?? 'unknown',
+        mcpProtocolVersion: LATEST_PROTOCOL_VERSION,
+        getDockhandServerVersion: async () => {
+          const changelog = await client.get<{ version: string }[]>('/api/changelog');
+          const latest = changelog[0]?.version;
+          if (!latest) throw new Error('Dockhand changelog is empty');
+          return latest;
+        },
+      });
+      return jsonResponse(info);
+    }
+  );
+
+  registerTool(server, 'check_for_update',
+    {},
+    async () => {
+      return jsonResponse(await checkForUpdate({ current: getServerVersion() }));
+    }
+  );
+
+  registerTool(server, 'get_tool_manifest',
+    {},
+    async () => {
+      const manifest = buildToolManifest({
+        endpointMap: TOOL_ENDPOINT_MAP,
+        openApiCommit: PINNED_DOCKHAND_OPENAPI_COMMIT,
+        openApiVersion: specInfoVersion() ?? 'unknown',
+        generatedAt: new Date().toISOString(),
+      });
+      return jsonResponse(manifest);
+    }
+  );
 }

@@ -96,10 +96,24 @@ describe('tool-endpoint-map completeness', () => {
     return names;
   }
 
-  it('every registered tool has an entry, except the documented get_prometheus_metrics gap', () => {
+  // The three self-help/meta tools (src/tools/meta.ts) are deliberately excluded, same as
+  // get_prometheus_metrics above: TOOL_ENDPOINT_MAP records "the one real Dockhand endpoint
+  // this tool calls", which does not apply to any of them --
+  //   - `check_for_update` calls the GitHub releases API, not Dockhand, at all.
+  //   - `get_tool_manifest` calls no HTTP endpoint whatsoever (pure local computation over
+  //     TOOL_ENDPOINT_MAP + the pinned OpenAPI spec).
+  //   - `get_server_info` does call `GET /api/changelog` internally, but only as a
+  //     best-effort, try/catch-degraded lookup for the running Dockhand server's version
+  //     (see buildServerInfo() in meta.ts) -- an implementation detail, not its contract.
+  const META_TOOLS_WITHOUT_ENDPOINT = ['check_for_update', 'get_tool_manifest', 'get_server_info'];
+
+  it('every registered tool has an entry, except the documented get_prometheus_metrics gap and the meta tools', () => {
     const allNames = extractAllToolNames();
     const missing = allNames.filter(
-      (name) => !(name in TOOL_ENDPOINT_MAP) && name !== 'get_prometheus_metrics',
+      (name) =>
+        !(name in TOOL_ENDPOINT_MAP) &&
+        name !== 'get_prometheus_metrics' &&
+        !META_TOOLS_WITHOUT_ENDPOINT.includes(name),
     );
     expect(missing, `\n${missing.join('\n')}`).toEqual([]);
   });
