@@ -186,6 +186,23 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
     }
   );
 
+  registerTool(server, 'get_environment_remote_stacks_dir',
+    { environmentId: z.number().describe('Environment ID') },
+    async ({ environmentId }) => {
+      return jsonResponse(await client.get(`/api/environments/${encodePath(environmentId)}/remote-stacks-dir`));
+    }
+  );
+
+  registerTool(server, 'set_environment_remote_stacks_dir',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      remoteStacksDir: z.string().nullable().describe('Absolute path on the remote host where Dockhand stages this environment\'s stack files before "docker compose up" — needed for direct (agentless) environments, whose daemon has no shared filesystem with Dockhand so relative bind mounts (./config.yaml) never reach it. Must be an absolute path with no ".." segments. Pass null (or "") to clear the setting and revert to the default behavior.'),
+    },
+    async ({ environmentId, remoteStacksDir }) => {
+      return jsonResponse(await client.post(`/api/environments/${encodePath(environmentId)}/remote-stacks-dir`, { remoteStacksDir }));
+    }
+  );
+
   registerTool(server, 'get_environment_update_check',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {

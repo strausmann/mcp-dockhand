@@ -94,12 +94,24 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
       force: z.boolean().optional().describe('Force deletion'),
+      files: z.boolean().optional().describe('Delete the stack\'s on-disk files/directory too (default: true, matching prior behavior). Pass files:false to keep the files on disk — use get_stack_delete_preview first to see what would be removed.'),
     },
-    async ({ environmentId, name, force }) => {
+    async ({ environmentId, name, force, files }) => {
       return jsonResponse(await client.delete(`/api/stacks/${encodePath(name)}`, {
         env: environmentId,
         force: force ? 'true' : undefined,
+        files: files === false ? 'false' : undefined,
       }));
+    }
+  );
+
+  registerTool(server, 'get_stack_delete_preview',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      name: z.string().describe('Stack name'),
+    },
+    async ({ environmentId, name }) => {
+      return jsonResponse(await client.get(`/api/stacks/${encodePath(name)}/delete-preview`, { env: environmentId }));
     }
   );
 

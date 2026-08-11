@@ -98,6 +98,46 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
     }
   );
 
+  // Page slugs the landing/env-click navigation preferences can target — the
+  // same allowlist Dockhand validates against server-side (nav-preferences-core.ts
+  // PAGE_SLUGS, v1.0.41). Kept as a literal list here (not imported — this
+  // package has no dependency on the Dockhand source tree); re-verify against
+  // the real handler if Dockhand adds/removes a sidebar page.
+  const NAV_PAGE_SLUGS = [
+    'dashboard', 'containers', 'logs', 'terminal', 'stacks', 'images', 'volumes',
+    'networks', 'templates', 'registry', 'activity', 'backups', 'schedules', 'audit',
+  ] as const;
+  // env-click is always a concrete page, never 'dashboard' — the handler's
+  // parseNavPatch() throws on 'dashboard' for this field specifically
+  // (nav-preferences-core.ts). Enforced here too so an invalid value is
+  // rejected client-side instead of round-tripping to a 400.
+  const NAV_ENV_CLICK_PAGE_SLUGS = [
+    'containers', 'logs', 'terminal', 'stacks', 'images', 'volumes',
+    'networks', 'templates', 'registry', 'activity', 'backups', 'schedules', 'audit',
+  ] as const;
+
+  registerTool(server, 'get_navigation_settings',
+    {},
+    async () => {
+      return jsonResponse(await client.get('/api/settings/navigation'));
+    }
+  );
+
+  registerTool(server, 'update_navigation_settings',
+    {
+      scope: z.enum(['global', 'user']).optional().describe('Preference scope to update — "global" (default; requires settings:edit) writes the instance default, "user" writes the current session\'s per-user override (requires an authenticated session; 401 if auth is off or no session)'),
+      landingPage: z.enum(NAV_PAGE_SLUGS).nullable().optional().describe('Page to land on after login/root navigation. Omit to leave unchanged; pass null (or "") to clear the override (falls back to the global default, and ultimately "dashboard").'),
+      envClickPage: z.enum(NAV_ENV_CLICK_PAGE_SLUGS).nullable().optional().describe('Page to open when clicking an environment tile on the Dashboard. Never "dashboard" (the backend rejects that value — you already clicked an environment, landing back on the dashboard makes no sense). Omit to leave unchanged; pass null (or "") to clear the override (falls back to the global default, and ultimately "containers").'),
+    },
+    async ({ scope, landingPage, envClickPage }) => {
+      const body: Record<string, unknown> = {};
+      if (landingPage !== undefined) body.landingPage = landingPage;
+      if (envClickPage !== undefined) body.envClickPage = envClickPage;
+      const params = scope !== undefined ? { scope } : undefined;
+      return jsonResponse(await client.put('/api/settings/navigation', body, params));
+    }
+  );
+
   registerTool(server, 'get_theme_settings',
     {},
     async () => {
