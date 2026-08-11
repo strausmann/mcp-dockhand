@@ -7,6 +7,16 @@ RUN npm run build
 
 FROM node:22-alpine
 WORKDIR /app
+# Build-identity, injected via --build-arg at image build time (see src/version.ts
+# and the release workflow's docker-build job). ENV must live in THIS stage — it's
+# the one that ships and runs; ENV set in the earlier build stage would not carry
+# over across the multi-stage FROM boundary.
+ARG MCP_SERVER_VERSION="0.0.0-dev"
+ARG MCP_GIT_SHA="unknown"
+ARG MCP_BUILD_DATE="unknown"
+ENV MCP_SERVER_VERSION=$MCP_SERVER_VERSION \
+    MCP_GIT_SHA=$MCP_GIT_SHA \
+    MCP_BUILD_DATE=$MCP_BUILD_DATE
 RUN addgroup -g 1001 mcp && adduser -u 1001 -G mcp -D mcp
 COPY --from=build /app/package*.json ./
 # --ignore-scripts skips the `prepare` hook that runs `husky` (a devDependency

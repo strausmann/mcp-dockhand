@@ -110,6 +110,10 @@ jobs:
           outputs: type=image,name=${{ steps.image.outputs.ref }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+          build-args: |
+            MCP_SERVER_VERSION=${{ needs.release.outputs.new_release_version }}
+            MCP_GIT_SHA=${{ github.sha }}
+            MCP_BUILD_DATE=${{ steps.ts.outputs.created }}
           labels: |
             org.opencontainers.image.title=MCP-Dockhand
             org.opencontainers.image.description=Model Context Protocol (MCP) Server for Dockhand Docker Management — 130+ tools for container, stack, image, network, and volume management.
