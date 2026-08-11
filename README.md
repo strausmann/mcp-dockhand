@@ -426,7 +426,13 @@ them wrap a single Dockhand endpoint the way the tables above do (`get_tool_mani
   the raw HTTP status code, e.g. `200`/`401`) — never the credential values themselves.
   `self_check` reports auth validity the same way. `get_runtime_stats`' `lastError` carries
   only a tool name, an error message, and a timestamp — never call arguments or response
-  payloads.
+  payloads. **That error message is not fully opaque, though:** for a failed Dockhand API
+  call it can embed a slice of the upstream HTTP status and response body (via
+  `DockhandClient`'s own `Dockhand API error: ... returned <status>: <body>` message), and
+  it is echoed to whichever MCP client next calls `get_runtime_stats` — not necessarily the
+  one that hit the original error. It never includes request bodies or credential values,
+  and it is truncated to 500 characters (with an ellipsis marker) before being stored, so an
+  oversized upstream response is never echoed wholesale.
 
 ## Important Notes
 
