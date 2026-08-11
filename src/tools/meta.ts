@@ -260,6 +260,73 @@ export async function runSelfCheck(deps: {
 }
 
 /**
+ * Required environment variables this server needs to talk to Dockhand.
+ * Presence-only — the values themselves are never read into any output.
+ */
+const REQUIRED_ENV_KEYS = ['DOCKHAND_URL', 'DOCKHAND_USERNAME', 'DOCKHAND_PASSWORD'] as const;
+
+export interface ConfigValidation {
+  requiredEnvPresent: {
+    DOCKHAND_URL: boolean;
+    DOCKHAND_USERNAME: boolean;
+    DOCKHAND_PASSWORD: boolean;
+  };
+  credentialsValid: boolean;
+  statusCode: number | null;
+}
+
+/**
+ * Pure, injectable builder behind the future `validate_config` tool — answers
+ * "is this server's configuration usable?" without ever reading a secret value.
+ *
+ * Env-var checks are Boolean-only (`!!process.env.X`): presence, never content. If any
+ * required var is missing, the login probe is skipped entirely (`credentialsValid: false`,
+ * `statusCode: null`) — there is nothing meaningful to attempt without a URL, username, and
+ * password all present, and calling out anyway would risk a confusing error unrelated to the
+ * real problem (a missing var).
+ *
+ * `attemptLogin` is injected (returns an HTTP status code) so this is testable without a
+ * live Dockhand instance and without ever touching the credential's value in a test —
+ * only the resulting status code crosses the boundary. `credentialsValid` is exactly
+ * `statusCode === 200`; any other status (401, 403, ...) or a thrown error (network
+ * failure, timeout) degrades to `credentialsValid: false` — a probe that throws never
+ * propagates out of `validateConfig`, matching the self-help-tools-never-break posture
+ * of `buildServerInfo()` / `runSelfCheck()` above. On a thrown probe, `statusCode` stays
+ * `null` (there was no response to report a code from).
+ *
+ * Per `secret-safe-config-inspection.md` / `service-verifikation.md`: this function reads
+ * env values only to compute a boolean and to pass them (via the injected `attemptLogin`)
+ * to a live auth check — it never places a value itself into the returned object.
+ */
+export async function validateConfig(deps: {
+  attemptLogin: () => Promise<number>;
+}): Promise<ConfigValidation> {
+  const requiredEnvPresent = {
+    DOCKHAND_URL: !!process.env.DOCKHAND_URL,
+    DOCKHAND_USERNAME: !!process.env.DOCKHAND_USERNAME,
+    DOCKHAND_PASSWORD: !!process.env.DOCKHAND_PASSWORD,
+  };
+
+  const allPresent = REQUIRED_ENV_KEYS.every((key) => requiredEnvPresent[key]);
+  if (!allPresent) {
+    return { requiredEnvPresent, credentialsValid: false, statusCode: null };
+  }
+
+  let statusCode: number | null;
+  try {
+    statusCode = await deps.attemptLogin();
+  } catch {
+    statusCode = null;
+  }
+
+  return {
+    requiredEnvPresent,
+    credentialsValid: statusCode === 200,
+    statusCode,
+  };
+}
+
+/**
  * Registers the three M1 self-help tools, wiring the pure builders above to their real
  * dependencies:
  *   - `get_server_info`: `dockhandUrl` from `client.getBaseUrl()` — the client's own
