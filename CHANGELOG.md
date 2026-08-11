@@ -5,6 +5,37 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0](https://github.com/strausmann/mcp-dockhand/compare/v1.11.0...v1.12.0) (2026-08-11)
+
+### ⚠ BREAKING CHANGES
+
+* **tools:** list_batch_operations renamed to execute_batch; set_user_roles split into add_user_role + remove_user_role; set_git_stack_env_files removed (read-only, redundant). Also: activate_license/create_role/trigger_test_notification/create_container_file body-field fixes; explicit envFilePath on create_git_stack/update_git_stack.
+
+### Features
+
+* **api:** add advisory CROSSREF_UNRESOLVED check to the MCP tool validator ([06fde06](https://github.com/strausmann/mcp-dockhand/commit/06fde0672915e661c51d7cd602f5b5ec045388f6)), references [#57](https://github.com/strausmann/mcp-dockhand/issues/57)
+* **api:** derive slim MCP tool descriptions from OpenAPI operations ([d37b986](https://github.com/strausmann/mcp-dockhand/commit/d37b986189ea1b60605244a30dff8dddb32c3fee)), references [#57](https://github.com/strausmann/mcp-dockhand/issues/57)
+* **api:** promote BODY_PARAM_MISSING_REQUIRED to a hard CI gate ([50609fd](https://github.com/strausmann/mcp-dockhand/commit/50609fd6adce3f40f8ea7518d2a0afc868bf0557)), references [#57](https://github.com/strausmann/mcp-dockhand/issues/57)
+* **ci:** publish committed docs/coverage.md, drop dead coverage-tracker ([#165](https://github.com/strausmann/mcp-dockhand/issues/165)) ([d9aa7c8](https://github.com/strausmann/mcp-dockhand/commit/d9aa7c8f0fee5cc5506f6376ca1c5bfc5df4a423))
+* **docs:** add omission registry for deliberately un-mirrored endpoints ([69b06c8](https://github.com/strausmann/mcp-dockhand/commit/69b06c868f24fb54d269dd5d62c43f20ec8fd0da)), references [#164](https://github.com/strausmann/mcp-dockhand/issues/164) [#57](https://github.com/strausmann/mcp-dockhand/issues/57)
+* **validate:** body-contract checks (advisory) via OpenApiContractSource ([#166](https://github.com/strausmann/mcp-dockhand/issues/166)) ([2ce6093](https://github.com/strausmann/mcp-dockhand/commit/2ce60939f0f90e7258aefb4861185888803e44e2)), references [#57](https://github.com/strausmann/mcp-dockhand/issues/57)
+
+### Bug Fixes
+
+* **api:** correct shared-endpoint tool descriptions and lock in cross-ref parity ([cbbc9c9](https://github.com/strausmann/mcp-dockhand/commit/cbbc9c9892eb9e080476c8e79360ebc6fb3fff79)), references [#57](https://github.com/strausmann/mcp-dockhand/issues/57)
+* hard-fail body-contract collector crash, drop unrunnable lint script ([25325aa](https://github.com/strausmann/mcp-dockhand/commit/25325aa75619f06c351bec16e8163d8e9e108676)), closes [#173](https://github.com/strausmann/mcp-dockhand/issues/173) [#176](https://github.com/strausmann/mcp-dockhand/issues/176)
+* **tools:** correct 9 real body-contract bugs found by the validator ([#169](https://github.com/strausmann/mcp-dockhand/issues/169)) ([7960ec4](https://github.com/strausmann/mcp-dockhand/commit/7960ec4a492b93d389c3188a0cc09aa3bb8c2af9))
+* **tools:** correct body field names for 5 tools (guaranteed 400) ([#168](https://github.com/strausmann/mcp-dockhand/issues/168)) ([1bbbdf9](https://github.com/strausmann/mcp-dockhand/commit/1bbbdf91fa239479f7c8364432c7382e9b238cd0)), closes [#167](https://github.com/strausmann/mcp-dockhand/issues/167)
+* **validate:** suppress body-contract false-positives (passthrough + computed-body whitelist) ([#170](https://github.com/strausmann/mcp-dockhand/issues/170)) ([a48a71d](https://github.com/strausmann/mcp-dockhand/commit/a48a71d8729ff52c33485b810e7305f00ffd03ea)), references [#57](https://github.com/strausmann/mcp-dockhand/issues/57)
+
+### Code Refactoring
+
+* **tools:** derive descriptions from the spec, drop hand-written text ([80a24e9](https://github.com/strausmann/mcp-dockhand/commit/80a24e92c48c93bcdf2e648b47f25d37a9384024)), references [#57](https://github.com/strausmann/mcp-dockhand/issues/57)
+
+### Documentation
+
+* **tools:** name accepted in-place fields for update_container_runtime ([#163](https://github.com/strausmann/mcp-dockhand/issues/163)) ([e335713](https://github.com/strausmann/mcp-dockhand/commit/e335713df582f76a65673ae0c6d028051e1b46bd)), closes [#155](https://github.com/strausmann/mcp-dockhand/issues/155)
+
 ## [1.11.0](https://github.com/strausmann/mcp-dockhand/compare/v1.10.0...v1.11.0) (2026-08-10)
 
 ### Features
