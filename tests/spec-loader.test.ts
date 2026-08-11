@@ -9,7 +9,7 @@
  * runtime image.
  */
 import { describe, it, expect } from 'vitest';
-import { specOperation } from '../src/openapi/spec-loader.js';
+import { specOperation, specInfoVersion } from '../src/openapi/spec-loader.js';
 
 describe('specOperation', () => {
   it('returns undefined when the endpoint argument itself is undefined (unresolved tool)', () => {
@@ -36,5 +36,15 @@ describe('specOperation', () => {
   it('resolves the known get_git_stack_env_files operation with the expected real summary', () => {
     const op = specOperation({ method: 'GET', path: '/api/git/stacks/{id}/env-files' });
     expect(op?.summary).toContain('.env files');
+  });
+});
+
+describe('specInfoVersion', () => {
+  it("returns the real spec's info.version (used by get_tool_manifest, src/tools/meta.ts)", () => {
+    // Same committed spec every other test in this file resolves operations against
+    // (docs/dockhand-openapi.json) — its info.version is currently "1.0.41". Re-pin this
+    // literal whenever scripts/fetch-openapi.mjs (SOURCE_COMMIT) is bumped, same as
+    // PINNED_DOCKHAND_OPENAPI_COMMIT in src/openapi/pinned.ts.
+    expect(specInfoVersion()).toBe('1.0.41');
   });
 });
