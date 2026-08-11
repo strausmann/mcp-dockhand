@@ -165,6 +165,101 @@ export function buildToolManifest(deps: {
 }
 
 /**
+ * A single environment's outcome inside a `runSelfCheck()` result — Dockhand's own
+ * identity (`id`, `name`) plus two OUTCOME booleans (reachable, Hawser-connected).
+ * Never a token or credential value (`.claude/rules/service-verifikation.md` /
+ * `secret-safe-config-inspection.md`): whether the agent is connected is itself the
+ * signal, not what it is connected with.
+ */
+export interface SelfCheckEnvironment {
+  id: number;
+  name: string;
+  reachable: boolean;
+  hawserConnected: boolean;
+}
+
+export interface SelfCheck {
+  dockhandReachable: boolean;
+  authValid: boolean;
+  latencyMs: number;
+  environments: SelfCheckEnvironment[];
+  overall: 'ok' | 'degraded' | 'down';
+}
+
+/**
+ * Pure, injectable builder behind the future `self_check` tool — an end-to-end
+ * diagnostic that answers "is this server actually usable right now?" in one call.
+ * Takes three probes so it is fully testable without a live Dockhand:
+ *   - `probeHealth`: resolves when Dockhand answers at all; rejects/throws on network
+ *     failure or timeout. This alone decides `dockhandReachable`.
+ *   - `probeAuth`: resolves `true`/`false` for a valid/invalid credential (the real
+ *     wiring in the registration task makes one authed call and turns its status code —
+ *     200 vs 401/403 — into this boolean; a genuine transport error while doing so is
+ *     caught here and also treated as `false`). Per `service-verifikation.md`, this is
+ *     an OUTCOME check (does the call succeed?) — the credential's value is never read
+ *     or compared.
+ *   - `listEnvironments`: lists each configured environment with its own reachability
+ *     and Hawser-agent-connected outcome.
+ *
+ * If `probeHealth` fails, the function short-circuits: Dockhand being unreachable makes
+ * any auth/environments probe meaningless (and likely to fail the same way), so neither
+ * is called and the result is `overall: "down"` with an empty `environments` list.
+ * Otherwise `overall` is `"ok"` only when auth is valid AND every environment reports
+ * reachable; any other combination (invalid auth, an unreachable environment, or the
+ * environments probe itself throwing) degrades to `"degraded"` rather than throwing —
+ * a diagnostic tool must never itself become the outage.
+ *
+ * `latencyMs` is measured with `Date.now()` (or the injected `now` for deterministic
+ * tests) around the whole probe sequence, so it reflects what a caller actually waited.
+ */
+export async function runSelfCheck(deps: {
+  probeHealth: () => Promise<void>;
+  probeAuth: () => Promise<boolean>;
+  listEnvironments: () => Promise<SelfCheckEnvironment[]>;
+  now?: () => number;
+}): Promise<SelfCheck> {
+  const now = deps.now ?? Date.now;
+  const start = now();
+
+  try {
+    await deps.probeHealth();
+  } catch {
+    return {
+      dockhandReachable: false,
+      authValid: false,
+      latencyMs: now() - start,
+      environments: [],
+      overall: 'down',
+    };
+  }
+
+  let authValid: boolean;
+  try {
+    authValid = await deps.probeAuth();
+  } catch {
+    authValid = false;
+  }
+
+  let environments: SelfCheckEnvironment[];
+  let environmentsOk: boolean;
+  try {
+    environments = await deps.listEnvironments();
+    environmentsOk = environments.every((env) => env.reachable);
+  } catch {
+    environments = [];
+    environmentsOk = false;
+  }
+
+  return {
+    dockhandReachable: true,
+    authValid,
+    latencyMs: now() - start,
+    environments,
+    overall: authValid && environmentsOk ? 'ok' : 'degraded',
+  };
+}
+
+/**
  * Registers the three M1 self-help tools, wiring the pure builders above to their real
  * dependencies:
  *   - `get_server_info`: `dockhandUrl` from `client.getBaseUrl()` — the client's own
