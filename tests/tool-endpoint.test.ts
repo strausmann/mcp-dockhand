@@ -96,7 +96,7 @@ describe('tool-endpoint-map completeness', () => {
     return names;
   }
 
-  // The three self-help/meta tools (src/tools/meta.ts) are deliberately excluded, same as
+  // All six self-help/meta tools (src/tools/meta.ts) are deliberately excluded, same as
   // get_prometheus_metrics above: TOOL_ENDPOINT_MAP records "the one real Dockhand endpoint
   // this tool calls", which does not apply to any of them --
   //   - `check_for_update` calls the GitHub releases API, not Dockhand, at all.
@@ -105,7 +105,22 @@ describe('tool-endpoint-map completeness', () => {
   //   - `get_server_info` does call `GET /api/changelog` internally, but only as a
   //     best-effort, try/catch-degraded lookup for the running Dockhand server's version
   //     (see buildServerInfo() in meta.ts) -- an implementation detail, not its contract.
-  const META_TOOLS_WITHOUT_ENDPOINT = ['check_for_update', 'get_tool_manifest', 'get_server_info'];
+  //   - `self_check` calls FOUR different Dockhand endpoints internally (`/api/health`,
+  //     `/api/auth/login`, `/api/environments`, `/api/hawser/connect`) -- a diagnostic
+  //     aggregator, not a wrapper around any single endpoint's contract.
+  //   - `validate_config` calls `/api/auth/login` internally, purely as a best-effort
+  //     credential-validity probe (see validateConfig() in meta.ts) -- same "implementation
+  //     detail, not contract" reasoning as `get_server_info` above.
+  //   - `get_runtime_stats` calls no HTTP endpoint at all (pure in-process counters, see
+  //     src/utils/runtime-stats.ts).
+  const META_TOOLS_WITHOUT_ENDPOINT = [
+    'check_for_update',
+    'get_runtime_stats',
+    'get_server_info',
+    'get_tool_manifest',
+    'self_check',
+    'validate_config',
+  ];
 
   it('every registered tool has an entry, except the documented get_prometheus_metrics gap and the meta tools', () => {
     const allNames = extractAllToolNames();

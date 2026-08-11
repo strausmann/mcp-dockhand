@@ -11,6 +11,7 @@ import { registerTool, jsonResponse } from '../utils/tool-helper.js';
 import { TOOL_ENDPOINT_MAP, type ToolEndpointEntry } from '../openapi/tool-endpoint-map.js';
 import { PINNED_DOCKHAND_OPENAPI_COMMIT } from '../openapi/pinned.js';
 import { specInfoVersion } from '../openapi/spec-loader.js';
+import { getStatsSnapshot } from '../utils/runtime-stats.js';
 
 export interface ServerInfo {
   version: string;
@@ -327,8 +328,78 @@ export async function validateConfig(deps: {
 }
 
 /**
- * Registers the three M1 self-help tools, wiring the pure builders above to their real
- * dependencies:
+ * A single environment as returned by `GET /api/environments` — only the fields this
+ * module actually reads (see `listEnvironments` wiring below). Not exported: a
+ * registration-time implementation detail, not part of this module's public contract.
+ */
+interface EnvironmentListEntry {
+  id: number;
+  name: string;
+  connectionType?: string;
+}
+
+/**
+ * A single currently-connected Hawser agent, as returned by `GET /api/hawser/connect`
+ * (`src/tools/meta.ts` is the only caller in this repo — no existing tool wraps this
+ * endpoint, see `list_hawser_tokens`/`create_hawser_token`/`revoke_hawser_token` in
+ * `src/tools/hawser.ts` for the token-management side of the same feature). Only
+ * `environmentId` is read; the rest of the documented shape (`agentId`, `hostname`,
+ * `connectedAt`, ...) is irrelevant to a boolean "is this environment's agent up"
+ * outcome check.
+ */
+interface HawserConnection {
+  environmentId: number;
+}
+
+/**
+ * A dedicated, minimal raw login attempt against Dockhand's own `/api/auth/login` —
+ * the shared wiring behind both `self_check`'s `authValid` and `validate_config`'s
+ * `credentialsValid`.
+ *
+ * Deliberately NOT `SessionManager.login()` (src/auth/session.ts): that method
+ * `console.error`s the configured username on failure and throws rather than
+ * resolving to a status code — useful for its own job (diagnosable auto-relogin
+ * failures in `docker logs`, Issue #116), wrong for this one. Two self-help tools
+ * need the plain HTTP status (200 valid / 401 invalid) as a value, not a side effect
+ * or an exception, and neither needs the extra log line. This function does neither:
+ * no logging, always resolves to `response.status` — a genuine transport failure
+ * (DNS, connection refused, timeout) is left to the caller's own try/catch, matching
+ * `runSelfCheck()`'s `probeAuth` and `validateConfig()`'s `attemptLogin` contracts
+ * (both already documented above as "throws → treated as invalid/false").
+ *
+ * Also why this can't just be `client.get(...)`: `DockhandClient`'s request methods
+ * auto-relogin on a 401 (see `dockhand-client.ts`'s `request()`), which is exactly the
+ * right behavior for every *other* tool in this server (a stale/expired session
+ * cookie shouldn't surface as a tool failure) but would mask a genuinely bad
+ * credential here — the auto-relogin would itself fail, but silently, several layers
+ * away from this function. An explicit, one-shot login attempt is the only way to
+ * observe the credential's own validity.
+ *
+ * Secret-safe (`secret-safe-config-inspection.md`): reads `DOCKHAND_USERNAME`/
+ * `DOCKHAND_PASSWORD` only to place them in the POST body sent directly to Dockhand's
+ * own login endpoint — the same two values `SessionManager` itself sends on every
+ * real login — and never logs, returns, or otherwise surfaces either value. Only the
+ * numeric status code crosses back out of this function.
+ */
+async function attemptRawLogin(baseUrl: string): Promise<number> {
+  const response = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: process.env['DOCKHAND_USERNAME'],
+      password: process.env['DOCKHAND_PASSWORD'],
+      provider: 'local',
+    }),
+    redirect: 'manual',
+  });
+  return response.status;
+}
+
+/**
+ * Registers all six self-help tools, wiring the pure builders above to their real
+ * dependencies.
+ *
+ * M1 (server identity, all three take no input arguments):
  *   - `get_server_info`: `dockhandUrl` from `client.getBaseUrl()` — the client's own
  *     normalized base URL (trailing slash(es) stripped, see Issue #116 /
  *     src/utils/url.ts's `normalizeBaseUrl()`), not the raw `DOCKHAND_URL` env var
@@ -349,7 +420,43 @@ export async function validateConfig(deps: {
  *     src/openapi/spec-loader.ts) — so a client can tell which Dockhand API version this
  *     server's tools were generated against.
  *
- * All three take no input arguments.
+ * M2 (diagnostics, all three also take no input arguments):
+ *   - `self_check`: wires `runSelfCheck()`'s three probes to real calls —
+ *       - `probeHealth`: `client.get('/api/health')` (`security: []`, always 200 when the
+ *         process is up per the spec's own summary). A throw here (network error, or the
+ *         client's non-2xx-throws convention) means Dockhand is unreachable; `runSelfCheck`
+ *         short-circuits to `overall: "down"` without calling the other two probes.
+ *       - `probeAuth`: `attemptRawLogin()` above, `status === 200`.
+ *       - `listEnvironments`: `GET /api/environments` gives each environment's `id`, `name`,
+ *         and `connectionType` (`"socket"` or `"hawser-edge"` — the list endpoint documents
+ *         no separate liveness/connection field, see `docs/dockhand-openapi.json`); `GET
+ *         /api/hawser/connect` (used nowhere else in this server — see
+ *         `HawserConnection` above) gives the ground truth of which environments' agents
+ *         are *currently* connected, by `environmentId`, matching that endpoint's own
+ *         summary ("list currently connected agents") — an OUTCOME check
+ *         (`service-verifikation.md`), not a static config field. From these two calls:
+ *         `hawserConnected` is true only for a `"hawser-edge"` environment whose id appears
+ *         in the connected set; `reachable` is that same `hawserConnected` value for
+ *         `"hawser-edge"` environments (an edge environment's reachability *is* whether its
+ *         agent is connected — there is no other transport), and `true` for `"socket"`/other
+ *         directly-configured environments (Dockhand talks to those without a Hawser agent
+ *         in between, so their presence in the list already implies they are configured and
+ *         addressable; a deeper per-environment Docker-level probe would mean issuing one
+ *         `POST /api/environments/{id}/test` per environment on every `self_check` call,
+ *         which this diagnostic deliberately keeps out of its cheap, fixed-cost O(2) call
+ *         budget). If the Hawser status call itself fails, every `"hawser-edge"` environment
+ *         degrades to `reachable: false, hawserConnected: false` rather than throwing out of
+ *         `listEnvironments` — consistent with `runSelfCheck()`'s own "never let a diagnostic
+ *         become the outage" posture documented above it.
+ *   - `validate_config`: `validateConfig()`'s `attemptLogin` is `attemptRawLogin()` above
+ *     against `client.getBaseUrl()` — the same helper `self_check` uses, so the two tools
+ *     agree on what "the configured credentials are valid" means. `requiredEnvPresent` reads
+ *     `process.env` directly inside `validateConfig()` itself (see its own doc comment); this
+ *     registration only supplies the login probe.
+ *   - `get_runtime_stats`: `getStatsSnapshot()` (`src/utils/runtime-stats.js`) — no
+ *     dependencies to wire, the counters live at module scope and are updated by
+ *     `registerTool()` itself on every call (`recordCall`/`recordError`, see
+ *     `src/utils/tool-helper.ts`), including calls to the five other meta tools.
  */
 export function registerMetaTools(server: McpServer, client: DockhandClient): void {
   registerTool(server, 'get_server_info',
@@ -386,6 +493,61 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
         generatedAt: new Date().toISOString(),
       });
       return jsonResponse(manifest);
+    }
+  );
+
+  registerTool(server, 'self_check',
+    {},
+    async () => {
+      const result = await runSelfCheck({
+        probeHealth: async () => {
+          await client.get('/api/health');
+        },
+        probeAuth: async () => (await attemptRawLogin(client.getBaseUrl())) === 200,
+        listEnvironments: async () => {
+          const envs = await client.get<EnvironmentListEntry[]>('/api/environments');
+
+          let connectedIds = new Set<number>();
+          try {
+            const hawser = await client.get<{ connections?: HawserConnection[] }>('/api/hawser/connect');
+            connectedIds = new Set((hawser.connections ?? []).map((c) => c.environmentId));
+          } catch {
+            // Best-effort: an unreachable Hawser status endpoint degrades every
+            // hawser-edge environment below to not-connected/not-reachable rather
+            // than failing listEnvironments() outright — see the doc comment above
+            // registerMetaTools() for the full rationale.
+          }
+
+          return envs.map((env) => {
+            const isHawserEdge = env.connectionType === 'hawser-edge';
+            const hawserConnected = isHawserEdge && connectedIds.has(env.id);
+            return {
+              id: env.id,
+              name: env.name,
+              reachable: isHawserEdge ? hawserConnected : true,
+              hawserConnected,
+            };
+          });
+        },
+      });
+      return jsonResponse(result);
+    }
+  );
+
+  registerTool(server, 'validate_config',
+    {},
+    async () => {
+      const result = await validateConfig({
+        attemptLogin: () => attemptRawLogin(client.getBaseUrl()),
+      });
+      return jsonResponse(result);
+    }
+  );
+
+  registerTool(server, 'get_runtime_stats',
+    {},
+    async () => {
+      return jsonResponse(getStatsSnapshot());
     }
   );
 }
