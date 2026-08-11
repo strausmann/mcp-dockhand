@@ -413,7 +413,7 @@ them wrap a single Dockhand endpoint the way the tables above do (`get_tool_mani
 | `get_server_info` | This server's own version, git SHA, build date, uptime, MCP protocol version, and the Dockhand URL/server version it's connected to |
 | `check_for_update` | Compares this server's running version against the latest GitHub release (TTL-cached) |
 | `get_tool_manifest` | Lists every registered tool with its Dockhand `{method, path}`, plus the pinned Dockhand OpenAPI commit/version this server's tools were generated against |
-| `self_check` | End-to-end diagnostic: Dockhand reachability, credential validity, and per-environment reachability/Hawser-agent-connected status, in one call |
+| `self_check` | End-to-end diagnostic: Dockhand reachability, credential validity, and a live, per-environment reachability check (`POST /api/environments/{id}/test`, run in parallel with a 5s per-environment timeout) plus Hawser-agent-connected status, in one call |
 | `validate_config` | Checks that the required `DOCKHAND_URL`/`DOCKHAND_USERNAME`/`DOCKHAND_PASSWORD` env vars are present and that they authenticate successfully |
 | `get_runtime_stats` | In-process counters for this server: total/per-tool call and error counts, uptime, and the last error's tool/message/timestamp |
 
