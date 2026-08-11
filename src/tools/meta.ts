@@ -4,6 +4,7 @@
  */
 
 import { getServerVersion, getGitSha, getBuildDate, getUptimeSeconds } from '../version.js';
+import type { ToolEndpointEntry } from '../openapi/tool-endpoint-map.js';
 
 export interface ServerInfo {
   version: string;
@@ -111,4 +112,48 @@ export async function checkForUpdate(deps: {
   } catch (e) {
     return { current: deps.current, latest: null, updateAvailable: null, error: (e as Error).message };
   }
+}
+
+/**
+ * Pure builder behind the `get_tool_manifest` tool. Maps the tool→endpoint map
+ * (`src/openapi/tool-endpoint-map.ts`) plus the pinned Dockhand OpenAPI identity
+ * (commit + `info.version`, see `src/openapi/pinned.ts` / `src/openapi/spec-loader.ts`)
+ * into a single manifest, so a client can detect drift between what this server
+ * exposes and the Dockhand version it targets. Kept dependency-injected — no direct
+ * import of the real endpoint map or spec — so it is testable without touching the
+ * filesystem. The registered tool wires the real `TOOL_ENDPOINT_MAP` and the pinned
+ * identity in.
+ */
+export interface ToolManifestEntry {
+  name: string;
+  method: string;
+  path: string;
+}
+
+export interface ToolManifest {
+  toolCount: number;
+  tools: ToolManifestEntry[];
+  dockhandOpenApiCommit: string;
+  dockhandOpenApiVersion: string;
+  generatedAt: string;
+}
+
+export function buildToolManifest(deps: {
+  endpointMap: Readonly<Record<string, ToolEndpointEntry>>;
+  openApiCommit: string;
+  openApiVersion: string;
+  generatedAt: string;
+}): ToolManifest {
+  const tools = Object.entries(deps.endpointMap).map(([name, entry]) => ({
+    name,
+    method: entry.method,
+    path: entry.path,
+  }));
+  return {
+    toolCount: tools.length,
+    tools,
+    dockhandOpenApiCommit: deps.openApiCommit,
+    dockhandOpenApiVersion: deps.openApiVersion,
+    generatedAt: deps.generatedAt,
+  };
 }
