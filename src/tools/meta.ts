@@ -167,9 +167,13 @@ export function buildToolManifest(deps: {
 /**
  * Registers the three M1 self-help tools, wiring the pure builders above to their real
  * dependencies:
- *   - `get_server_info`: `dockhandUrl` from the same `DOCKHAND_URL` env var the server
- *     itself requires at startup (src/index.ts) — a URL, never a secret. The Dockhand
- *     server version is read from `GET /api/changelog` (`src/tools/system.ts`'s
+ *   - `get_server_info`: `dockhandUrl` from `client.getBaseUrl()` — the client's own
+ *     normalized base URL (trailing slash(es) stripped, see Issue #116 /
+ *     src/utils/url.ts's `normalizeBaseUrl()`), not the raw `DOCKHAND_URL` env var
+ *     directly: those two can diverge (e.g. `DOCKHAND_URL=https://x/` normalizes to
+ *     `https://x`), and this is a diagnostic tool whose job is to report what the client
+ *     actually does, not what was typed into the config. A URL, never a secret. The
+ *     Dockhand server version is read from `GET /api/changelog` (`src/tools/system.ts`'s
  *     `get_changelog` tool hits the same endpoint): the changelog is generated newest-first,
  *     so its first entry's `version` is the running server's version. That call is
  *     best-effort — `buildServerInfo()` already degrades any throw (network error, empty
@@ -190,7 +194,7 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
     {},
     async () => {
       const info = await buildServerInfo({
-        dockhandUrl: process.env['DOCKHAND_URL'] ?? 'unknown',
+        dockhandUrl: client.getBaseUrl(),
         mcpProtocolVersion: LATEST_PROTOCOL_VERSION,
         getDockhandServerVersion: async () => {
           const changelog = await client.get<{ version: string }[]>('/api/changelog');

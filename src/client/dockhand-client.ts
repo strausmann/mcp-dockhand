@@ -20,6 +20,17 @@ export class DockhandClient {
   }
 
   /**
+   * Returns the normalized base URL this client actually sends requests to (trailing
+   * slash(es) stripped by `normalizeBaseUrl()`, see src/utils/url.ts / Issue #116) — as
+   * opposed to the raw `DOCKHAND_URL` env var, which may still carry a trailing slash.
+   * Used by `get_server_info` (src/tools/meta.ts) so that diagnostic tool reports what
+   * this client actually does, not what the operator happened to type into the config.
+   */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  /**
    * Make an authenticated GET request.
    */
   async get<T = unknown>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
