@@ -12,6 +12,7 @@ import { TOOL_ENDPOINT_MAP, type ToolEndpointEntry } from '../openapi/tool-endpo
 import { PINNED_DOCKHAND_OPENAPI_COMMIT } from '../openapi/pinned.js';
 import { specInfoVersion } from '../openapi/spec-loader.js';
 import { getStatsSnapshot } from '../utils/runtime-stats.js';
+import { encodePath } from '../utils/encode-path.js';
 
 export interface ServerInfo {
   version: string;
@@ -329,10 +330,11 @@ export async function validateConfig(deps: {
 
 /**
  * A single environment as returned by `GET /api/environments` — only the fields this
- * module actually reads (see `listEnvironments` wiring below). Not exported: a
- * registration-time implementation detail, not part of this module's public contract.
+ * module actually reads (see `listEnvironments` wiring below). Exported so
+ * `deriveEnvironmentStatuses()` below has a named parameter type its own tests can
+ * construct against.
  */
-interface EnvironmentListEntry {
+export interface EnvironmentListEntry {
   id: number;
   name: string;
   connectionType?: string;
@@ -349,6 +351,85 @@ interface EnvironmentListEntry {
  */
 interface HawserConnection {
   environmentId: number;
+}
+
+/**
+ * Pure, exported builder behind `self_check`'s per-environment status derivation
+ * (Fix round 1, Finding 2: this logic previously lived untested inline inside the
+ * `registerTool('self_check', ...)` closure — every other piece of this module is a
+ * pure, injectable, separately-tested builder, and this one now is too).
+ *
+ * Takes already-resolved, already-degraded inputs so it never itself does I/O or
+ * throws:
+ *   - `environments`: the raw `GET /api/environments` list (`id`, `name`,
+ *     `connectionType`).
+ *   - `connectedAgentIds`: the set of environment ids with a currently-connected
+ *     Hawser agent, per `GET /api/hawser/connect` (empty set if that call failed —
+ *     see the registration wiring below for how that degrade happens).
+ *   - `perEnvReachable`: a **live, per-environment** reachability result — Fix round 1,
+ *     Finding 1: `reachable` must be a real outcome check for every environment
+ *     (`POST /api/environments/{id}/test`'s `success` field), not a hardcoded
+ *     assumption for any connection type. Missing an entry for a given id (e.g. its
+ *     `/test` probe threw or timed out) degrades to `reachable: false` via the `??
+ *     false` fallback — this function never throws on an incomplete map.
+ *
+ * `hawserConnected` is true only for a `"hawser-edge"` environment whose id is in
+ * `connectedAgentIds` — non-edge (`"socket"`, etc.) environments are trivially
+ * `false`, since they have no Hawser agent to be connected. `reachable` is always
+ * `perEnvReachable`'s live result, uniformly across connection types — the whole
+ * point of Finding 1's fix is that this is no longer type-dependent.
+ */
+export function deriveEnvironmentStatuses(
+  environments: readonly EnvironmentListEntry[],
+  connectedAgentIds: ReadonlySet<number>,
+  perEnvReachable: ReadonlyMap<number, boolean>,
+): SelfCheckEnvironment[] {
+  return environments.map((env) => ({
+    id: env.id,
+    name: env.name,
+    reachable: perEnvReachable.get(env.id) ?? false,
+    hawserConnected: env.connectionType === 'hawser-edge' && connectedAgentIds.has(env.id),
+  }));
+}
+
+/** Per-environment `POST /api/environments/{id}/test` timeout (Fix round 1, Finding 1):
+ * keeps `self_check` responsive even when one environment's agent/socket hangs instead
+ * of answering. All environments are probed in parallel (`Promise.allSettled`, see the
+ * `self_check` wiring below), so this bounds the *slowest* environment's contribution
+ * to `self_check`'s total latency, not the sum across environments. */
+const ENVIRONMENT_TEST_TIMEOUT_MS = 5_000;
+
+/**
+ * Races `promise` against a timeout, rejecting with a plain `Error` if `promise` has
+ * not settled within `timeoutMs`. Generic, not Dockhand-specific — used only to bound
+ * the per-environment `POST /api/environments/{id}/test` calls in `self_check`'s
+ * `listEnvironments` wiring below.
+ *
+ * Note: this only makes the *caller* stop waiting — it does not abort the underlying
+ * `fetch()` inside `promise` (`DockhandClient`'s request methods take no
+ * `AbortSignal`). A timed-out environment probe may still complete in the background;
+ * its result is simply discarded once `withTimeout` has already rejected. That is a
+ * deliberate, acceptable trade-off for a lightweight diagnostic tool — `self_check`'s
+ * job is to stay responsive, not to strictly bound background resource usage.
+ *
+ * Exported (unlike the other registration-time-only helpers in this file, e.g.
+ * `attemptRawLogin`) so it can be unit-tested directly — it is small, generic,
+ * timing-sensitive logic in its own right, not just wiring.
+ */
+export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 /**
@@ -380,6 +461,15 @@ interface HawserConnection {
  * own login endpoint — the same two values `SessionManager` itself sends on every
  * real login — and never logs, returns, or otherwise surfaces either value. Only the
  * numeric status code crosses back out of this function.
+ *
+ * Known imprecision (pre-existing codebase behavior, not introduced here): a `200`
+ * response can also mean `{ success: true, requiresMfa: true }` — a login that still
+ * needs a second factor, per `/api/auth/login`'s own documented response shape. This
+ * function (and therefore both `self_check`'s `authValid` and `validate_config`'s
+ * `credentialsValid`) does not distinguish that case from a fully completed login;
+ * both read as "valid". Distinguishing them would need parsing the response body,
+ * which `SessionManager.login()` itself does not do either (see `session.ts` —
+ * it treats any `response.ok` as success and extracts only the session cookie).
  */
 async function attemptRawLogin(baseUrl: string): Promise<number> {
   const response = await fetch(`${baseUrl}/api/auth/login`, {
@@ -427,27 +517,29 @@ async function attemptRawLogin(baseUrl: string): Promise<number> {
  *         client's non-2xx-throws convention) means Dockhand is unreachable; `runSelfCheck`
  *         short-circuits to `overall: "down"` without calling the other two probes.
  *       - `probeAuth`: `attemptRawLogin()` above, `status === 200`.
- *       - `listEnvironments`: `GET /api/environments` gives each environment's `id`, `name`,
- *         and `connectionType` (`"socket"` or `"hawser-edge"` — the list endpoint documents
- *         no separate liveness/connection field, see `docs/dockhand-openapi.json`); `GET
- *         /api/hawser/connect` (used nowhere else in this server — see
- *         `HawserConnection` above) gives the ground truth of which environments' agents
- *         are *currently* connected, by `environmentId`, matching that endpoint's own
- *         summary ("list currently connected agents") — an OUTCOME check
- *         (`service-verifikation.md`), not a static config field. From these two calls:
- *         `hawserConnected` is true only for a `"hawser-edge"` environment whose id appears
- *         in the connected set; `reachable` is that same `hawserConnected` value for
- *         `"hawser-edge"` environments (an edge environment's reachability *is* whether its
- *         agent is connected — there is no other transport), and `true` for `"socket"`/other
- *         directly-configured environments (Dockhand talks to those without a Hawser agent
- *         in between, so their presence in the list already implies they are configured and
- *         addressable; a deeper per-environment Docker-level probe would mean issuing one
- *         `POST /api/environments/{id}/test` per environment on every `self_check` call,
- *         which this diagnostic deliberately keeps out of its cheap, fixed-cost O(2) call
- *         budget). If the Hawser status call itself fails, every `"hawser-edge"` environment
- *         degrades to `reachable: false, hawserConnected: false` rather than throwing out of
- *         `listEnvironments` — consistent with `runSelfCheck()`'s own "never let a diagnostic
- *         become the outage" posture documented above it.
+ *       - `listEnvironments`: three calls, then `deriveEnvironmentStatuses()` above turns
+ *         their results into `SelfCheckEnvironment[]` — see that function's own doc comment
+ *         for exactly how `reachable`/`hawserConnected` are derived (**Fix round 1, Finding
+ *         1**: `reachable` is now a genuine live outcome check for every environment, never
+ *         a hardcoded assumption for any connection type):
+ *           1. `GET /api/environments` — each environment's `id`, `name`, `connectionType`
+ *              (`"socket"` or `"hawser-edge"`).
+ *           2. `GET /api/hawser/connect` (used nowhere else in this server — see
+ *              `HawserConnection` above) — the ground truth of which environments' agents
+ *              are *currently* connected, by `environmentId`. Best-effort: on failure,
+ *              `connectedAgentIds` degrades to an empty set (every `"hawser-edge"`
+ *              environment then reads as not-connected) rather than throwing out of
+ *              `listEnvironments`.
+ *           3. `POST /api/environments/{id}/test` for **every** environment, **in
+ *              parallel** (`Promise.allSettled`, not sequential — one hung environment must
+ *              not block the others) and each individually bounded by
+ *              `withTimeout()`/`ENVIRONMENT_TEST_TIMEOUT_MS` above (5s) so a single
+ *              unresponsive environment cannot make `self_check` itself hang. This is the
+ *              same endpoint `POST /api/environments/{id}/test` — its `success` field is
+ *              the real, uniform reachability signal for socket AND edge environments
+ *              alike. A rejected/timed-out probe degrades that one environment to
+ *              `reachable: false` (via the missing `perEnvReachable` entry) rather than
+ *              failing `listEnvironments` for every other environment.
  *   - `validate_config`: `validateConfig()`'s `attemptLogin` is `attemptRawLogin()` above
  *     against `client.getBaseUrl()` — the same helper `self_check` uses, so the two tools
  *     agree on what "the configured credentials are valid" means. `requiredEnvPresent` reads
@@ -507,27 +599,37 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
         listEnvironments: async () => {
           const envs = await client.get<EnvironmentListEntry[]>('/api/environments');
 
-          let connectedIds = new Set<number>();
+          let connectedAgentIds = new Set<number>();
           try {
             const hawser = await client.get<{ connections?: HawserConnection[] }>('/api/hawser/connect');
-            connectedIds = new Set((hawser.connections ?? []).map((c) => c.environmentId));
+            connectedAgentIds = new Set((hawser.connections ?? []).map((c) => c.environmentId));
           } catch {
             // Best-effort: an unreachable Hawser status endpoint degrades every
-            // hawser-edge environment below to not-connected/not-reachable rather
-            // than failing listEnvironments() outright — see the doc comment above
+            // hawser-edge environment to not-connected below rather than failing
+            // listEnvironments() outright — see the doc comment above
             // registerMetaTools() for the full rationale.
           }
 
-          return envs.map((env) => {
-            const isHawserEdge = env.connectionType === 'hawser-edge';
-            const hawserConnected = isHawserEdge && connectedIds.has(env.id);
-            return {
-              id: env.id,
-              name: env.name,
-              reachable: isHawserEdge ? hawserConnected : true,
-              hawserConnected,
-            };
+          // Fix round 1, Finding 1: a genuine, per-environment, in-parallel reachability
+          // check for EVERY environment (not just hawser-edge ones) — no connection type
+          // is ever assumed reachable. Each probe is individually timeout-bounded so one
+          // hung environment cannot make self_check itself hang.
+          const testResults = await Promise.allSettled(
+            envs.map((env) =>
+              withTimeout(
+                client.post<{ success?: boolean }>(`/api/environments/${encodePath(env.id)}/test`),
+                ENVIRONMENT_TEST_TIMEOUT_MS,
+              ),
+            ),
+          );
+
+          const perEnvReachable = new Map<number, boolean>();
+          envs.forEach((env, i) => {
+            const result = testResults[i];
+            perEnvReachable.set(env.id, result.status === 'fulfilled' && !!result.value.success);
           });
+
+          return deriveEnvironmentStatuses(envs, connectedAgentIds, perEnvReachable);
         },
       });
       return jsonResponse(result);
