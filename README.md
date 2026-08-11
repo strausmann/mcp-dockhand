@@ -1,5 +1,7 @@
 # MCP Dockhand
 
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fstrausmann%2Fmcp-dockhand.svg)](https://mcptoplist.com/server/glama%2Fstrausmann%2Fmcp-dockhand)
+
 [![CI](https://github.com/strausmann/mcp-dockhand/actions/workflows/ci.yml/badge.svg)](https://github.com/strausmann/mcp-dockhand/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue)](https://github.com/strausmann/mcp-dockhand/pkgs/container/mcp-dockhand)
