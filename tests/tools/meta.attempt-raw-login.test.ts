@@ -95,6 +95,36 @@ describe('attemptRawLogin', () => {
     expect(result.completedAuth).toBe(false);
   });
 
+  it('reports completedAuth:false for a 200 whose ONLY Set-Cookie is unrelated to Dockhand\'s session (Fix round 3, Finding 1) — a reverse proxy adding e.g. a __cf_bm cookie must not read as a valid session', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      mockResponse({
+        status: 200,
+        body: JSON.stringify({ success: true }),
+        setCookie: ['__cf_bm=some-cloudflare-value; Path=/; HttpOnly; Secure'],
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await attemptRawLogin('https://dockhand.example.com');
+
+    expect(result).toEqual({ statusCode: 200, completedAuth: false });
+  });
+
+  it('reports completedAuth:true for a 200 carrying the real dockhand_session cookie alongside an unrelated one, with no requiresMfa flag', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      mockResponse({
+        status: 200,
+        body: JSON.stringify({ success: true }),
+        setCookie: ['__cf_bm=some-cloudflare-value; Path=/; HttpOnly; Secure', 'dockhand_session=abc123; Path=/; HttpOnly'],
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await attemptRawLogin('https://dockhand.example.com');
+
+    expect(result).toEqual({ statusCode: 200, completedAuth: true });
+  });
+
   it('reports statusCode:401, completedAuth:false for invalid credentials', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       mockResponse({ status: 401, body: JSON.stringify({ error: 'Invalid username or password' }) }),

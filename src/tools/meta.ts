@@ -563,7 +563,29 @@ export interface LoginProbeResult {
  * `getSetCookie()` then the raw `set-cookie` header — without needing the cookie's
  * *value*, only its presence): `completedAuth` is `true` only when the status is `200`,
  * a session cookie was set, AND `requiresMfa` is not `true`.
+ *
+ * Fix round 3, Finding 1 (P2): "a session cookie was set" now means, specifically, a
+ * `Set-Cookie` entry named `dockhand_session` — Dockhand's own session cookie name, per
+ * `docs/dockhand-openapi.json`'s login-endpoint description quoted above and its
+ * logout-endpoint summary ("Destroy the current session (clears the dockhand_session
+ * cookie)"). The previous version treated ANY `Set-Cookie` header on a `200` as proof of
+ * a session — so a reverse proxy or CDN in front of Dockhand adding an unrelated cookie
+ * (e.g. Cloudflare's `__cf_bm`) to the same response would have been misread as a
+ * completed login even with no Dockhand session ever established.
  */
+const DOCKHAND_SESSION_COOKIE_NAME = 'dockhand_session';
+
+/** Whether `setCookieHeaders` contains an entry for the cookie named `name` — matched
+ * on the cookie's name only (the part before its first `=`), never its value, per
+ * `secret-safe-config-inspection.md` (a session cookie's value is never inspected,
+ * only whether the expected cookie is present at all). */
+function hasNamedCookie(setCookieHeaders: readonly string[], name: string): boolean {
+  return setCookieHeaders.some((entry) => {
+    const eq = entry.indexOf('=');
+    return eq !== -1 && entry.slice(0, eq).trim() === name;
+  });
+}
+
 export async function attemptRawLogin(baseUrl: string): Promise<LoginProbeResult> {
   const response = await fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',
@@ -593,8 +615,13 @@ export async function attemptRawLogin(baseUrl: string): Promise<LoginProbeResult
     requiresMfa = false;
   }
 
+  // `getSetCookie()` then the raw `set-cookie` header fallback (older fetch
+  // implementations may not implement getSetCookie() at all — mirrors
+  // SessionManager.performLogin()'s own fallback chain, see the doc comment above).
   const setCookie = response.headers.getSetCookie?.() ?? [];
-  const hasSessionCookie = setCookie.length > 0 || !!response.headers.get('set-cookie');
+  const rawSetCookie = response.headers.get('set-cookie');
+  const setCookieHeaders = setCookie.length > 0 ? setCookie : rawSetCookie ? [rawSetCookie] : [];
+  const hasSessionCookie = hasNamedCookie(setCookieHeaders, DOCKHAND_SESSION_COOKIE_NAME);
 
   return { statusCode, completedAuth: hasSessionCookie && !requiresMfa };
 }
