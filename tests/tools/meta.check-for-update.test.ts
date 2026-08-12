@@ -34,4 +34,12 @@ describe("checkForUpdate", () => {
     expect(r.updateAvailable).toBeNull();
     expect(r.error).toBeDefined();
   });
+
+  it("degrades to null within the deadline (not a hang) when the GitHub fetch never resolves (Fix round 3, Finding 3)", async () => {
+    __resetUpdateCache();
+    const fetchImpl = vi.fn(() => new Promise<Response>(() => {})); // never settles
+    const r = await checkForUpdate({ current: "1.6.0", fetchImpl, now: () => 1000, timeoutMs: 20 });
+    expect(r.updateAvailable).toBeNull();
+    expect(r.error).toBeDefined();
+  });
 });

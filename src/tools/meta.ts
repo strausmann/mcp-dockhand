@@ -66,6 +66,14 @@ const RELEASES_URL = 'https://api.github.com/repos/strausmann/mcp-dockhand/relea
 const UPDATE_TTL_MS = 60 * 60 * 1000;
 let updateCache: { at: number; latest: string; url?: string; publishedAt?: string } | null = null;
 
+/** Deadline for the GitHub-releases fetch inside `checkForUpdate()` below (Fix round 3,
+ * Finding 3 / P2): previously unbounded — if `api.github.com` accepted the connection
+ * but then stalled (no response, no error), `checkForUpdate` hung indefinitely instead
+ * of degrading like every other failure mode it already handles (network error,
+ * non-2xx status, malformed body). Overridable per call so tests can exercise a
+ * never-resolving `fetchImpl` without waiting out the real default. */
+const UPDATE_CHECK_TIMEOUT_MS = 5_000;
+
 /** Test hook: clears the in-memory update cache between test cases. */
 export function __resetUpdateCache() {
   updateCache = null;
@@ -94,12 +102,33 @@ export async function checkForUpdate(deps: {
   current: string;
   fetchImpl?: typeof fetch;
   now?: () => number;
+  /** Deadline for the GitHub-releases fetch. Defaults to `UPDATE_CHECK_TIMEOUT_MS`. */
+  timeoutMs?: number;
 }): Promise<UpdateInfo> {
   const now = deps.now ?? Date.now;
   const doFetch = deps.fetchImpl ?? fetch;
+  const timeoutMs = deps.timeoutMs ?? UPDATE_CHECK_TIMEOUT_MS;
   try {
     if (!updateCache || now() - updateCache.at > UPDATE_TTL_MS) {
-      const res = await doFetch(RELEASES_URL, { headers: { Accept: 'application/vnd.github+json' } });
+      // AbortController so the underlying request is actually cancelled (not just
+      // abandoned) when the real fetch is used, PLUS withTimeout() (defined further
+      // below — a function declaration, so it is hoisted and callable here) racing the
+      // call directly so the outer await still resolves within timeoutMs even if an
+      // injected test fetchImpl never resolves and never looks at the abort signal.
+      const controller = new AbortController();
+      const abortTimer = setTimeout(() => controller.abort(), timeoutMs);
+      let res: Response;
+      try {
+        res = await withTimeout(
+          doFetch(RELEASES_URL, {
+            headers: { Accept: 'application/vnd.github+json' },
+            signal: controller.signal,
+          }),
+          timeoutMs,
+        );
+      } finally {
+        clearTimeout(abortTimer);
+      }
       if (!res.ok) throw new Error(`GitHub API ${res.status}`);
       const json = (await res.json()) as { tag_name: string; html_url?: string; published_at?: string };
       updateCache = {
