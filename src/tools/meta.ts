@@ -485,6 +485,44 @@ async function attemptRawLogin(baseUrl: string): Promise<number> {
   return response.status;
 }
 
+/** Timeout for the unauthenticated `/api/health` liveness probe below (Fix round 2,
+ * Finding 2 / P2 security-adjacent). Same bound as `ENVIRONMENT_TEST_TIMEOUT_MS` — the
+ * top-level liveness probe has no reason to be allowed to wait longer than a single
+ * environment's own `/test` probe before `self_check` gives up on it. */
+const HEALTH_CHECK_TIMEOUT_MS = 5_000;
+
+/**
+ * A dedicated, minimal, UNAUTHENTICATED liveness probe against Dockhand's own
+ * `/api/health` — the real wiring behind `self_check`'s `probeHealth`.
+ *
+ * Fix round 2, Finding 2 (P2): previously wired directly as `client.get('/api/health')`
+ * in `registerMetaTools()` below. `client.get()` runs every request through
+ * `SessionManager`, which attempts a login first if it has no cached session cookie —
+ * so with an invalid/misconfigured credential, the *login* failed before `/api/health`
+ * was ever reached, `probeHealth` threw, and `self_check` reported
+ * `dockhandReachable: false, overall: "down"`. That is indistinguishable from Dockhand
+ * itself being down, even though Dockhand was up the whole time — only the credentials
+ * were bad. `GET /api/health` is documented `security: []` in the Dockhand OpenAPI spec
+ * (public, no auth required by design), so probing it with a bare `fetch()` instead
+ * fixes the conflation: a bad-credential deployment now reports
+ * `dockhandReachable: true` (this probe succeeds on its own) alongside
+ * `authValid: false` (the separate `attemptRawLogin()`-backed probe fails) →
+ * `runSelfCheck()` resolves `overall: "degraded"`, not `"down"` — an accurate signal
+ * that Dockhand is up but the configured credentials are not.
+ *
+ * Bounded by `withTimeout()`/`HEALTH_CHECK_TIMEOUT_MS` (mirrors the per-environment
+ * `/test` probes' own timeout below) so an unresponsive Dockhand cannot make
+ * `self_check` itself hang. Throws on any failure — network error, non-2xx status, or
+ * timeout — matching `runSelfCheck()`'s `probeHealth` contract, where any throw means
+ * `dockhandReachable: false`.
+ */
+export async function probeRawHealth(baseUrl: string): Promise<void> {
+  const response = await withTimeout(fetch(`${baseUrl}/api/health`), HEALTH_CHECK_TIMEOUT_MS);
+  if (!response.ok) {
+    throw new Error(`Dockhand health check failed: GET ${baseUrl}/api/health returned ${response.status}`);
+  }
+}
+
 /**
  * Registers all six self-help tools, wiring the pure builders above to their real
  * dependencies.
@@ -512,10 +550,15 @@ async function attemptRawLogin(baseUrl: string): Promise<number> {
  *
  * M2 (diagnostics, all three also take no input arguments):
  *   - `self_check`: wires `runSelfCheck()`'s three probes to real calls —
- *       - `probeHealth`: `client.get('/api/health')` (`security: []`, always 200 when the
- *         process is up per the spec's own summary). A throw here (network error, or the
- *         client's non-2xx-throws convention) means Dockhand is unreachable; `runSelfCheck`
- *         short-circuits to `overall: "down"` without calling the other two probes.
+ *       - `probeHealth`: `probeRawHealth()` above — a bare, UNAUTHENTICATED `fetch()`
+ *         against `/api/health` (`security: []`, always 200 when the process is up per
+ *         the spec's own summary), deliberately NOT `client.get()` (**Fix round 2,
+ *         Finding 2**: `client.get()` would attempt a login first, so an invalid
+ *         credential made this probe indistinguishable from Dockhand being down — see
+ *         `probeRawHealth()`'s own doc comment for the full rationale). A throw here
+ *         (network error, non-2xx status, or timeout) means Dockhand is unreachable;
+ *         `runSelfCheck` short-circuits to `overall: "down"` without calling the other
+ *         two probes.
  *       - `probeAuth`: `attemptRawLogin()` above, `status === 200`.
  *       - `listEnvironments`: three calls, then `deriveEnvironmentStatuses()` above turns
  *         their results into `SelfCheckEnvironment[]` — see that function's own doc comment
@@ -592,9 +635,7 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
     {},
     async () => {
       const result = await runSelfCheck({
-        probeHealth: async () => {
-          await client.get('/api/health');
-        },
+        probeHealth: () => probeRawHealth(client.getBaseUrl()),
         probeAuth: async () => (await attemptRawLogin(client.getBaseUrl())) === 200,
         listEnvironments: async () => {
           const envs = await client.get<EnvironmentListEntry[]>('/api/environments');
