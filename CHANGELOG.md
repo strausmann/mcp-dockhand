@@ -5,6 +5,13 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0](https://github.com/strausmann/mcp-dockhand/compare/v1.12.0...v1.13.0) (2026-08-12)
+
+### Features
+
+* add self-help / meta tools (server info, update check, tool manifest, diagnostics) ([#186](https://github.com/strausmann/mcp-dockhand/issues/186)) ([b9891bf](https://github.com/strausmann/mcp-dockhand/commit/b9891bf95cd4a75c0460b8a5d5a5a28888f237a8)), references [#116](https://github.com/strausmann/mcp-dockhand/issues/116)
+* **security:** opt-in Host/Origin allowlist and bearer auth for /mcp transport ([#188](https://github.com/strausmann/mcp-dockhand/issues/188)) ([25b5e5b](https://github.com/strausmann/mcp-dockhand/commit/25b5e5bfc4e3e7d85bcf09c2e0a7b123bbcaf1de))
+
 ## [1.12.0](https://github.com/strausmann/mcp-dockhand/compare/v1.11.0...v1.12.0) (2026-08-11)
 
 ### ⚠ BREAKING CHANGES
