@@ -154,6 +154,10 @@ Add to your MCP settings:
 > }
 > ```
 >
+> **Send the token only over an encrypted transport.** A bearer over plain `http://` on a
+> shared network can be sniffed — terminate TLS at a reverse proxy, or reach the server over
+> a WireGuard/Tailscale/VPN link (the app-layer HTTP is then encrypted by the tunnel).
+>
 > Export `DOCKHAND_MCP_TOKEN` in the environment Claude Code is launched from (e.g. from a
 > gitignored `.env` you `source` before starting). The `Host`/`host:port` you connect to
 > must also be in the server's `MCP_ALLOWED_HOSTS` if that allowlist is set. For **Claude
