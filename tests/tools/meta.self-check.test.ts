@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { runSelfCheck } from '../../src/tools/meta.js';
+import type { SelfCheckEnvironment } from '../../src/tools/meta.js';
 
 describe('runSelfCheck', () => {
   it('reports ok when Dockhand is reachable, auth is valid, and all environments are reachable', async () => {
@@ -113,6 +114,45 @@ describe('runSelfCheck', () => {
     expect(result.dockhandReachable).toBe(true);
     expect(result.environments).toEqual([]);
     expect(result.overall).toBe('degraded');
+  });
+
+  it('returns degraded within the phase deadline (not a hang) when the auth probe never resolves (Fix round 3, Finding 2)', async () => {
+    const result = await runSelfCheck({
+      probeHealth: async () => {},
+      probeAuth: () => new Promise<boolean>(() => {}), // never settles
+      listEnvironments: async () => [{ id: 1, name: 'production', reachable: true, hawserConnected: true }],
+      phaseTimeoutMs: 20,
+    });
+
+    expect(result.dockhandReachable).toBe(true);
+    expect(result.authValid).toBe(false);
+    expect(result.overall).toBe('degraded');
+  });
+
+  it('returns degraded within the phase deadline (not a hang) when the environments probe never resolves', async () => {
+    const result = await runSelfCheck({
+      probeHealth: async () => {},
+      probeAuth: async () => true,
+      listEnvironments: () => new Promise<SelfCheckEnvironment[]>(() => {}), // never settles
+      phaseTimeoutMs: 20,
+    });
+
+    expect(result.dockhandReachable).toBe(true);
+    expect(result.authValid).toBe(true);
+    expect(result.environments).toEqual([]);
+    expect(result.overall).toBe('degraded');
+  });
+
+  it('returns down within the phase deadline (not a hang) when the health probe never resolves', async () => {
+    const result = await runSelfCheck({
+      probeHealth: () => new Promise<void>(() => {}), // never settles
+      probeAuth: async () => true,
+      listEnvironments: async () => [],
+      phaseTimeoutMs: 20,
+    });
+
+    expect(result.dockhandReachable).toBe(false);
+    expect(result.overall).toBe('down');
   });
 
   it('uses the injected clock to measure latency deterministically', async () => {

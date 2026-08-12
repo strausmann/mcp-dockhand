@@ -242,6 +242,16 @@ export interface SelfCheck {
   overall: 'ok' | 'degraded' | 'down';
 }
 
+/** Default per-phase deadline for each of `runSelfCheck()`'s three probes (health,
+ * auth, environments) — see that function's own doc comment (Fix round 3, Finding 2)
+ * for why every phase needs one, not just the health probe and the per-environment
+ * `/test` calls. Deliberately more generous than `HEALTH_CHECK_TIMEOUT_MS` /
+ * `ENVIRONMENT_TEST_TIMEOUT_MS` below (which bound single underlying calls each): this
+ * is the OUTER backstop for a whole phase, including `listEnvironments`'s own two
+ * calls that carry no timeout of their own (`GET /api/environments`,
+ * `GET /api/hawser/connect`) ahead of its already-bounded per-environment fan-out. */
+const SELF_CHECK_PHASE_TIMEOUT_MS = 10_000;
+
 /**
  * Pure, injectable builder behind the future `self_check` tool — an end-to-end
  * diagnostic that answers "is this server actually usable right now?" in one call.
@@ -267,18 +277,38 @@ export interface SelfCheck {
  *
  * `latencyMs` is measured with `Date.now()` (or the injected `now` for deterministic
  * tests) around the whole probe sequence, so it reflects what a caller actually waited.
+ *
+ * Fix round 3, Finding 2 (P2): every phase below (`probeHealth`, `probeAuth`,
+ * `listEnvironments`) is now individually raced against `phaseTimeoutMs` via
+ * `withTimeout()` (defined further below in this file — a `function` declaration, so
+ * it is hoisted and callable here). Previously ONLY the health probe's own internal
+ * `fetch()` (`probeRawHealth()`) and the per-environment `POST .../test` calls inside
+ * `listEnvironments` carried a timeout of their own; `probeAuth`'s real wiring
+ * (`attemptRawLogin()`) has no timeout at all, and `listEnvironments`'s own two
+ * un-bounded calls (`GET /api/environments`, `GET /api/hawser/connect`) sit BEFORE its
+ * already-bounded per-environment fan-out. A stall in any of those un-bounded calls
+ * left `self_check` hanging indefinitely rather than degrading. Bounding every phase
+ * here, at the single point where all three are awaited, closes that gap regardless of
+ * which underlying call inside a phase is the one that stalls — the existing
+ * try/catch blocks below already turn a timeout (like any other rejection) into the
+ * same degraded/down outcome as a genuine failure, so no other branching changes.
  */
 export async function runSelfCheck(deps: {
   probeHealth: () => Promise<void>;
   probeAuth: () => Promise<boolean>;
   listEnvironments: () => Promise<SelfCheckEnvironment[]>;
   now?: () => number;
+  /** Per-phase deadline passed to `withTimeout()` for each of the three probes below.
+   * Defaults to `SELF_CHECK_PHASE_TIMEOUT_MS`; overridable so tests can exercise a
+   * never-resolving probe without waiting out the real default. */
+  phaseTimeoutMs?: number;
 }): Promise<SelfCheck> {
   const now = deps.now ?? Date.now;
+  const phaseTimeoutMs = deps.phaseTimeoutMs ?? SELF_CHECK_PHASE_TIMEOUT_MS;
   const start = now();
 
   try {
-    await deps.probeHealth();
+    await withTimeout(deps.probeHealth(), phaseTimeoutMs);
   } catch {
     return {
       dockhandReachable: false,
@@ -291,7 +321,7 @@ export async function runSelfCheck(deps: {
 
   let authValid: boolean;
   try {
-    authValid = await deps.probeAuth();
+    authValid = await withTimeout(deps.probeAuth(), phaseTimeoutMs);
   } catch {
     authValid = false;
   }
@@ -299,7 +329,7 @@ export async function runSelfCheck(deps: {
   let environments: SelfCheckEnvironment[];
   let environmentsOk: boolean;
   try {
-    environments = await deps.listEnvironments();
+    environments = await withTimeout(deps.listEnvironments(), phaseTimeoutMs);
     environmentsOk = environments.every((env) => env.reachable);
   } catch {
     environments = [];
