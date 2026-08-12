@@ -13,6 +13,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { toolEndpoint, endpointToTool } from '../src/openapi/tool-endpoint.js';
 import { TOOL_ENDPOINT_MAP } from '../src/openapi/tool-endpoint-map.js';
+import { META_TOOL_NAMES } from '../src/tools/meta.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TOOLS_DIR = join(__dirname, '..', 'src', 'tools');
@@ -113,14 +114,12 @@ describe('tool-endpoint-map completeness', () => {
   //     detail, not contract" reasoning as `get_server_info` above.
   //   - `get_runtime_stats` calls no HTTP endpoint at all (pure in-process counters, see
   //     src/utils/runtime-stats.ts).
-  const META_TOOLS_WITHOUT_ENDPOINT = [
-    'check_for_update',
-    'get_runtime_stats',
-    'get_server_info',
-    'get_tool_manifest',
-    'self_check',
-    'validate_config',
-  ];
+  //
+  // Imported from src/tools/meta.ts (Fix round 2, Finding 4) rather than duplicated here
+  // as a local literal: META_TOOL_NAMES is the same list get_tool_manifest's own
+  // registration wiring now reuses to include these six tools in its inventory, so this
+  // test and that production code can never drift apart.
+  const META_TOOLS_WITHOUT_ENDPOINT = META_TOOL_NAMES;
 
   it('every registered tool has an entry, except the documented get_prometheus_metrics gap and the meta tools', () => {
     const allNames = extractAllToolNames();

@@ -123,19 +123,66 @@ export async function checkForUpdate(deps: {
 }
 
 /**
+ * The six self-help/meta tool names registered by `registerMetaTools()` below —
+ * `get_tool_manifest` itself among them. This is the single source of truth for that
+ * list: `tests/tool-endpoint.test.ts`'s endpoint-completeness check imports it to
+ * exclude these six from its "every registered tool has a `TOOL_ENDPOINT_MAP` entry"
+ * assertion (none of the six wrap a single Dockhand endpoint the way every other
+ * registered tool does — see that test's own doc comment for why, tool by tool), and
+ * `get_tool_manifest`'s own registration wiring below reuses it (Fix round 2,
+ * Finding 4) so its inventory includes these six tools too, not just the
+ * `TOOL_ENDPOINT_MAP` ones.
+ */
+export const META_TOOL_NAMES: readonly string[] = [
+  'check_for_update',
+  'get_runtime_stats',
+  'get_server_info',
+  'get_tool_manifest',
+  'self_check',
+  'validate_config',
+];
+
+/**
+ * `get_prometheus_metrics`'s real endpoint (`GET /api/metrics`, see
+ * `registerSystemTools()` in src/tools/system.ts) — deliberately excluded from the
+ * generated `TOOL_ENDPOINT_MAP` itself (see `scripts/generate-tool-endpoint-map.mjs`'s
+ * own header: `/api/metrics` is not a SvelteKit route and therefore cannot carry an
+ * `@openapi` annotation for the generator to pick up).
+ *
+ * `get_tool_manifest`'s registration wiring below merges this single entry back in
+ * (Fix round 2, Finding 4) — without it, `META_TOOL_NAMES` alone would still leave the
+ * manifest one tool short of the true registered count: 291 `TOOL_ENDPOINT_MAP` entries
+ * + 6 meta tools = 297, not the actual 298 `registerAllTools()` exposes.
+ * `get_prometheus_metrics` is NOT a meta/self-help tool (it is a real, single-endpoint
+ * Dockhand-backed tool, same as every `TOOL_ENDPOINT_MAP` entry), so it gets its real
+ * `method`/`path` here rather than `META_TOOL_NAMES`' `null`/`null` treatment.
+ */
+const GET_PROMETHEUS_METRICS_ENDPOINT: ToolEndpointEntry = { method: 'GET', path: '/api/metrics' };
+
+/**
  * Pure builder behind the `get_tool_manifest` tool. Maps the tool→endpoint map
  * (`src/openapi/tool-endpoint-map.ts`) plus the pinned Dockhand OpenAPI identity
  * (commit + `info.version`, see `src/openapi/pinned.ts` / `src/openapi/spec-loader.ts`)
  * into a single manifest, so a client can detect drift between what this server
  * exposes and the Dockhand version it targets. Kept dependency-injected — no direct
  * import of the real endpoint map or spec — so it is testable without touching the
- * filesystem. The registered tool wires the real `TOOL_ENDPOINT_MAP` and the pinned
- * identity in.
+ * filesystem. The registered tool wires the real `TOOL_ENDPOINT_MAP`, `META_TOOL_NAMES`,
+ * and the pinned identity in.
+ *
+ * Fix round 2, Finding 4 (P2): previously this manifest was built SOLELY from
+ * `endpointMap`, so `get_tool_manifest` reported `toolCount: 292` while
+ * `registerAllTools()` actually exposes 298 tools — the six self-help/meta tools
+ * (including `get_tool_manifest` itself) were missing, contradicting the tool's own
+ * description ("the tools this build exposes"). `deps.metaToolNames` is now a required,
+ * separate list (the real wiring passes `META_TOOL_NAMES` above) whose entries are
+ * appended to the manifest with `method: null, path: null` — accurately reflecting that
+ * these six tools are not backed by a single Dockhand endpoint the way every
+ * `endpointMap` entry is.
  */
 export interface ToolManifestEntry {
   name: string;
-  method: string;
-  path: string;
+  method: string | null;
+  path: string | null;
 }
 
 export interface ToolManifest {
@@ -148,15 +195,22 @@ export interface ToolManifest {
 
 export function buildToolManifest(deps: {
   endpointMap: Readonly<Record<string, ToolEndpointEntry>>;
+  metaToolNames: readonly string[];
   openApiCommit: string;
   openApiVersion: string;
   generatedAt: string;
 }): ToolManifest {
-  const tools = Object.entries(deps.endpointMap).map(([name, entry]) => ({
+  const endpointTools: ToolManifestEntry[] = Object.entries(deps.endpointMap).map(([name, entry]) => ({
     name,
     method: entry.method,
     path: entry.path,
   }));
+  const metaTools: ToolManifestEntry[] = deps.metaToolNames.map((name) => ({
+    name,
+    method: null,
+    path: null,
+  }));
+  const tools = [...endpointTools, ...metaTools];
   return {
     toolCount: tools.length,
     tools,
@@ -602,11 +656,15 @@ export async function probeRawHealth(baseUrl: string): Promise<void> {
  *     tool. `mcpProtocolVersion` is the SDK's own `LATEST_PROTOCOL_VERSION` constant.
  *   - `check_for_update`: compares this server's own build-injected version
  *     (`getServerVersion()`, src/version.js) against the latest GitHub release.
- *   - `get_tool_manifest`: the real generated `TOOL_ENDPOINT_MAP`, the pinned Dockhand
+ *   - `get_tool_manifest`: the real generated `TOOL_ENDPOINT_MAP` plus
+ *     `GET_PROMETHEUS_METRICS_ENDPOINT` above merged in, `META_TOOL_NAMES` above
+ *     (**Fix round 2, Finding 4**: without these two additions, the manifest omitted
+ *     all six self-help/meta tools — including `get_tool_manifest` itself — AND
+ *     `get_prometheus_metrics`, from its own `toolCount`/`tools`), the pinned Dockhand
  *     OpenAPI source commit (`PINNED_DOCKHAND_OPENAPI_COMMIT`, src/openapi/pinned.ts),
  *     and that same pinned spec's own `info.version` (`specInfoVersion()`,
- *     src/openapi/spec-loader.ts) — so a client can tell which Dockhand API version this
- *     server's tools were generated against.
+ *     src/openapi/spec-loader.ts) — so a client can tell which Dockhand API version
+ *     this server's tools were generated against.
  *
  * M2 (diagnostics, all three also take no input arguments):
  *   - `self_check`: wires `runSelfCheck()`'s three probes to real calls —
@@ -686,7 +744,11 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
     {},
     async () => {
       const manifest = buildToolManifest({
-        endpointMap: TOOL_ENDPOINT_MAP,
+        endpointMap: {
+          ...TOOL_ENDPOINT_MAP,
+          get_prometheus_metrics: GET_PROMETHEUS_METRICS_ENDPOINT,
+        },
+        metaToolNames: META_TOOL_NAMES,
         openApiCommit: PINNED_DOCKHAND_OPENAPI_COMMIT,
         openApiVersion: specInfoVersion() ?? 'unknown',
         generatedAt: new Date().toISOString(),
