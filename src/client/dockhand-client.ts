@@ -6,6 +6,7 @@
 import { SessionManager } from '../auth/session.js';
 import type { DockhandConfig, SSEResult } from '../types/dockhand.js';
 import { normalizeBaseUrl } from '../utils/url.js';
+import { redactQueryStrings } from '../utils/redact.js';
 
 /** Timeout for SSE streaming responses (5 minutes). */
 const SSE_TIMEOUT_MS = 300_000;
@@ -17,6 +18,17 @@ export class DockhandClient {
   constructor(config: DockhandConfig) {
     this.baseUrl = normalizeBaseUrl(config.url);
     this.session = new SessionManager(config);
+  }
+
+  /**
+   * Returns the normalized base URL this client actually sends requests to (trailing
+   * slash(es) stripped by `normalizeBaseUrl()`, see src/utils/url.ts / Issue #116) — as
+   * opposed to the raw `DOCKHAND_URL` env var, which may still carry a trailing slash.
+   * Used by `get_server_info` (src/tools/meta.ts) so that diagnostic tool reports what
+   * this client actually does, not what the operator happened to type into the config.
+   */
+  getBaseUrl(): string {
+    return this.baseUrl;
   }
 
   /**
@@ -202,8 +214,15 @@ export class DockhandClient {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
+      // Fix round 3, Item B: redact any URL query string BEFORE this message reaches
+      // ANY of its consumers — console.error (docker logs), errorResponse (the calling
+      // MCP client), and recordError/get_runtime_stats (see src/utils/redact.ts's own
+      // doc comment for the full rationale — a query param can carry a secret, e.g.
+      // trigger_git_webhook's `?secret=<value>`).
       throw new Error(
-        `Dockhand API error: ${method} ${url} returned ${response.status}: ${errorBody || response.statusText}`
+        redactQueryStrings(
+          `Dockhand API error: ${method} ${url} returned ${response.status}: ${errorBody || response.statusText}`
+        )
       );
     }
 
@@ -242,8 +261,15 @@ export class DockhandClient {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
+      // Fix round 3, Item B: redact any URL query string BEFORE this message reaches
+      // ANY of its consumers — console.error (docker logs), errorResponse (the calling
+      // MCP client), and recordError/get_runtime_stats (see src/utils/redact.ts's own
+      // doc comment for the full rationale — a query param can carry a secret, e.g.
+      // trigger_git_webhook's `?secret=<value>`).
       throw new Error(
-        `Dockhand API error: ${method} ${url} returned ${response.status}: ${errorBody || response.statusText}`
+        redactQueryStrings(
+          `Dockhand API error: ${method} ${url} returned ${response.status}: ${errorBody || response.statusText}`
+        )
       );
     }
 

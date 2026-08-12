@@ -8,6 +8,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { z } from 'zod';
 import { jsonResponse, textResponse, errorResponse } from './response.js';
 import { describeTool } from '../openapi/describe-tool.js';
+import { recordCall, recordError } from './runtime-stats.js';
 
 // Re-export response helpers for convenience
 export { jsonResponse, textResponse, errorResponse };
@@ -38,6 +39,7 @@ export function registerTool<T extends ZodShape>(
   const description = describeTool(name);
   /* eslint-disable @typescript-eslint/no-explicit-any */
   (server as any).tool(name, description, schema, async (args: any) => {
+    recordCall(name);
     try {
       return await callback(args);
     } catch (error) {
@@ -48,6 +50,7 @@ export function registerTool<T extends ZodShape>(
       // stderr/docker logs. Log it unconditionally so every tool failure
       // is diagnosable from container logs alone. See Issue #116.
       console.error(`[tool:${name}] ${message}`);
+      recordError(name, message);
       return errorResponse(message);
     }
   });

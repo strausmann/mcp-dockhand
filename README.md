@@ -448,6 +448,40 @@ sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/
 | `get_container_auto_update` | Get container auto-update |
 | `set_container_auto_update` | Set auto-update policy |
 
+### Self-help / meta tools (6 tools)
+
+Diagnostics for **this MCP server itself**, distinct from the Dockhand API tools above —
+useful for a client or operator asking "is *this server* healthy and correctly configured?"
+rather than "is Dockhand healthy?". None of these six take any input arguments, and none of
+them wrap a single Dockhand endpoint the way the tables above do (`get_tool_manifest` and
+`get_runtime_stats` call no Dockhand endpoint at all) — see `src/tools/meta.ts`.
+
+| Tool | Description |
+|------|-------------|
+| `get_server_info` | This server's own version, git SHA, build date, uptime, MCP protocol version, and the Dockhand URL/server version it's connected to |
+| `check_for_update` | Compares this server's running version against the latest GitHub release (TTL-cached) |
+| `get_tool_manifest` | Lists every registered tool with its Dockhand `{method, path}`, plus the pinned Dockhand OpenAPI commit/version this server's tools were generated against |
+| `self_check` | End-to-end diagnostic: Dockhand reachability, credential validity, and a live, per-environment reachability check (`POST /api/environments/{id}/test`, run in parallel with a 5s per-environment timeout) plus Hawser-agent-connected status, in one call |
+| `validate_config` | Checks that the required `DOCKHAND_URL`/`DOCKHAND_USERNAME`/`DOCKHAND_PASSWORD` env vars are present and that they authenticate successfully |
+| `get_runtime_stats` | In-process counters for this server: total/per-tool call and error counts, uptime, and the last error's tool/message/timestamp |
+
+**Notes:**
+
+- `check_for_update` needs outbound network access to `api.github.com` (GitHub's releases
+  API) — it will degrade to `updateAvailable: null` rather than fail if that's unreachable.
+- **No meta tool exposes any secret value.** `validate_config` reports only whether the
+  required env vars are *present* (booleans) and whether they *authenticate* (a boolean +
+  the raw HTTP status code, e.g. `200`/`401`) — never the credential values themselves.
+  `self_check` reports auth validity the same way. `get_runtime_stats`' `lastError` carries
+  only a tool name, an error message, and a timestamp — never call arguments or response
+  payloads. **That error message is not fully opaque, though:** for a failed Dockhand API
+  call it can embed a slice of the upstream HTTP status and response body (via
+  `DockhandClient`'s own `Dockhand API error: ... returned <status>: <body>` message), and
+  it is echoed to whichever MCP client next calls `get_runtime_stats` — not necessarily the
+  one that hit the original error. It never includes request bodies or credential values,
+  and it is truncated to 500 characters (with an ellipsis marker) before being stored, so an
+  oversized upstream response is never echoed wholesale.
+
 ## Important Notes
 
 ### update_stack_env — Merge vs Replace Semantics

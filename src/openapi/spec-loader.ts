@@ -30,6 +30,7 @@ const PROJECT_ROOT = resolve(__dirname, '..', '..');
 const SPEC_FILE = join(PROJECT_ROOT, 'docs', 'dockhand-openapi.json');
 
 interface OpenApiSpec {
+  info?: { version?: string };
   paths?: Record<string, Record<string, OpenApiOperation>>;
 }
 
@@ -71,4 +72,16 @@ export function specOperation(endpoint: ToolEndpointEntry | undefined): OpenApiO
   const methods = spec.paths[endpoint.path];
   if (!methods) return undefined;
   return methods[endpoint.method.toLowerCase()];
+}
+
+/**
+ * Returns the pinned Dockhand OpenAPI spec's `info.version` (e.g. "1.0.41"), or
+ * `undefined` when the spec file is unavailable (see `loadSpec()`) or carries no
+ * `info.version`. Used by `get_tool_manifest` (src/tools/meta.ts) to report which
+ * Dockhand API version the generated `TOOL_ENDPOINT_MAP` was derived from, alongside
+ * the pinned source commit (`PINNED_DOCKHAND_OPENAPI_COMMIT`, src/openapi/pinned.ts).
+ */
+export function specInfoVersion(): string | undefined {
+  const spec = loadSpec();
+  return spec?.info?.version;
 }

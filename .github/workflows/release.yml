@@ -78,6 +78,16 @@ jobs:
         with:
           ref: v${{ needs.release.outputs.new_release_version }}
 
+      # The checked-out ref is the release TAG, which @semantic-release/git creates on
+      # its own commit (e.g. a CHANGELOG.md/package.json version bump) — NOT the commit
+      # that triggered the `release` job. `github.sha` still refers to the latter, so
+      # using it as MCP_GIT_SHA below would bake the pre-release commit into the image
+      # instead of the commit actually being built. Resolve the real, checked-out
+      # revision explicitly instead.
+      - name: Resolve checked-out revision
+        id: rev
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Compute lowercase image ref
         id: image
         env:
@@ -110,6 +120,10 @@ jobs:
           outputs: type=image,name=${{ steps.image.outputs.ref }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+          build-args: |
+            MCP_SERVER_VERSION=${{ needs.release.outputs.new_release_version }}
+            MCP_GIT_SHA=${{ steps.rev.outputs.sha }}
+            MCP_BUILD_DATE=${{ steps.ts.outputs.created }}
           labels: |
             org.opencontainers.image.title=MCP-Dockhand
             org.opencontainers.image.description=Model Context Protocol (MCP) Server for Dockhand Docker Management — 130+ tools for container, stack, image, network, and volume management.
@@ -117,7 +131,7 @@ jobs:
             org.opencontainers.image.url=https://github.com/${{ github.repository }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ needs.release.outputs.new_release_version }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ steps.rev.outputs.sha }}
             org.opencontainers.image.created=${{ steps.ts.outputs.created }}
             org.opencontainers.image.licenses=MIT
 

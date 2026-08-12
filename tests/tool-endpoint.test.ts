@@ -13,6 +13,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { toolEndpoint, endpointToTool } from '../src/openapi/tool-endpoint.js';
 import { TOOL_ENDPOINT_MAP } from '../src/openapi/tool-endpoint-map.js';
+import { META_TOOL_NAMES } from '../src/tools/meta.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TOOLS_DIR = join(__dirname, '..', 'src', 'tools');
@@ -96,10 +97,37 @@ describe('tool-endpoint-map completeness', () => {
     return names;
   }
 
-  it('every registered tool has an entry, except the documented get_prometheus_metrics gap', () => {
+  // All six self-help/meta tools (src/tools/meta.ts) are deliberately excluded, same as
+  // get_prometheus_metrics above: TOOL_ENDPOINT_MAP records "the one real Dockhand endpoint
+  // this tool calls", which does not apply to any of them --
+  //   - `check_for_update` calls the GitHub releases API, not Dockhand, at all.
+  //   - `get_tool_manifest` calls no HTTP endpoint whatsoever (pure local computation over
+  //     TOOL_ENDPOINT_MAP + the pinned OpenAPI spec).
+  //   - `get_server_info` does call `GET /api/changelog` internally, but only as a
+  //     best-effort, try/catch-degraded lookup for the running Dockhand server's version
+  //     (see buildServerInfo() in meta.ts) -- an implementation detail, not its contract.
+  //   - `self_check` calls FOUR different Dockhand endpoints internally (`/api/health`,
+  //     `/api/auth/login`, `/api/environments`, `/api/hawser/connect`) -- a diagnostic
+  //     aggregator, not a wrapper around any single endpoint's contract.
+  //   - `validate_config` calls `/api/auth/login` internally, purely as a best-effort
+  //     credential-validity probe (see validateConfig() in meta.ts) -- same "implementation
+  //     detail, not contract" reasoning as `get_server_info` above.
+  //   - `get_runtime_stats` calls no HTTP endpoint at all (pure in-process counters, see
+  //     src/utils/runtime-stats.ts).
+  //
+  // Imported from src/tools/meta.ts (Fix round 2, Finding 4) rather than duplicated here
+  // as a local literal: META_TOOL_NAMES is the same list get_tool_manifest's own
+  // registration wiring now reuses to include these six tools in its inventory, so this
+  // test and that production code can never drift apart.
+  const META_TOOLS_WITHOUT_ENDPOINT = META_TOOL_NAMES;
+
+  it('every registered tool has an entry, except the documented get_prometheus_metrics gap and the meta tools', () => {
     const allNames = extractAllToolNames();
     const missing = allNames.filter(
-      (name) => !(name in TOOL_ENDPOINT_MAP) && name !== 'get_prometheus_metrics',
+      (name) =>
+        !(name in TOOL_ENDPOINT_MAP) &&
+        name !== 'get_prometheus_metrics' &&
+        !META_TOOLS_WITHOUT_ENDPOINT.includes(name),
     );
     expect(missing, `\n${missing.join('\n')}`).toEqual([]);
   });

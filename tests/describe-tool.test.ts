@@ -87,4 +87,61 @@ describe('describeTool', () => {
       );
     });
   });
+
+  describe('description overrides (Self-Help Final Fix Wave, Finding 1): the six meta tools', () => {
+    // None of the six self-help/meta tools (registerMetaTools(), src/tools/meta.ts) wrap a
+    // Dockhand endpoint, so without an override each would silently get the literal fallback
+    // string "No description available." — the exact text an MCP client sees, since the
+    // README (where these ARE documented) is never visible to a client. This is the outcome
+    // check for that fix: each must resolve to its own real override text, never the
+    // fallback, and never another meta tool's text.
+    const metaTools = [
+      'get_server_info',
+      'check_for_update',
+      'get_tool_manifest',
+      'self_check',
+      'validate_config',
+      'get_runtime_stats',
+    ];
+
+    it.each(metaTools)('%s: resolves to a real, non-fallback description', (name) => {
+      const description = describeTool(name);
+      expect(description.length).toBeGreaterThan(0);
+      expect(description).not.toBe('No description available.');
+    });
+
+    it('each meta tool gets its OWN description, not another meta tool\'s', () => {
+      const descriptions = metaTools.map((name) => describeTool(name));
+      expect(new Set(descriptions).size).toBe(metaTools.length);
+    });
+
+    it('get_server_info: mentions version/uptime, not a Dockhand REST field', () => {
+      expect(describeTool('get_server_info')).toMatch(/version/i);
+      expect(describeTool('get_server_info')).toMatch(/uptime/i);
+    });
+
+    it('check_for_update: mentions the GitHub release comparison', () => {
+      expect(describeTool('check_for_update')).toMatch(/github release/i);
+    });
+
+    it('get_tool_manifest: mentions the pinned Dockhand OpenAPI commit/version', () => {
+      expect(describeTool('get_tool_manifest')).toMatch(/openapi/i);
+    });
+
+    it('self_check: mentions reachability and credential validity', () => {
+      expect(describeTool('self_check')).toMatch(/reachab/i);
+      expect(describeTool('self_check')).toMatch(/credential/i);
+    });
+
+    it('validate_config: mentions it never returns secret values', () => {
+      expect(describeTool('validate_config')).toMatch(/never/i);
+      expect(describeTool('validate_config')).toMatch(/secret/i);
+    });
+
+    it('get_runtime_stats: mentions per-tool counters and that call args/response payloads are never captured', () => {
+      const description = describeTool('get_runtime_stats');
+      expect(description).toMatch(/counters?/i);
+      expect(description).toMatch(/never.*(arguments|payloads)/i);
+    });
+  });
 });
