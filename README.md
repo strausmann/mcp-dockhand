@@ -70,7 +70,55 @@ DOCKHAND_URL=https://your-server.com DOCKHAND_USERNAME=admin DOCKHAND_PASSWORD=s
 | `MCP_SESSION_TTL_SECONDS` | No | `1800` | Inactivity timeout before a retained MCP session is expired |
 | `MCP_SESSION_CLEANUP_INTERVAL_SECONDS` | No | `300` | Interval for removing expired sessions (clamped to the session TTL) |
 | `MCP_MAX_SESSIONS` | No | `0` | Maximum retained sessions; `0` keeps the existing unlimited behavior |
+| `MCP_HOST` | No | `0.0.0.0` | Listen address. Kept as the wildcard address by default so the published Docker port (`-p 8080:8080` / `docker-compose.yml`) keeps working; see [Securing the transport](#securing-the-transport) for the recommended way to protect the endpoint instead of binding loopback-only |
+| `MCP_ALLOWED_HOSTS` | No | *(unset — Host check disabled)* | Comma-separated `Host` header allowlist for `/mcp` (DNS-rebinding protection). **Opt-in**: unset means no Host check at all (pre-existing behavior, so existing deployments aren't broken by an update). Recommended once you set it up — see [Securing the transport](#securing-the-transport) |
+| `MCP_ALLOWED_ORIGINS` | No | *(unset — Origin check disabled)* | Comma-separated `Origin` header allowlist for `/mcp`. Opt-in, same as above. Only enforced when a caller actually sends an `Origin` header at all (non-browser MCP clients typically don't) |
+| `MCP_AUTH_TOKEN` | No | *(unset — endpoint unauthenticated)* | Shared secret required as `Authorization: Bearer <token>` on every `/mcp` request. Opt-in; recommended once the endpoint is reachable beyond your own loopback — see [Securing the transport](#securing-the-transport) |
 | `LOG_LEVEL` | No | `info` | Log level |
+
+### Securing the transport
+
+`/mcp` binds `0.0.0.0:8080` by default (see `MCP_HOST` above), and out of the box — with none of
+`MCP_ALLOWED_HOSTS`, `MCP_ALLOWED_ORIGINS`, or `MCP_AUTH_TOKEN` set — it accepts **any** request
+with **no** Host/Origin check and **no** authentication. This is the same behavior mcp-dockhand
+has always had, kept as the default deliberately: enabling a check by default would reject
+requests from any client that doesn't reach the server as `localhost`/`127.0.0.1` (a LAN IP, a
+reverse proxy, a Docker network alias), breaking existing deployments on a routine update.
+
+**You should turn this on** once `/mcp` is reachable beyond your own machine's loopback interface
+— the server holds one Dockhand admin credential and every tool call acts with that identity, so
+anyone who can open an MCP session controls Docker (container exec, host bind-mounts via
+`create_container`, file read/write, stored git credentials). With no protection configured, the
+server logs a `[security] WARNING` at startup as a reminder. Three independent, all-opt-in layers
+are available:
+
+1. **Host allowlist (`MCP_ALLOWED_HOSTS`).** Once set to a non-empty value, every request to
+   `/mcp` — `POST`, `GET`, and `DELETE` — is rejected with `403` unless its `Host` header matches
+   the allowlist. This is the primary defense against
+   [DNS-rebinding](https://en.wikipedia.org/wiki/DNS_rebinding): a malicious web page cannot make
+   the operator's browser reach the server under a Host value the allowlist accepts. Set it to
+   however your client actually reaches the server — `localhost:8080`/`127.0.0.1:8080` for the
+   documented local setup, or, if you connect directly by address rather than through
+   `localhost` (including the mcp-proxy remote-server setup below), the exact `host:port` your
+   client sends, e.g. `100.100.50.40:8222`. Get this wrong and every request is rejected with
+   `403 Invalid Host header` — check the message, it echoes the Host value it saw.
+2. **Origin allowlist (`MCP_ALLOWED_ORIGINS`).** Once set, any request that *does* send an
+   `Origin` header not in the list is rejected with `403`. A missing `Origin` header always passes
+   (the SDK's own MCP client and most non-browser tooling never send one), so this is only useful
+   if a browser-based client talks to `/mcp` directly; the Host allowlist above is what actually
+   stops DNS-rebinding.
+3. **Bearer token (`MCP_AUTH_TOKEN`).** Once set, every `/mcp` request must carry
+   `Authorization: Bearer <token>` or is rejected with `401`; the comparison is constant-time.
+   Recommended alongside the Host allowlist for any deployment reachable from more than the
+   operator's own machine.
+
+```bash
+# .env — recommended configuration once /mcp is reachable beyond loopback
+MCP_ALLOWED_HOSTS=dock-mcp.internal.example.com
+# or, connecting directly by address instead of a hostname:
+#MCP_ALLOWED_HOSTS=100.100.50.40:8222
+MCP_AUTH_TOKEN=<a long random secret, e.g. `openssl rand -hex 32`>
+```
 
 ## MCP Client Configuration
 
