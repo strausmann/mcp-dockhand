@@ -6,6 +6,7 @@
  * bounded through configurable inactivity cleanup and an optional LRU cap.
  */
 
+import type { Server as HttpServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -13,6 +14,12 @@ import express from 'express';
 import type { Request, Response } from 'express';
 import { DockhandClient } from './client/dockhand-client.js';
 import { registerAllTools } from './tools/index.js';
+import {
+  createBearerAuthGuard,
+  createHostOriginGuard,
+  getTransportSecurityConfig,
+  isHostOriginEnforcementActive,
+} from './auth/transport-guard.js';
 import {
   beginFoundingSession,
   completeFoundingSession,
@@ -46,9 +53,21 @@ function createMcpServer(client: DockhandClient): McpServer {
   return server;
 }
 
-export async function createServer(config: ServerConfig): Promise<void> {
+export async function createServer(config: ServerConfig): Promise<HttpServer> {
   const client = new DockhandClient(config.dockhand);
   const lifecycle = getSessionLifecycleConfig();
+  const security = getTransportSecurityConfig(config.port);
+  const hostOriginEnforced = isHostOriginEnforcementActive(security);
+  if (!hostOriginEnforced && !security.authToken) {
+    console.error(
+      '[security] WARNING: /mcp has no Host/Origin allowlist (MCP_ALLOWED_HOSTS) and no bearer token ' +
+        '(MCP_AUTH_TOKEN) configured — it accepts requests from any reachable client with no checks at all.',
+    );
+    console.error(
+      '[security] This is the compatible default. Set MCP_ALLOWED_HOSTS (DNS-rebinding protection) and ' +
+        'MCP_AUTH_TOKEN ("Authorization: Bearer <token>") once this endpoint is reachable beyond loopback.',
+    );
+  }
   const app = express();
   app.use(express.json());
 
@@ -138,6 +157,22 @@ export async function createServer(config: ServerConfig): Promise<void> {
   }, lifecycle.cleanupIntervalMs);
   cleanupInterval.unref();
 
+  // DNS-rebinding protection (Host/Origin allowlist) and the opt-in bearer
+  // token guard the whole /mcp surface (POST/GET/DELETE) — registered ahead
+  // of the route handlers below so a rejected request never reaches session
+  // lookup or the MCP SDK transport. See src/auth/transport-guard.ts.
+  //
+  // The Host/Origin guard is only *registered* when the operator opted in
+  // (MCP_ALLOWED_HOSTS and/or MCP_ALLOWED_ORIGINS set): with neither set,
+  // omitting the middleware entirely reproduces the pre-existing behavior
+  // exactly, rather than relying on an always-registered guard that happens
+  // to no-op on empty allowlists. createBearerAuthGuard is always
+  // registered — it is already a no-op when no token is configured.
+  if (hostOriginEnforced) {
+    app.use('/mcp', createHostOriginGuard(security.allowedHosts, security.allowedOrigins));
+  }
+  app.use('/mcp', createBearerAuthGuard(security.authToken));
+
   app.post('/mcp', async (req: Request, res: Response) => {
     try {
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
@@ -164,6 +199,16 @@ export async function createServer(config: ServerConfig): Promise<void> {
       try {
         transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => crypto.randomUUID(),
+          // Defense-in-depth, mirroring the opt-in Express guard above: only
+          // enabled when the operator actually configured an allowlist, so
+          // an unconfigured deployment sees the SDK's own compatible
+          // default (false) unchanged. The SDK marks these transport-level
+          // options @deprecated in favor of external middleware, but
+          // passing them costs nothing and covers any future call path that
+          // bypasses the Express middleware chain.
+          enableDnsRebindingProtection: hostOriginEnforced,
+          allowedHosts: security.allowedHosts,
+          allowedOrigins: security.allowedOrigins,
           onsessioninitialized: (id) => {
             initializedSessionId = id;
             // Mark the session busy (activeRequests: 1) immediately: the
@@ -253,13 +298,16 @@ export async function createServer(config: ServerConfig): Promise<void> {
   });
 
   const host = config.host || '0.0.0.0';
-  app.listen(config.port, host, () => {
-    console.error(`[server] MCP Dockhand server v${pkg.version} listening on ${host}:${config.port}`);
-    console.error(`[server] Dockhand URL: ${config.dockhand.url}`);
-    console.error(`[server] Health: http://localhost:${config.port}/health`);
-    console.error(`[server] MCP endpoint: http://localhost:${config.port}/mcp`);
-    console.error(
-      `[session] Lifecycle ttl=${lifecycle.inactivityTimeoutMs / 1000}s cleanup=${lifecycle.cleanupIntervalMs / 1000}s max=${lifecycle.maxSessions === 0 ? 'unlimited' : lifecycle.maxSessions}`,
-    );
+  return await new Promise<HttpServer>((resolve) => {
+    const httpServer = app.listen(config.port, host, () => {
+      console.error(`[server] MCP Dockhand server v${pkg.version} listening on ${host}:${config.port}`);
+      console.error(`[server] Dockhand URL: ${config.dockhand.url}`);
+      console.error(`[server] Health: http://localhost:${config.port}/health`);
+      console.error(`[server] MCP endpoint: http://localhost:${config.port}/mcp`);
+      console.error(
+        `[session] Lifecycle ttl=${lifecycle.inactivityTimeoutMs / 1000}s cleanup=${lifecycle.cleanupIntervalMs / 1000}s max=${lifecycle.maxSessions === 0 ? 'unlimited' : lifecycle.maxSessions}`,
+      );
+      resolve(httpServer);
+    });
   });
 }
