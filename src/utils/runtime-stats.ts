@@ -28,7 +28,18 @@
  * `DockhandClient.request()`/`requestRaw()`), near the start of the message —
  * outside the reach of the length bound above. `recordError()` therefore
  * redacts the query portion of any URL in the message BEFORE truncating.
+ *
+ * Fix round 3, Item B: the redaction itself now lives in `src/utils/redact.ts` and is
+ * applied FIRST at `DockhandClient`'s own error-message construction — the single point
+ * every surface (stderr/`docker logs`, the MCP caller's error response, AND this
+ * module's `lastError`) traces back to, see that file's own doc comment for the full
+ * rationale. The call to `redactQueryStrings()` below is kept as defense-in-depth: a
+ * harmless no-op re-redaction for `DockhandClient`-sourced messages (already redacted
+ * upstream), and still the only line of defense for any future error message that does
+ * NOT originate from `DockhandClient`.
  */
+
+import { redactQueryStrings } from './redact.js';
 
 export interface LastError {
   tool: string;
@@ -86,28 +97,6 @@ const MAX_ERROR_MESSAGE_LENGTH = 500;
 function truncateMessage(message: string): string {
   if (message.length <= MAX_ERROR_MESSAGE_LENGTH) return message;
   return `${message.slice(0, MAX_ERROR_MESSAGE_LENGTH)}…`;
-}
-
-/** Marker `redactQueryStrings` substitutes for a URL's query string. */
-const QUERY_STRING_REDACTION_MARKER = '<redacted>';
-
-/**
- * Replaces the query-string portion of any URL embedded in `message` with
- * `QUERY_STRING_REDACTION_MARKER`. A tool call can put a secret in a URL
- * query param (e.g. `trigger_git_webhook`'s webhook `secret`, see the module
- * doc comment above); if that call fails, the secret would otherwise ride
- * along inside `error.message` and — via `recordError`/`getStatsSnapshot` —
- * be exposed to any MCP client that later calls `get_runtime_stats`.
- *
- * Matches a literal `?` followed by a run of non-whitespace characters
- * (the query string always ends at the next space in the surrounding
- * `Dockhand API error: … returned …` message, or at the end of the string)
- * and replaces the whole match, so no fragment of the original query
- * string — key or value — survives in the stored message. A message with
- * no `?` is returned unchanged.
- */
-function redactQueryStrings(message: string): string {
-  return message.replace(/\?\S+/g, `?${QUERY_STRING_REDACTION_MARKER}`);
 }
 
 /**
