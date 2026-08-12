@@ -136,6 +136,35 @@ Add to your MCP settings:
 }
 ```
 
+> **If the server enforces a bearer token** (`MCP_AUTH_TOKEN` set — see
+> [Securing the transport](#securing-the-transport)), the client must send it as an
+> `Authorization` header, or every request is rejected with `401`. In Claude Code's
+> `.mcp.json`, add a `headers` block — reference an environment variable so the token
+> never lives in the (often version-controlled) config file:
+>
+> ```json
+> {
+>   "mcpServers": {
+>     "dockhand": {
+>       "type": "http",
+>       "url": "http://your-server:8080/mcp",
+>       "headers": { "Authorization": "Bearer ${DOCKHAND_MCP_TOKEN}" }
+>     }
+>   }
+> }
+> ```
+>
+> **Send the token only over an encrypted transport.** A bearer over plain `http://` on a
+> shared network can be sniffed — terminate TLS at a reverse proxy, or reach the server over
+> a WireGuard/Tailscale/VPN link (the app-layer HTTP is then encrypted by the tunnel).
+>
+> Export `DOCKHAND_MCP_TOKEN` in the environment Claude Code is launched from (e.g. from a
+> gitignored `.env` you `source` before starting). The `Host`/`host:port` you connect to
+> must also be in the server's `MCP_ALLOWED_HOSTS` if that allowlist is set. For **Claude
+> Desktop** (native config has no `headers` field), pass the token through the mcp-proxy
+> workaround below — mcp-proxy forwards an `Authorization` header via its own
+> environment/args.
+
 #### Claude Desktop with a remote server (mcp-proxy)
 
 Claude Desktop can fail to connect to a **remote** mcp-dockhand server (not
