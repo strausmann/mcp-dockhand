@@ -19,13 +19,13 @@ describe('validateConfig', () => {
     }
   });
 
-  it('reports all env present and valid credentials when the login probe returns 200', async () => {
+  it('reports all env present and valid credentials when the login probe completes auth (200 + session cookie)', async () => {
     process.env.DOCKHAND_URL = 'https://dock.example.test';
     process.env.DOCKHAND_USERNAME = 'admin';
     process.env.DOCKHAND_PASSWORD = 'super-secret-password';
 
     const result = await validateConfig({
-      attemptLogin: async () => 200,
+      attemptLogin: async () => ({ statusCode: 200, completedAuth: true }),
     });
 
     expect(result).toEqual({
@@ -48,7 +48,7 @@ describe('validateConfig', () => {
     const result = await validateConfig({
       attemptLogin: async () => {
         loginCalled = true;
-        return 200;
+        return { statusCode: 200, completedAuth: true };
       },
     });
 
@@ -68,11 +68,28 @@ describe('validateConfig', () => {
     process.env.DOCKHAND_PASSWORD = 'wrong-password';
 
     const result = await validateConfig({
-      attemptLogin: async () => 401,
+      attemptLogin: async () => ({ statusCode: 401, completedAuth: false }),
     });
 
     expect(result.credentialsValid).toBe(false);
     expect(result.statusCode).toBe(401);
+  });
+
+  it('reports credentialsValid:false while still surfacing statusCode:200 for a 200-but-MFA-pending login (Fix round 2, Finding 3)', async () => {
+    // The core of the fix: a 200 response is not on its own proof of a completed,
+    // non-interactively-usable login — an MFA account returns 200 + requiresMfa:true
+    // with no session cookie. attemptRawLogin() (the real wiring) turns that into
+    // completedAuth:false while still reporting the true statusCode.
+    process.env.DOCKHAND_URL = 'https://dock.example.test';
+    process.env.DOCKHAND_USERNAME = 'mfa-user';
+    process.env.DOCKHAND_PASSWORD = 'correct-password-but-mfa-required';
+
+    const result = await validateConfig({
+      attemptLogin: async () => ({ statusCode: 200, completedAuth: false }),
+    });
+
+    expect(result.credentialsValid).toBe(false);
+    expect(result.statusCode).toBe(200);
   });
 
   it('degrades to credentialsValid:false, statusCode:null when the login probe throws (network error)', async () => {
@@ -96,7 +113,7 @@ describe('validateConfig', () => {
     process.env.DOCKHAND_PASSWORD = 'sentinel-password-value';
 
     const result = await validateConfig({
-      attemptLogin: async () => 200,
+      attemptLogin: async () => ({ statusCode: 200, completedAuth: true }),
     });
 
     const serialized = JSON.stringify(result);

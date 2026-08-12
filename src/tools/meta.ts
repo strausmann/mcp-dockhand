@@ -287,21 +287,28 @@ export interface ConfigValidation {
  * password all present, and calling out anyway would risk a confusing error unrelated to the
  * real problem (a missing var).
  *
- * `attemptLogin` is injected (returns an HTTP status code) so this is testable without a
- * live Dockhand instance and without ever touching the credential's value in a test —
- * only the resulting status code crosses the boundary. `credentialsValid` is exactly
- * `statusCode === 200`; any other status (401, 403, ...) or a thrown error (network
- * failure, timeout) degrades to `credentialsValid: false` — a probe that throws never
- * propagates out of `validateConfig`, matching the self-help-tools-never-break posture
- * of `buildServerInfo()` / `runSelfCheck()` above. On a thrown probe, `statusCode` stays
- * `null` (there was no response to report a code from).
+ * `attemptLogin` is injected (returns a `LoginProbeResult`, see that interface's own doc
+ * comment below) so this is testable without a live Dockhand instance and without ever
+ * touching the credential's value in a test — only the resulting status code and
+ * completed-auth boolean cross the boundary. `credentialsValid` is exactly
+ * `completedAuth` (Fix round 2, Finding 3: NOT `statusCode === 200` — a `200` can still
+ * mean an incomplete, MFA-pending login with no session established, which
+ * `LoginProbeResult.completedAuth` already accounts for; see `attemptRawLogin()`'s doc
+ * comment for the full rationale). Any other status (401, 403, ...), an incomplete `200`,
+ * or a thrown error (network failure, timeout) all degrade to `credentialsValid: false` —
+ * a probe that throws never propagates out of `validateConfig`, matching the
+ * self-help-tools-never-break posture of `buildServerInfo()` / `runSelfCheck()` above. On
+ * a thrown probe, `statusCode` stays `null` (there was no response to report a code
+ * from); on a completed probe, `statusCode` always reports the real HTTP status,
+ * independent of `credentialsValid` — so a `200`-but-MFA-pending outcome is still
+ * visible as `statusCode: 200, credentialsValid: false`, not conflated with a `401`.
  *
  * Per `secret-safe-config-inspection.md` / `service-verifikation.md`: this function reads
  * env values only to compute a boolean and to pass them (via the injected `attemptLogin`)
  * to a live auth check — it never places a value itself into the returned object.
  */
 export async function validateConfig(deps: {
-  attemptLogin: () => Promise<number>;
+  attemptLogin: () => Promise<LoginProbeResult>;
 }): Promise<ConfigValidation> {
   const requiredEnvPresent = {
     DOCKHAND_URL: !!process.env.DOCKHAND_URL,
@@ -315,15 +322,19 @@ export async function validateConfig(deps: {
   }
 
   let statusCode: number | null;
+  let completedAuth: boolean;
   try {
-    statusCode = await deps.attemptLogin();
+    const probe = await deps.attemptLogin();
+    statusCode = probe.statusCode;
+    completedAuth = probe.completedAuth;
   } catch {
     statusCode = null;
+    completedAuth = false;
   }
 
   return {
     requiredEnvPresent,
-    credentialsValid: statusCode === 200,
+    credentialsValid: completedAuth,
     statusCode,
   };
 }
@@ -412,8 +423,7 @@ const ENVIRONMENT_TEST_TIMEOUT_MS = 5_000;
  * deliberate, acceptable trade-off for a lightweight diagnostic tool — `self_check`'s
  * job is to stay responsive, not to strictly bound background resource usage.
  *
- * Exported (unlike the other registration-time-only helpers in this file, e.g.
- * `attemptRawLogin`) so it can be unit-tested directly — it is small, generic,
+ * Exported so it can be unit-tested directly — it is small, generic,
  * timing-sensitive logic in its own right, not just wiring.
  */
 export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -433,20 +443,40 @@ export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<
 }
 
 /**
+ * The outcome of a one-shot login probe (`attemptRawLogin()` below) — the shared shape
+ * behind both `self_check`'s `authValid` and `validate_config`'s `credentialsValid`.
+ *
+ * `statusCode` is always the real HTTP status Dockhand returned (or `null` upstream, in
+ * `validateConfig()`, when the probe itself threw) — kept separate from `completedAuth`
+ * so a caller can still report *what actually happened* (e.g. `401`) even though a
+ * bare status code is not, on its own, a reliable "auth is valid" signal (see
+ * `completedAuth`'s own doc below, Fix round 2 / Finding 3).
+ *
+ * `completedAuth` is the actual "is this credential usable non-interactively right
+ * now" answer: `true` only for a `200` response that also established a real session
+ * (a session cookie was set) AND did not carry `requiresMfa:true`. `false` for every
+ * other outcome — including a `200` that did neither.
+ */
+export interface LoginProbeResult {
+  statusCode: number;
+  completedAuth: boolean;
+}
+
+/**
  * A dedicated, minimal raw login attempt against Dockhand's own `/api/auth/login` —
  * the shared wiring behind both `self_check`'s `authValid` and `validate_config`'s
  * `credentialsValid`.
  *
  * Deliberately NOT `SessionManager.login()` (src/auth/session.ts): that method
  * `console.error`s the configured username on failure and throws rather than
- * resolving to a status code — useful for its own job (diagnosable auto-relogin
+ * resolving to a result value — useful for its own job (diagnosable auto-relogin
  * failures in `docker logs`, Issue #116), wrong for this one. Two self-help tools
- * need the plain HTTP status (200 valid / 401 invalid) as a value, not a side effect
- * or an exception, and neither needs the extra log line. This function does neither:
- * no logging, always resolves to `response.status` — a genuine transport failure
- * (DNS, connection refused, timeout) is left to the caller's own try/catch, matching
- * `runSelfCheck()`'s `probeAuth` and `validateConfig()`'s `attemptLogin` contracts
- * (both already documented above as "throws → treated as invalid/false").
+ * need the outcome as a plain value, not a side effect or an exception, and neither
+ * needs the extra log line. This function does neither: no logging, always resolves to
+ * a `LoginProbeResult` — a genuine transport failure (DNS, connection refused, timeout)
+ * is left to the caller's own try/catch, matching `runSelfCheck()`'s `probeAuth` and
+ * `validateConfig()`'s `attemptLogin` contracts (both already documented above as
+ * "throws → treated as invalid/false").
  *
  * Also why this can't just be `client.get(...)`: `DockhandClient`'s request methods
  * auto-relogin on a 401 (see `dockhand-client.ts`'s `request()`), which is exactly the
@@ -460,18 +490,27 @@ export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<
  * `DOCKHAND_PASSWORD` only to place them in the POST body sent directly to Dockhand's
  * own login endpoint — the same two values `SessionManager` itself sends on every
  * real login — and never logs, returns, or otherwise surfaces either value. Only the
- * numeric status code crosses back out of this function.
+ * `LoginProbeResult` (a status code plus a boolean) crosses back out of this function —
+ * the response body itself is inspected here for exactly one boolean flag
+ * (`requiresMfa`) and never returned.
  *
- * Known imprecision (pre-existing codebase behavior, not introduced here): a `200`
- * response can also mean `{ success: true, requiresMfa: true }` — a login that still
- * needs a second factor, per `/api/auth/login`'s own documented response shape. This
- * function (and therefore both `self_check`'s `authValid` and `validate_config`'s
- * `credentialsValid`) does not distinguish that case from a fully completed login;
- * both read as "valid". Distinguishing them would need parsing the response body,
- * which `SessionManager.login()` itself does not do either (see `session.ts` —
- * it treats any `response.ok` as success and extracts only the session cookie).
+ * Fix round 2, Finding 3 (P2): a `200` response from `/api/auth/login` does not always
+ * mean a usable session was established. Per `docs/dockhand-openapi.json`'s own
+ * description of this endpoint's `200` response ("Login succeeded and dockhand_session
+ * cookie was set — OR requiresMfa:true if a second factor is needed first"), a `200`
+ * can also carry `{ success: true, requiresMfa: true }` with NO session cookie — an MFA
+ * account whose credentials this one-shot, non-interactive probe can never fully
+ * authenticate (there is no second factor to supply). The previous version of this
+ * function treated any `200` as valid, so `validate_config.credentialsValid` and
+ * `self_check`'s `authValid` both reported `true` for such an account even though it
+ * could not actually establish a session through this path. This function now reads
+ * the response body's `requiresMfa` flag and checks for a `Set-Cookie` session cookie
+ * (mirroring `SessionManager.performLogin()`'s own cookie-extraction fallback chain —
+ * `getSetCookie()` then the raw `set-cookie` header — without needing the cookie's
+ * *value*, only its presence): `completedAuth` is `true` only when the status is `200`,
+ * a session cookie was set, AND `requiresMfa` is not `true`.
  */
-async function attemptRawLogin(baseUrl: string): Promise<number> {
+export async function attemptRawLogin(baseUrl: string): Promise<LoginProbeResult> {
   const response = await fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -482,7 +521,28 @@ async function attemptRawLogin(baseUrl: string): Promise<number> {
     }),
     redirect: 'manual',
   });
-  return response.status;
+
+  const statusCode = response.status;
+  if (statusCode !== 200) {
+    return { statusCode, completedAuth: false };
+  }
+
+  // Read the body once (mirrors SessionManager.performLogin()'s own "read once, cache"
+  // pattern for the same reason: a Response body can only be consumed once).
+  const bodyText = await response.text().catch(() => '');
+  let requiresMfa = false;
+  try {
+    const body = bodyText ? (JSON.parse(bodyText) as { requiresMfa?: unknown }) : {};
+    requiresMfa = body?.requiresMfa === true;
+  } catch {
+    // Non-JSON or unparsable body — no requiresMfa flag to find, treat as absent.
+    requiresMfa = false;
+  }
+
+  const setCookie = response.headers.getSetCookie?.() ?? [];
+  const hasSessionCookie = setCookie.length > 0 || !!response.headers.get('set-cookie');
+
+  return { statusCode, completedAuth: hasSessionCookie && !requiresMfa };
 }
 
 /** Timeout for the unauthenticated `/api/health` liveness probe below (Fix round 2,
@@ -559,7 +619,10 @@ export async function probeRawHealth(baseUrl: string): Promise<void> {
  *         (network error, non-2xx status, or timeout) means Dockhand is unreachable;
  *         `runSelfCheck` short-circuits to `overall: "down"` without calling the other
  *         two probes.
- *       - `probeAuth`: `attemptRawLogin()` above, `status === 200`.
+ *       - `probeAuth`: `attemptRawLogin()` above, `.completedAuth` (**Fix round 2,
+ *         Finding 3**: NOT a bare `status === 200` check — see `attemptRawLogin()`'s own
+ *         doc comment for why a `200` alone is not sufficient, e.g. an MFA-pending
+ *         login).
  *       - `listEnvironments`: three calls, then `deriveEnvironmentStatuses()` above turns
  *         their results into `SelfCheckEnvironment[]` — see that function's own doc comment
  *         for exactly how `reachable`/`hawserConnected` are derived (**Fix round 1, Finding
@@ -585,9 +648,10 @@ export async function probeRawHealth(baseUrl: string): Promise<void> {
  *              failing `listEnvironments` for every other environment.
  *   - `validate_config`: `validateConfig()`'s `attemptLogin` is `attemptRawLogin()` above
  *     against `client.getBaseUrl()` — the same helper `self_check` uses, so the two tools
- *     agree on what "the configured credentials are valid" means. `requiredEnvPresent` reads
- *     `process.env` directly inside `validateConfig()` itself (see its own doc comment); this
- *     registration only supplies the login probe.
+ *     agree on what "the configured credentials are valid" means (both key off
+ *     `LoginProbeResult.completedAuth`, not a bare status code — Fix round 2, Finding 3).
+ *     `requiredEnvPresent` reads `process.env` directly inside `validateConfig()` itself
+ *     (see its own doc comment); this registration only supplies the login probe.
  *   - `get_runtime_stats`: `getStatsSnapshot()` (`src/utils/runtime-stats.js`) — no
  *     dependencies to wire, the counters live at module scope and are updated by
  *     `registerTool()` itself on every call (`recordCall`/`recordError`, see
@@ -636,7 +700,7 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
     async () => {
       const result = await runSelfCheck({
         probeHealth: () => probeRawHealth(client.getBaseUrl()),
-        probeAuth: async () => (await attemptRawLogin(client.getBaseUrl())) === 200,
+        probeAuth: async () => (await attemptRawLogin(client.getBaseUrl())).completedAuth,
         listEnvironments: async () => {
           const envs = await client.get<EnvironmentListEntry[]>('/api/environments');
 
