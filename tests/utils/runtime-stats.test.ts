@@ -81,6 +81,42 @@ describe('runtime-stats', () => {
     });
   });
 
+  describe('recordError redacts URL query strings before storing (Self-Help Final Fix Wave, Finding 1 / P1 security)', () => {
+    // trigger_git_webhook (src/tools/git-stacks.ts) calls client.get(url, { secret }), which
+    // DockhandClient turns into a `?secret=<value>` query param. On failure that URL lands
+    // verbatim inside `Dockhand API error: ${method} ${url} returned …`. get_runtime_stats
+    // echoes lastError.message to a DIFFERENT MCP client than the one that failed, so the
+    // secret must never survive into the stored/snapshotted message.
+
+    it('redacts a secret carried in a query string and shows the redaction marker', () => {
+      const message =
+        'Dockhand API error: GET https://dockhand.example/api/git/stacks/7/webhook?secret=abc123def returned 500: Internal Server Error';
+      recordError('trigger_git_webhook', message);
+      const snap = getStatsSnapshot();
+      const stored = snap.lastError?.message ?? '';
+      expect(stored).not.toContain('abc123def');
+      expect(stored).toContain('?<redacted>');
+    });
+
+    it('leaves a message with no query string unchanged', () => {
+      const message = 'Dockhand API error: PUT /api/stacks/foo/env returned 500: boom';
+      recordError('update_stack_env', message);
+      const snap = getStatsSnapshot();
+      expect(snap.lastError?.message).toBe(message);
+    });
+
+    it('redacts multiple query params on the same URL, not just the secret key', () => {
+      const message =
+        'Dockhand API error: GET /api/git/stacks/7/webhook?secret=abc123def&x=1 returned 500: boom';
+      recordError('trigger_git_webhook', message);
+      const snap = getStatsSnapshot();
+      const stored = snap.lastError?.message ?? '';
+      expect(stored).not.toContain('abc123def');
+      expect(stored).not.toContain('x=1');
+      expect(stored).toContain('?<redacted>');
+    });
+  });
+
   it('getStatsSnapshot exposes startedAt as an ISO timestamp', () => {
     const snap = getStatsSnapshot();
     expect(typeof snap.startedAt).toBe('string');

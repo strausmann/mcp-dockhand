@@ -19,6 +19,15 @@
  * that triggered the original error. `recordError()` bounds the stored
  * message to `MAX_ERROR_MESSAGE_LENGTH` characters for exactly this reason:
  * an unbounded upstream body must never be echoed wholesale.
+ *
+ * `error.message` can also embed a URL query string, and a query string can
+ * carry a secret — e.g. `trigger_git_webhook` (src/tools/git-stacks.ts) calls
+ * `client.get('/api/git/stacks/{id}/webhook', { secret })`, which puts the
+ * webhook secret in the URL as `?secret=<value>`. On failure that URL lands
+ * verbatim inside `Dockhand API error: ${method} ${url} returned …` (see
+ * `DockhandClient.request()`/`requestRaw()`), near the start of the message —
+ * outside the reach of the length bound above. `recordError()` therefore
+ * redacts the query portion of any URL in the message BEFORE truncating.
  */
 
 export interface LastError {
@@ -79,15 +88,42 @@ function truncateMessage(message: string): string {
   return `${message.slice(0, MAX_ERROR_MESSAGE_LENGTH)}…`;
 }
 
+/** Marker `redactQueryStrings` substitutes for a URL's query string. */
+const QUERY_STRING_REDACTION_MARKER = '<redacted>';
+
+/**
+ * Replaces the query-string portion of any URL embedded in `message` with
+ * `QUERY_STRING_REDACTION_MARKER`. A tool call can put a secret in a URL
+ * query param (e.g. `trigger_git_webhook`'s webhook `secret`, see the module
+ * doc comment above); if that call fails, the secret would otherwise ride
+ * along inside `error.message` and — via `recordError`/`getStatsSnapshot` —
+ * be exposed to any MCP client that later calls `get_runtime_stats`.
+ *
+ * Matches a literal `?` followed by a run of non-whitespace characters
+ * (the query string always ends at the next space in the surrounding
+ * `Dockhand API error: … returned …` message, or at the end of the string)
+ * and replaces the whole match, so no fragment of the original query
+ * string — key or value — survives in the stored message. A message with
+ * no `?` is returned unchanged.
+ */
+function redactQueryStrings(message: string): string {
+  return message.replace(/\?\S+/g, `?${QUERY_STRING_REDACTION_MARKER}`);
+}
+
 /**
  * Records a single tool failure. Stores only the tool name and the error
- * message (bounded to `MAX_ERROR_MESSAGE_LENGTH`, see above) — never the
+ * message — with any URL query string redacted (see `redactQueryStrings`)
+ * and bounded to `MAX_ERROR_MESSAGE_LENGTH` (see above) — never the
  * arguments or any response/result payload.
  */
 export function recordError(tool: string, message: string): void {
   errorCount += 1;
   getOrCreate(tool).errors += 1;
-  lastError = { tool, message: truncateMessage(message), at: new Date().toISOString() };
+  lastError = {
+    tool,
+    message: truncateMessage(redactQueryStrings(message)),
+    at: new Date().toISOString(),
+  };
 }
 
 /** Returns a plain-data snapshot of the current counters. */
