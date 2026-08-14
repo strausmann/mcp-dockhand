@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-09T22:29:23.100Z",
+  "generatedAt": "2026-08-14T05:50:22.453Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "905c4a004dafe1cbad4ed2babc2c532d7f4018b8",
-  "endpointCount": 235,
+  "sourceCommit": "cd5d2651b37cc9a3e44d488cc63bbb6703289010",
+  "endpointCount": 241,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -470,6 +470,12 @@
       "path": "/api/backup/destinations/test",
       "methods": [
         "POST"
+      ]
+    },
+    {
+      "path": "/api/backup/instance",
+      "methods": [
+        "GET"
       ]
     },
     {
@@ -1495,6 +1501,12 @@
       ]
     },
     {
+      "path": "/api/images/load",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
       "path": "/api/images/pull",
       "methods": [
         "POST"
@@ -2084,6 +2096,39 @@
       ],
       "pathParams": [
         "id"
+      ]
+    },
+    {
+      "path": "/api/secret-providers",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/secret-providers/{id}",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PUT"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
+      "path": "/api/secret-providers/{id}/test",
+      "methods": [
+        "POST"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
+      "path": "/api/secret-providers/test",
+      "methods": [
+        "POST"
       ]
     },
     {
