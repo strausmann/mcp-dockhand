@@ -53,7 +53,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/dockhand-api-schema.json
-          git commit -m "chore: update Dockhand API schema (automated)"
+          git commit -m "chore(api): update Dockhand API schema (automated)"
           git push
 
       - name: Fetch Dockhand OpenAPI body-contract spec
@@ -81,7 +81,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/dockhand-openapi.json
-          git commit -m "chore: update Dockhand OpenAPI body-contract spec (automated)"
+          git commit -m "chore(api): update Dockhand OpenAPI body-contract spec (automated)"
           git push
 
       - name: Validate MCP tools against schema
@@ -103,7 +103,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet docs/coverage.md; then
             git add docs/coverage.md
-            git commit -m "docs: update API coverage report (automated)"
+            git commit -m "docs(api): update API coverage report (automated)"
             git push
           else
             echo "docs/coverage.md unverändert — kein Commit"
@@ -124,7 +124,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet docs/body-contract-report.md; then
             git add docs/body-contract-report.md
-            git commit -m "docs: update body-contract findings report (automated)"
+            git commit -m "docs(api): update body-contract findings report (automated)"
             git push
           else
             echo "docs/body-contract-report.md unverändert — kein Commit"
