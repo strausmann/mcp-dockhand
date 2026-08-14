@@ -4,18 +4,18 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-08-10T21:00:07.457Z
-**Dockhand-Upstream-Commit:** `905c4a004dafe1cbad4ed2babc2c532d7f4018b8`
-**Schema-Endpunkte gesamt:** 235
+**Erzeugt:** 2026-08-14T05:51:06.726Z
+**Dockhand-Upstream-Commit:** `cd5d2651b37cc9a3e44d488cc63bbb6703289010`
+**Schema-Endpunkte gesamt:** 241
 
 ## Coverage
 
-**90.5%** (287/317 in-Scope-Endpunkte haben ein MCP-Tool)
+**88.0%** (287/326 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
 | COVERED | 287 |
-| MISSING_TOOL | 30 |
+| MISSING_TOOL | 39 |
 | Deliberately omitted (Registry, siehe unten) | 1 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -25,7 +25,7 @@
 Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
 ersten Pfad-Segment nach `/api/`:
 
-### backup (29)
+### backup (30)
 
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
@@ -47,6 +47,7 @@ ersten Pfad-Segment nach `/api/`:
 | POST | `/api/backup/destinations/{id}/test` | id |
 | POST | `/api/backup/destinations/{id}/verify` | id |
 | POST | `/api/backup/destinations/test` | - |
+| GET | `/api/backup/instance` | - |
 | POST | `/api/backup/restore` | - |
 | POST | `/api/backup/restore/preview` | - |
 | POST | `/api/backup/restore/stop` | - |
@@ -64,6 +65,24 @@ ersten Pfad-Segment nach `/api/`:
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
 | POST | `/api/git/stacks/{id}/webhook` | id |
+
+### images (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| POST | `/api/images/load` | - |
+
+### secret-providers (7)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/secret-providers` | - |
+| POST | `/api/secret-providers` | - |
+| DELETE | `/api/secret-providers/{id}` | id |
+| GET | `/api/secret-providers/{id}` | id |
+| PUT | `/api/secret-providers/{id}` | id |
+| POST | `/api/secret-providers/{id}/test` | id |
+| POST | `/api/secret-providers/test` | - |
 
 ## Deliberately omitted (with reason)
 
