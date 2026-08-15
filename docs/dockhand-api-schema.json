@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-14T05:50:22.453Z",
+  "generatedAt": "2026-08-15T05:06:25.235Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "cd5d2651b37cc9a3e44d488cc63bbb6703289010",
-  "endpointCount": 241,
+  "sourceCommit": "19548772df38f37ed5272575561d28911476c083",
+  "endpointCount": 242,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -2111,6 +2111,15 @@
         "DELETE",
         "GET",
         "PUT"
+      ],
+      "pathParams": [
+        "id"
+      ]
+    },
+    {
+      "path": "/api/secret-providers/{id}/probe",
+      "methods": [
+        "POST"
       ],
       "pathParams": [
         "id"
