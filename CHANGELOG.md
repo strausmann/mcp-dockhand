@@ -5,6 +5,18 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.1](https://github.com/strausmann/mcp-dockhand/compare/v1.13.0...v1.13.1) (2026-08-15)
+
+### Bug Fixes
+
+* **ci:** give api-schema-sync bot commits a valid commitlint scope ([#191](https://github.com/strausmann/mcp-dockhand/issues/191)) ([78d4a98](https://github.com/strausmann/mcp-dockhand/commit/78d4a98fbe272db6ce2f394de8eeeee16cbbae91))
+
+### Documentation
+
+* **api:** update API coverage report (automated) ([36a1f78](https://github.com/strausmann/mcp-dockhand/commit/36a1f78e7f0a14144134f40a4288f561b3f01157))
+* **api:** update body-contract findings report (automated) ([5a5bfcf](https://github.com/strausmann/mcp-dockhand/commit/5a5bfcfddb4c17ab97710f862d9dc0146fbeafa7))
+* show bearer-token client config when MCP_AUTH_TOKEN is enforced ([#189](https://github.com/strausmann/mcp-dockhand/issues/189)) ([4899d29](https://github.com/strausmann/mcp-dockhand/commit/4899d296847ffd1f6d59bb5996eb632b0b829217)), references [#188](https://github.com/strausmann/mcp-dockhand/issues/188)
+
 ## [1.13.0](https://github.com/strausmann/mcp-dockhand/compare/v1.12.0...v1.13.0) (2026-08-12)
 
 ### Features
