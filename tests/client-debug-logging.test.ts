@@ -115,4 +115,40 @@ describe('client debug logging', () => {
 
     expect(debugLines()).toHaveLength(0);
   });
+
+  it('logs a network failure at warn without leaking the URL, and still throws', async () => {
+    // Every other test uses mockResolvedValue, so fetch never rejects and this branch
+    // never runs — meaning the secret guarantee on the warn line was, until this test,
+    // held by review alone, not by a test. The wrapper's catch block is the only place
+    // in the file this can be exercised.
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'));
+
+    const instance = await client();
+    await expect(instance.get('/api/stacks/paperless/env/raw')).rejects.toThrow('fetch failed');
+
+    const [line] = debugLines();
+    expect(line.level).toBe('warn');
+    expect(line.route).toBe('/api/stacks');
+    expect(line.err.type).toBe('TypeError');
+    expect(JSON.stringify(line)).not.toContain('paperless');
+  });
+
+  it('logs the 401 retry as its own line with the same route', async () => {
+    // The whole point of one shared wrapper instead of patching each of the eight
+    // call sites individually: a retry after a 401 shows up as a second, independent
+    // line — which is exactly what you want to see when debugging an auth problem.
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
+      );
+
+    const instance = await client();
+    await instance.get('/api/stacks');
+
+    const lines = debugLines();
+    expect(lines).toHaveLength(2);
+    expect(lines.map((l) => l.status)).toEqual([401, 200]);
+    expect(lines[0].route).toBe(lines[1].route);
+  });
 });

@@ -13,9 +13,11 @@ import { log, currentLogContext } from '../utils/log-context.js';
 const SSE_TIMEOUT_MS = 300_000;
 
 /**
- * Fallback for calls made outside a tool context (login, self-check): the first two
- * path segments. Coarse on purpose — it is enough to tell /api/auth from /api/stacks
- * and short enough that it cannot contain an identifier.
+ * Fallback for calls made outside a tool context (login, self-check) and for any tool
+ * with no `TOOL_ENDPOINT_MAP` entry — the latter arrives with caller-supplied path
+ * parameters already substituted into `pathname`, same as the former. The first two
+ * path segments are coarse on purpose — enough to tell /api/auth from /api/stacks and
+ * short enough that it cannot contain an identifier.
  */
 function coarseRoute(pathname: string): string {
   const segments = pathname.split('/').filter(Boolean).slice(0, 2);
@@ -196,7 +198,11 @@ export class DockhandClient {
    * politeness: `url` carries stack names, container ids and — for
    * trigger_git_webhook — a secret in the query string. There is deliberately no code
    * path here that can write a value, rather than a filter that has to keep up with
-   * every parameter a future tool introduces.
+   * every parameter a future tool introduces. That is exact for the context-supplied
+   * route; for the `coarseRoute()` fallback it is a truncation argument instead — two
+   * path segments are short enough that no identifier fits, even though the segments
+   * themselves come from the same caller-supplied `pathname` that `url` would expose
+   * in full.
    */
   private async loggedFetch(method: string, url: string, init: RequestInit): Promise<Response> {
     const started = Date.now();
@@ -219,13 +225,20 @@ export class DockhandClient {
       );
       return response;
     } catch (error) {
+      // No `message` field: it is free text from an exception this code did not
+      // construct, and the one field in this file that would not be structurally
+      // value-free. `error.name` is bounded to the DOM/Node exception vocabulary
+      // (TypeError, TimeoutError, AbortError, ...) and — unlike the previous
+      // hardcoded 'NetworkError' — actually reflects what AbortSignal.timeout()
+      // throws when the SSE timeout fires.
       log().warn(
         {
           component: 'client',
           method,
           route,
+          ...(query.length ? { query } : {}),
           ms: Date.now() - started,
-          err: { type: 'NetworkError', message: error instanceof Error ? error.message : 'unknown' },
+          err: { type: error instanceof Error ? error.name : 'UnknownError' },
         },
         'dockhand request failed',
       );
