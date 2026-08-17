@@ -42,9 +42,9 @@ describe('specOperation', () => {
 describe('specInfoVersion', () => {
   it("returns the real spec's info.version (used by get_tool_manifest, src/tools/meta.ts)", () => {
     // Same committed spec every other test in this file resolves operations against
-    // (docs/dockhand-openapi.json) — its info.version is currently "1.0.41". Re-pin this
+    // (docs/dockhand-openapi.json) — its info.version is currently "1.0.42". Re-pin this
     // literal whenever scripts/fetch-openapi.mjs (SOURCE_COMMIT) is bumped, same as
     // PINNED_DOCKHAND_OPENAPI_COMMIT in src/openapi/pinned.ts.
-    expect(specInfoVersion()).toBe('1.0.41');
+    expect(specInfoVersion()).toBe('1.0.42');
   });
 });

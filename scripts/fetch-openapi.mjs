@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * Body-Contract-Quelle: holt die generierte openapi.json aus dem JSDoc-annotierten
- * strausmann/dockhand-Branch `feat/openapi-refresh` (= Finsys/dockhand#1341) und kopiert
- * sie nach docs/dockhand-openapi.json — der Eingang, den
- * scripts/lib/openapi-contract-source.mjs (Task P1.2) konsumiert.
+ * Body-Contract-Quelle: holt die von Dockhand mitgelieferte OpenAPI-Spec aus dem ECHTEN
+ * Upstream Finsys/dockhand und kopiert sie nach docs/dockhand-openapi.json — der Eingang,
+ * den scripts/lib/openapi-contract-source.mjs (Task P1.2) konsumiert.
  *
  * Der Quell-Commit ist bewusst GEPINNT (nicht "aktueller Branch-Head"): Body-Contract-
  * Checks sollen reproduzierbar sein und nicht bei jedem fremden Push auf den Branch
@@ -14,11 +13,11 @@
  * Ablauf:
  *   1. Shallow-Fetch GENAU des gepinnten Commits (kein voller Branch-Klon nötig — GitHub
  *      erlaubt das Fetchen einzelner erreichbarer SHAs über die Smart-HTTP-Protokoll).
- *   2. `npm install` (bewusst NICHT `npm ci` — der Quell-Branch/-Klon hat für diesen
- *      Fetch-Zweck keine relevante, committete Lockfile-Erwartung an uns).
- *   3. `npx tsx scripts/generate-openapi.ts` — Dockhands eigener Generator (standalone,
- *      kein Docker/DB nötig), schreibt `static/openapi.json`.
- *   4. Kopiert die erzeugte Spec nach `docs/dockhand-openapi.json` in DIESEM Repo, mit
+ *   2. Liest die vom Upstream MITGELIEFERTE `src/lib/openapi.generated.json`. Früher wurde
+ *      hier `npm install` + `npx tsx scripts/generate-openapi.ts` ausgeführt; das entfällt
+ *      (schneller, keine Netz-/Toolchain-Abhängigkeit im Quell-Klon) und geht upstream
+ *      ohnehin nicht mehr — dort fehlen die Generator-Dateien.
+ *   3. Kopiert die Spec nach `docs/dockhand-openapi.json` in DIESEM Repo, mit
  *      No-op-Schutz (ignoriert ein eventuelles `generatedAt`-Feld beim Vergleich, analog
  *      `generate-coverage-doc.mjs`/`extract-dockhand-api.mjs`), damit ein inhaltlich
  *      unveränderter Contract keinen Leer-Commit erzeugt.
@@ -38,15 +37,32 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = resolve(__dirname, '..');
 
-// Body-Contract-Quelle: strausmann/dockhand, Branch feat/openapi-refresh (= Finsys/dockhand#1341).
-// GEPINNT auf einen festen Commit -- siehe Datei-Kopf-Kommentar. Aktualisieren = bewusster Schritt,
-// nicht "immer der aktuelle Branch-Head".
-const SOURCE_REPO = 'https://github.com/strausmann/dockhand.git';
-const SOURCE_BRANCH = 'feat/openapi-refresh';
-const SOURCE_COMMIT = 'db2a196f7241c12faf693cf7b2bc2e26df8dc75c';
+// Body-Contract-Quelle: der ECHTE Upstream Finsys/dockhand.
+//
+// Bis 2026-08-17 stand hier strausmann/dockhand (unser Fork), Branch feat/openapi-refresh
+// -- damals richtig, weil die @openapi-Annotationen nur in unserem PR-Branch existierten.
+// Inzwischen hat der Maintainer sie uebernommen (Commit da26f7f, "OpenAPI spec at /api/docs
+// with a Scalar viewer") UND liefert die erzeugte Spec als src/lib/openapi.generated.json
+// mit. Der Fork ist seitdem eingefroren; solange diese Konstante auf ihn zeigte, blieb
+// docs/dockhand-openapi.json auf 1.0.41 stehen und kannte weder die secret-providers-Familie
+// noch /api/images/load. Genau diese Fork-Falle hat am selben Tag schon einmal zugeschlagen
+// (falsches "neuestes Release" aus veralteten Tags).
+//
+// GEPINNT auf einen festen Commit -- siehe Datei-Kopf-Kommentar. Aktualisieren = bewusster
+// Schritt, nicht "immer der aktuelle Branch-Head".
+const SOURCE_REPO = 'https://github.com/Finsys/dockhand.git';
+const SOURCE_BRANCH = 'main';
+const SOURCE_COMMIT = 'da26f7f764563a35dacc970cc0196e6aa7828384';
 
-// Wo Dockhands eigener Generator die Spec im Quell-Klon ablegt (scripts/generate-openapi.ts).
-const GENERATED_RELATIVE_PATH = join('static', 'openapi.json');
+// Die vom Maintainer MITGELIEFERTE Spec -- nicht mehr selbst generiert.
+//
+// Frueher lief hier `npm install` + `npx tsx scripts/generate-openapi.ts` im Quell-Klon.
+// Das geht upstream nicht mehr: der Cherry-Pick hat scripts/generate-openapi.ts sowie
+// scripts/openapi/{lib,build-spec}.ts NICHT mitgenommen (verifiziert -- `npm run prebuild`
+// bricht dort mit Exit 1 ab). Selbst generieren waere ausserdem schlechter: unsere Fassung
+// des Generators kennt das Top-Level-Feld `description:` nicht und verschluckt es
+// stillschweigend -- 73 Operationsbeschreibungen wuerden verlorengehen.
+const GENERATED_RELATIVE_PATH = join('src', 'lib', 'openapi.generated.json');
 const OUTPUT_FILE = join(PROJECT_ROOT, 'docs', 'dockhand-openapi.json');
 
 /**
@@ -76,20 +92,26 @@ function fetchPinnedCommit() {
  * @returns {object} Der geparste Inhalt der erzeugten `static/openapi.json`
  */
 function generateSpec(cloneDir) {
-  console.error('[fetch-openapi] npm install im Quell-Klon...');
-  execFileSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: cloneDir, stdio: 'pipe' });
-
-  console.error('[fetch-openapi] npx tsx scripts/generate-openapi.ts...');
-  execFileSync('npx', ['tsx', 'scripts/generate-openapi.ts'], { cwd: cloneDir, stdio: 'pipe' });
-
   const generatedFile = join(cloneDir, GENERATED_RELATIVE_PATH);
   if (!existsSync(generatedFile)) {
     throw new Error(
-      `[fetch-openapi] Generator hat ${GENERATED_RELATIVE_PATH} nicht erzeugt (Ausgabepfad im Quell-Repo geändert?)`
+      `[fetch-openapi] ${GENERATED_RELATIVE_PATH} fehlt im Quell-Klon. Liefert der gepinnte ` +
+        'Commit die erzeugte Spec nicht (mehr) mit? Nicht auf Selbst-Generieren ausweichen — ' +
+        'unser Generator verschluckt das Feld "description" und liefert eine aermere Spec.'
     );
   }
 
-  return JSON.parse(readFileSync(generatedFile, 'utf8'));
+  console.error(`[fetch-openapi] Uebernehme mitgelieferte Spec ${GENERATED_RELATIVE_PATH}...`);
+  const spec = JSON.parse(readFileSync(generatedFile, 'utf8'));
+
+  // Der Upstream committet die Spec aus seinem AKTUELLEN main-Baum, nicht aus dem Stand des
+  // jeweiligen Commits — sie kann also Pfade enthalten, die es im laufenden Release noch
+  // nicht gibt (belegt 17.08.2026: /api/containers/{id}/version-notes stammt aus ba8670a,
+  // erschien aber schon in der Spec von da26f7f). Solche Pfade werden NICHT entfernt: die
+  // Spec dient der Beschreibung, und ein Tool entsteht ohnehin nur bewusst und nur fuer
+  // einen Endpunkt, den die deployte Version hat. Der Hinweis steht hier, damit ein
+  // Abgleich "Spec-Pfad ohne Tool" nicht als Luecke fehlgedeutet wird.
+  return spec;
 }
 
 /**

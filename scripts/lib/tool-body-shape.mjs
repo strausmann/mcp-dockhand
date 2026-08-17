@@ -57,7 +57,31 @@ function unwrapZodType(zodType) {
  */
 function isOptionalZodType(zodType) {
   if (!zodType || typeof zodType !== 'object') return false;
+  // A `.default(...)` field is optional on the INPUT side (the caller may omit it) but is
+  // ALWAYS present in the outgoing request body — Zod fills it in. `requiredSent` asks the
+  // latter question, so a defaulted field counts as always-sent, not as optional. Without
+  // this, declaring a contract-required field with a sensible default (the backward-
+  // compatible way to add one) trips BODY_PARAM_MISSING_REQUIRED even though the field is
+  // sent on every single call.
+  if (hasZodDefault(zodType)) return false;
   return typeof zodType.isOptional === 'function' && zodType.isOptional() === true;
+}
+
+/**
+ * @param {unknown} zodType
+ * @returns {boolean} true if any wrapper in the chain is a `.default(...)`
+ */
+function hasZodDefault(zodType) {
+  let current = zodType;
+  for (let depth = 0; depth < MAX_UNWRAP_DEPTH; depth++) {
+    if (!current || typeof current !== 'object') return false;
+    const def = current.def ?? current._def;
+    if (!def) return false;
+    if (def.type === 'default') return true;
+    if (!UNWRAPPABLE_ZOD_TYPES.has(def.type) || !def.innerType) return false;
+    current = def.innerType;
+  }
+  return false;
 }
 
 /**
