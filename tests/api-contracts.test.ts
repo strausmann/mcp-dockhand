@@ -363,18 +363,21 @@ describe('Dockhand 1.0.42 contract additions', () => {
   it('create_stack offers and forwards secretProviderId', () => {
     const block = extractToolBlock(stacksSource, 'create_stack');
 
-    expect(block).toMatch(/secretProviderId:\s*z\.number\(\)\.optional\(\)/);
+    // nullable: the handler explicitly accepts null ("secretProviderId must be a number or
+    // null") — a plain z.number() would reject it client-side and make unbinding impossible.
+    expect(block).toMatch(/secretProviderId:\s*z\.number\(\)\.nullable\(\)\.optional\(\)/);
     expect(block).toMatch(/body\.secretProviderId\s*=\s*secretProviderId/);
-    // Only when the caller supplied it — sending `undefined` would be a body field
-    // the endpoint sees as present-but-empty.
+    // Only when the caller supplied it — the guard must stay `!== undefined`, so an explicit
+    // null is forwarded (clearing the binding) while an omitted field stays omitted.
     expect(block).toMatch(/if \(secretProviderId !== undefined\)/);
   });
 
   it('update_stack_compose offers and forwards secretProviderId', () => {
     const block = extractToolBlock(stacksSource, 'update_stack_compose');
 
-    expect(block).toMatch(/secretProviderId:\s*z\.number\(\)\.optional\(\)/);
+    expect(block).toMatch(/secretProviderId:\s*z\.number\(\)\.nullable\(\)\.optional\(\)/);
     expect(block).toMatch(/body\.secretProviderId\s*=\s*secretProviderId/);
+    expect(block).toMatch(/if \(secretProviderId !== undefined\)/);
   });
 
   it('enable_user_mfa always sends an explicit action and can reach the verify path', () => {

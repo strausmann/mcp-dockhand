@@ -34,7 +34,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         isSecret: z.boolean().optional(),
       })).optional().describe('Environment variables'),
       rawEnvContent: z.string().optional().describe('Raw .env file content'),
-      secretProviderId: z.number().optional().describe('Bind the stack to a configured secret provider (id from list_secret_providers); its secrets are injected at deploy. Dockhand 1.0.42+'),
+      secretProviderId: z.number().nullable().optional().describe('Bind the stack to a configured secret provider (id from list_secret_providers); its secrets are injected at deploy. Pass null to leave it unbound. Dockhand 1.0.42+'),
     },
     async ({ environmentId, name, compose, composePath, envPath, start, envVars, rawEnvContent, secretProviderId }) => {
       const body: Record<string, unknown> = { name, compose };
@@ -133,7 +133,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       name: z.string().describe('Stack name'),
       content: z.string().describe('New compose file content'),
       restart: z.boolean().optional().describe('Redeploy after update (default: false)'),
-      secretProviderId: z.number().optional().describe('Bind the stack to a configured secret provider (id from list_secret_providers); its secrets are injected at deploy. Dockhand 1.0.42+'),
+      secretProviderId: z.number().nullable().optional().describe('Bind the stack to a configured secret provider (id from list_secret_providers); its secrets are injected at deploy. Pass null to CLEAR an existing binding; omit to leave it unchanged. Dockhand 1.0.42+'),
     },
     async ({ environmentId, name, content, restart, secretProviderId }) => {
       const body: Record<string, unknown> = { content };

@@ -20,10 +20,19 @@ import { deriveToolDescription } from './derive-description.js';
 import { toolEndpoint, endpointToTool } from './tool-endpoint.js';
 import { specOperation } from './spec-loader.js';
 import { TOOL_DESCRIPTION_OVERRIDES } from './description-overrides.js';
+import { TOOL_DESCRIPTION_SUFFIXES } from './description-suffixes.js';
+
+/** Appends the tool's operator-safety note, when it has one. See description-suffixes.ts. */
+function withSuffix(name: string, description: string): string {
+  const suffix = TOOL_DESCRIPTION_SUFFIXES[name];
+  return suffix ? `${description} ${suffix}` : description;
+}
 
 export function describeTool(name: string): string {
   const override = TOOL_DESCRIPTION_OVERRIDES[name];
-  if (override) return override;
+  // A suffix applies to an overridden description too — it is a caller-side rule, not a
+  // property of where the text came from.
+  if (override) return withSuffix(name, override);
 
   const endpoint = toolEndpoint(name);
   if (!endpoint) {
@@ -39,5 +48,5 @@ export function describeTool(name: string): string {
     );
   }
 
-  return deriveToolDescription(op ?? {}, endpointToTool);
+  return withSuffix(name, deriveToolDescription(op ?? {}, endpointToTool));
 }
