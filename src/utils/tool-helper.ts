@@ -6,10 +6,12 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { z } from 'zod';
+import { randomUUID } from 'node:crypto';
 import { jsonResponse, textResponse, errorResponse } from './response.js';
 import { describeTool } from '../openapi/describe-tool.js';
 import { recordCall, recordError } from './runtime-stats.js';
-import { log } from './log-context.js';
+import { runWithLogContext, log, currentLogContext } from './log-context.js';
+import { TOOL_ENDPOINT_MAP } from '../openapi/tool-endpoint-map.js';
 
 // Re-export response helpers for convenience
 export { jsonResponse, textResponse, errorResponse };
@@ -41,19 +43,40 @@ export function registerTool<T extends ZodShape>(
   /* eslint-disable @typescript-eslint/no-explicit-any */
   (server as any).tool(name, description, schema, async (args: any) => {
     recordCall(name);
-    try {
-      return await callback(args);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      // Fail loud: a thrown error here (e.g. a lazily-triggered Dockhand
-      // login failure) would otherwise only ever reach the caller as a
-      // structured MCP tool-error response — never written to
-      // stderr/docker logs. Logged unconditionally so every tool failure
-      // is diagnosable from container logs alone. See Issue #116.
-      log().error({ component: 'tools', tool: name, err: { type: 'ToolError', message } }, 'tool failed');
-      recordError(name, message);
-      return errorResponse(message);
-    }
+    const outer = currentLogContext();
+    const started = Date.now();
+
+    return runWithLogContext(
+      {
+        ...outer,
+        call: randomUUID(),
+        tool: name,
+        // The template, never the concrete path: this is what keeps a stack name or a
+        // container id out of every debug line the client below will write.
+        route: TOOL_ENDPOINT_MAP[name]?.path,
+      },
+      async () => {
+        log().info({ component: 'tools' }, 'start');
+        try {
+          const result = await callback(args);
+          log().info({ component: 'tools', ms: Date.now() - started }, 'ok');
+          return result;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          // Fail loud: a thrown error here (e.g. a lazily-triggered Dockhand
+          // login failure) would otherwise only ever reach the caller as a
+          // structured MCP tool-error response — never written to
+          // stderr/docker logs. Logged unconditionally so every tool failure
+          // is diagnosable from container logs alone. See Issue #116.
+          log().error(
+            { component: 'tools', ms: Date.now() - started, err: { type: 'ToolError', message } },
+            'tool failed',
+          );
+          recordError(name, message);
+          return errorResponse(message);
+        }
+      },
+    );
   });
   /* eslint-enable @typescript-eslint/no-explicit-any */
 }

@@ -68,10 +68,13 @@ describe('registerTool error logging', () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Dockhand login failed');
 
-    expect(written).toHaveLength(1);
-    const logged = written[0];
-    expect(logged).toContain('health_check');
-    expect(logged).toContain('Dockhand login failed');
+    // Since Task 7 (call correlation, tests/tool-correlation.test.ts) registerTool also
+    // logs a "start" line before the callback runs, so a failure now produces two lines,
+    // not one. The error line is the one that carries the diagnosis.
+    expect(written).toHaveLength(2);
+    const [, errorLine] = written;
+    expect(errorLine).toContain('health_check');
+    expect(errorLine).toContain('Dockhand login failed');
     restore();
   });
 
@@ -88,13 +91,13 @@ describe('registerTool error logging', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Unknown error');
-    const logged = written[0];
-    expect(logged).toContain('get_system_info');
-    expect(logged).toContain('Unknown error');
+    const [, errorLine] = written;
+    expect(errorLine).toContain('get_system_info');
+    expect(errorLine).toContain('Unknown error');
     restore();
   });
 
-  it('does not log anything when the callback succeeds (happy path)', async () => {
+  it('logs only a start and an ok line when the callback succeeds (happy path)', async () => {
     const { written, restore } = captureLoggerOutput();
     const server = fakeServer();
 
@@ -105,7 +108,11 @@ describe('registerTool error logging', () => {
     const result = await server.tools.get('get_host_info')!.handler({ id: 42 });
 
     expect(result.isError).toBeUndefined();
-    expect(written).toHaveLength(0);
+    // Task 7 added an unconditional "start"/"ok" pair around every call (see
+    // tests/tool-correlation.test.ts) — a success no longer logs nothing, but it must
+    // never log at error level.
+    expect(written).toHaveLength(2);
+    expect(written.some((line) => line.includes('"level":"error"'))).toBe(false);
     restore();
   });
 
@@ -121,7 +128,8 @@ describe('registerTool error logging', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('ECONNREFUSED');
-    expect(written[0]).toContain('ECONNREFUSED');
+    const [, errorLine] = written;
+    expect(errorLine).toContain('ECONNREFUSED');
     restore();
   });
 });
