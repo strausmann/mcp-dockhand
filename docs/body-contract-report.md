@@ -10,7 +10,7 @@
 > hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-Issue) — hier weiterhin nur
 > zur Übersicht gelistet. Die übrigen drei Typen bleiben vollständig advisory.
 
-**Erzeugt:** 2026-08-17T19:57:10.043Z
+**Erzeugt:** 2026-08-17T20:01:17.811Z
 
 ## Zusammenfassung
 
@@ -27,14 +27,14 @@ Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Aussch
 | Tool | HTTP | Pfad | Feld | Datei |
 |------|------|------|------|-------|
 | `activate_license` | POST | `/api/license` | `licenseKey` | system.ts:179 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `name` | stacks.ts:489 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `composePath` | stacks.ts:489 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `envPath` | stacks.ts:489 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `sourceDir` | stacks.ts:489 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `name` | stacks.ts:494 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `composePath` | stacks.ts:494 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `envPath` | stacks.ts:494 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `sourceDir` | stacks.ts:494 |
 | `create_environment` | POST | `/api/environments` | `url` | environments.ts:93 |
 | `create_user` | POST | `/api/users` | `roles` | users.ts:33 |
-| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env` | `keys` | stacks.ts:414 |
-| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env/raw` | `keys` | stacks.ts:422 |
+| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env` | `keys` | stacks.ts:419 |
+| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env/raw` | `keys` | stacks.ts:427 |
 | `set_container_auto_update` | POST | `/api/auto-update/{containerName}` | `policy` | auto-update.ts:37 |
 | `test_environment_connection` | POST | `/api/environments/test` | `url` | environments.ts:161 |
 
