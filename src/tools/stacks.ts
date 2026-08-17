@@ -347,7 +347,12 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       // Dockhand answers with JSON (`{ content, noEnvFile? }`), never with the file's bytes.
       // Passing that straight through handed callers `{"content":"KEY=value\n…"}` while the
       // tool advertises "read the raw .env" — the envelope instead of the thing (#198).
-      const raw = await client.get<unknown>(`/api/stacks/${encodePath(name)}/env/raw`, { env: environmentId });
+      // Bewusst OHNE Typargument. Der Aufruf liefert ohnehin `unknown`, und der
+      // Endpunkt-Extraktor in scripts/validate-mcp-tools.mjs erkennt die Aufrufform nur
+      // ohne spitze Klammern — mit Typargument faellt der Endpunkt aus
+      // src/openapi/tool-endpoint-map.ts heraus. Das bleibt nicht unbemerkt:
+      // tests/tool-endpoint.test.ts schlaegt dann an (in diesem PR genau so passiert).
+      const raw = await client.get(`/api/stacks/${encodePath(name)}/env/raw`, { env: environmentId });
 
       // "No env file at all" and "an env file that happens to be empty" both arrive as an
       // empty string. They are different states — one means the stack has no .env, the other
