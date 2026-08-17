@@ -16,9 +16,10 @@ function setup() {
   return { handler, client };
 }
 // get() is called twice: first structured /env, then raw /env/raw.
+// `/env/raw` answers with `{ content }` (JSON), never a bare string — see #196.
 function wireGet(client: { get: ReturnType<typeof vi.fn> }, structured: unknown, raw: string) {
   client.get.mockImplementation((path: string) =>
-    path.endsWith('/env/raw') ? Promise.resolve(raw) : Promise.resolve(structured));
+    path.endsWith('/env/raw') ? Promise.resolve({ content: raw }) : Promise.resolve(structured));
 }
 
 describe('remove_stack_env_vars', () => {

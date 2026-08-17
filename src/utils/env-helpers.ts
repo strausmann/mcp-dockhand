@@ -42,6 +42,42 @@ export function diffEnvVars(
   };
 }
 
+/**
+ * Unwrap the body of `GET /api/stacks/{name}/env/raw` into the raw .env text.
+ *
+ * The endpoint answers with JSON, never with a bare string — every return path
+ * in Dockhand's handler (`src/routes/api/stacks/[name]/env/raw/+server.ts`) is
+ * a `json(...)` call: `{ content }` on success, `{ content: '', noEnvFile: true }`
+ * when the stack has no env file, `{ error }` on failure. Our HTTP client parses
+ * `application/json` into an object, so callers receive an object.
+ *
+ * This used to be handled inline as `typeof raw === 'string' ? raw : ''`, which
+ * silently degraded EVERY response to an empty base. For `update_stack_env` in
+ * merge mode that meant the .env got rebuilt from nothing and every variable
+ * outside the payload was lost — a real data-loss incident (issue #196).
+ *
+ * Therefore: no silent fallback. An unexpected shape throws so the caller
+ * aborts instead of writing a truncated file. An empty `content` is a valid
+ * empty base (stack genuinely has no env file) and is returned as such.
+ */
+export function extractDotEnvContent(raw: unknown): string {
+  // A bare string would be a plain-text response — accepted for robustness.
+  if (typeof raw === 'string') return raw;
+
+  if (raw && typeof raw === 'object') {
+    const body = raw as { content?: unknown; error?: unknown };
+    if (typeof body.content === 'string') return body.content;
+    if (typeof body.error === 'string') {
+      throw new Error(`Dockhand returned an error for the raw .env: ${body.error}`);
+    }
+  }
+
+  throw new Error(
+    'Unexpected response shape for the raw .env: expected a string or an object with a string "content" field, ' +
+      `got ${raw === null ? 'null' : typeof raw}. Refusing to continue — writing would truncate the .env file.`,
+  );
+}
+
 /** Extract variable keys from raw .env content, skipping blank lines and comments. */
 export function parseDotEnvKeys(content: string): string[] {
   const keys: string[] = [];
