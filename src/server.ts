@@ -29,6 +29,8 @@ import {
 } from './session-lifecycle.js';
 import type { DockhandConfig } from './types/dockhand.js';
 import { logger } from './utils/logger.js';
+import { createAccessLogMiddleware } from './utils/access-log-middleware.js';
+import { parseTrustedProxies } from './utils/client-ip.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
 
@@ -70,6 +72,16 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
   }
   const app = express();
   app.use(express.json());
+
+  const trustedProxies = parseTrustedProxies(process.env['TRUSTED_PROXIES']);
+  for (const warning of trustedProxies.warnings) {
+    logger.warn({ component: 'config' }, warning);
+  }
+  // Registered ahead of the Host/Origin and bearer guards below (deliberately —
+  // see the comment at their registration) so a rejected request still produces
+  // an access line: a 401 on /mcp means someone is guessing the token, a 403
+  // means a DNS-rebinding attempt, and both are the lines an operator most wants.
+  app.use(createAccessLogMiddleware(trustedProxies));
 
   const sessions = new Map<string, SessionEntry>();
   let pendingSessions = 0;
@@ -312,6 +324,8 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
           dockhandUrl: config.dockhand.url,
           health: `http://localhost:${config.port}/health`,
           mcp: `http://localhost:${config.port}/mcp`,
+          logLevel: logger.level,
+          trustedProxies: trustedProxies.isEmpty ? 'none' : 'configured',
         },
         'MCP Dockhand server listening',
       );
