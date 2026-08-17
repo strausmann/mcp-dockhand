@@ -7,9 +7,20 @@ import { SessionManager } from '../auth/session.js';
 import type { DockhandConfig, SSEResult } from '../types/dockhand.js';
 import { normalizeBaseUrl } from '../utils/url.js';
 import { redactQueryStrings } from '../utils/redact.js';
+import { log, currentLogContext } from '../utils/log-context.js';
 
 /** Timeout for SSE streaming responses (5 minutes). */
 const SSE_TIMEOUT_MS = 300_000;
+
+/**
+ * Fallback for calls made outside a tool context (login, self-check): the first two
+ * path segments. Coarse on purpose — it is enough to tell /api/auth from /api/stacks
+ * and short enough that it cannot contain an identifier.
+ */
+function coarseRoute(pathname: string): string {
+  const segments = pathname.split('/').filter(Boolean).slice(0, 2);
+  return `/${segments.join('/')}`;
+}
 
 export class DockhandClient {
   private session: SessionManager;
@@ -115,7 +126,7 @@ export class DockhandClient {
       headers['Content-Type'] = 'application/json';
     }
 
-    const response = await fetch(url, {
+    const response = await this.loggedFetch('POST', url, {
       method: 'POST',
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -127,7 +138,7 @@ export class DockhandClient {
       // Retry once after re-login
       const retryCookie = await this.session.getCookie();
       headers['Cookie'] = retryCookie;
-      const retryResponse = await fetch(url, {
+      const retryResponse = await this.loggedFetch('POST', url, {
         method: 'POST',
         headers,
         body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -152,7 +163,7 @@ export class DockhandClient {
       'Content-Type': 'application/json',
     };
 
-    const response = await fetch(url, {
+    const response = await this.loggedFetch('PUT', url, {
       method: 'PUT',
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -163,7 +174,7 @@ export class DockhandClient {
       this.session.invalidate();
       const retryCookie = await this.session.getCookie();
       headers['Cookie'] = retryCookie;
-      const retryResponse = await fetch(url, {
+      const retryResponse = await this.loggedFetch('PUT', url, {
         method: 'PUT',
         headers,
         body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -176,6 +187,51 @@ export class DockhandClient {
   }
 
   // --- Private helpers ---
+
+  /**
+   * The single place this client talks to the network, so the single place a debug
+   * line belongs.
+   *
+   * It logs the endpoint TEMPLATE from the call context, never `url`. That is not
+   * politeness: `url` carries stack names, container ids and — for
+   * trigger_git_webhook — a secret in the query string. There is deliberately no code
+   * path here that can write a value, rather than a filter that has to keep up with
+   * every parameter a future tool introduces.
+   */
+  private async loggedFetch(method: string, url: string, init: RequestInit): Promise<Response> {
+    const started = Date.now();
+    const parsed = new URL(url);
+    const route = currentLogContext().route ?? coarseRoute(parsed.pathname);
+    const query = [...parsed.searchParams.keys()];
+
+    try {
+      const response = await fetch(url, init);
+      log().debug(
+        {
+          component: 'client',
+          method,
+          route,
+          ...(query.length ? { query } : {}),
+          status: response.status,
+          ms: Date.now() - started,
+        },
+        'dockhand request',
+      );
+      return response;
+    } catch (error) {
+      log().warn(
+        {
+          component: 'client',
+          method,
+          route,
+          ms: Date.now() - started,
+          err: { type: 'NetworkError', message: error instanceof Error ? error.message : 'unknown' },
+        },
+        'dockhand request failed',
+      );
+      throw error;
+    }
+  }
 
   private buildUrl(path: string, params?: Record<string, string | number | undefined>): string {
     const url = new URL(path, this.baseUrl);
@@ -203,13 +259,13 @@ export class DockhandClient {
     const cookie = await this.session.getCookie();
     const headers: Record<string, string> = { 'Cookie': cookie, ...extraHeaders };
 
-    let response = await fetch(url, { method, headers, body });
+    let response = await this.loggedFetch(method, url, { method, headers, body });
 
     if (response.status === 401) {
       this.session.invalidate();
       const retryCookie = await this.session.getCookie();
       headers['Cookie'] = retryCookie;
-      response = await fetch(url, { method, headers, body });
+      response = await this.loggedFetch(method, url, { method, headers, body });
     }
 
     if (!response.ok) {
@@ -241,7 +297,7 @@ export class DockhandClient {
       headers['Content-Type'] = 'application/json';
     }
 
-    let response = await fetch(url, {
+    let response = await this.loggedFetch(method, url, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -252,7 +308,7 @@ export class DockhandClient {
       this.session.invalidate();
       const retryCookie = await this.session.getCookie();
       headers['Cookie'] = retryCookie;
-      response = await fetch(url, {
+      response = await this.loggedFetch(method, url, {
         method,
         headers,
         body: body !== undefined ? JSON.stringify(body) : undefined,
