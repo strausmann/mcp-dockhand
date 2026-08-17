@@ -11,11 +11,29 @@
  * spec-present assertions (or vice versa).
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
+// The logger writes via pino.destination({ fd: 2, sync: true }) (SonicBoom), which
+// calls fs.writeSync(fd, ...) directly rather than console.error/process.stderr.write.
+// Default import, not `import * as fs`: the namespace form is a frozen ES module
+// object and vi.spyOn cannot redefine a property on it.
+import fs from 'node:fs';
 
 vi.mock('node:fs', async () => {
   const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
   return { ...actual, existsSync: () => false };
 });
+
+function captureLoggerOutput(): { written: string[]; restore: () => void } {
+  const written: string[] = [];
+  const spy = vi.spyOn(fs, 'writeSync').mockImplementation((fd: unknown, buffer: unknown) => {
+    if (fd === 2) {
+      const text = String(buffer);
+      written.push(text);
+      return Buffer.byteLength(text);
+    }
+    return 0;
+  });
+  return { written, restore: () => spy.mockRestore() };
+}
 
 describe('spec-loader — spec file missing', () => {
   afterEach(() => {
@@ -23,17 +41,19 @@ describe('spec-loader — spec file missing', () => {
   });
 
   it('specInfoVersion() returns undefined gracefully instead of throwing', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { written, restore } = captureLoggerOutput();
     const { specInfoVersion } = await import('../src/openapi/spec-loader.js');
 
     expect(specInfoVersion()).toBeUndefined();
-    expect(errorSpy).toHaveBeenCalled();
+    expect(written.length).toBeGreaterThan(0);
+    restore();
   });
 
   it('specOperation() also degrades to undefined for the same missing-spec case (consistency check)', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { restore } = captureLoggerOutput();
     const { specOperation } = await import('../src/openapi/spec-loader.js');
 
     expect(specOperation({ method: 'GET', path: '/api/environments' })).toBeUndefined();
+    restore();
   });
 });

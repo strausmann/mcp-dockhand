@@ -8,6 +8,24 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { describeTool } from '../src/openapi/describe-tool.js';
+// The logger writes via pino.destination({ fd: 2, sync: true }) (SonicBoom), which
+// calls fs.writeSync(fd, ...) directly rather than console.error/process.stderr.write.
+// Default import, not `import * as fs`: the namespace form is a frozen ES module
+// object and vi.spyOn cannot redefine a property on it.
+import fs from 'node:fs';
+
+function captureLoggerOutput(): { written: string[]; restore: () => void } {
+  const written: string[] = [];
+  const spy = vi.spyOn(fs, 'writeSync').mockImplementation((fd: unknown, buffer: unknown) => {
+    if (fd === 2) {
+      const text = String(buffer);
+      written.push(text);
+      return Buffer.byteLength(text);
+    }
+    return 0;
+  });
+  return { written, restore: () => spy.mockRestore() };
+}
 
 describe('describeTool', () => {
   afterEach(() => {
@@ -31,19 +49,21 @@ describe('describeTool', () => {
   });
 
   it('falls back to a non-empty default and logs an advisory for a tool with no registry entry', () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { written, restore } = captureLoggerOutput();
     const description = describeTool('get_prometheus_metrics');
     expect(description.length).toBeGreaterThan(0);
-    expect(errorSpy).toHaveBeenCalled();
-    const logged = errorSpy.mock.calls.map((c) => c.join(' ')).join('\n');
+    expect(written.length).toBeGreaterThan(0);
+    const logged = written.join('\n');
     expect(logged).toContain('get_prometheus_metrics');
+    restore();
   });
 
   it('falls back to a non-empty default and logs an advisory for a name that is not a known tool', () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { written, restore } = captureLoggerOutput();
     const description = describeTool('totally_made_up_tool_name');
     expect(description.length).toBeGreaterThan(0);
-    expect(errorSpy).toHaveBeenCalled();
+    expect(written.length).toBeGreaterThan(0);
+    restore();
   });
 
   describe('description overrides (P3 Final Fix Wave, Finding 1, Refs #57)', () => {

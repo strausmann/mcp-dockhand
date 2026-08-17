@@ -9,6 +9,7 @@ import type { z } from 'zod';
 import { jsonResponse, textResponse, errorResponse } from './response.js';
 import { describeTool } from '../openapi/describe-tool.js';
 import { recordCall, recordError } from './runtime-stats.js';
+import { log } from './log-context.js';
 
 // Re-export response helpers for convenience
 export { jsonResponse, textResponse, errorResponse };
@@ -47,9 +48,9 @@ export function registerTool<T extends ZodShape>(
       // Fail loud: a thrown error here (e.g. a lazily-triggered Dockhand
       // login failure) would otherwise only ever reach the caller as a
       // structured MCP tool-error response — never written to
-      // stderr/docker logs. Log it unconditionally so every tool failure
+      // stderr/docker logs. Logged unconditionally so every tool failure
       // is diagnosable from container logs alone. See Issue #116.
-      console.error(`[tool:${name}] ${message}`);
+      log().error({ component: 'tools', tool: name, err: { type: 'ToolError', message } }, 'tool failed');
       recordError(name, message);
       return errorResponse(message);
     }

@@ -13,6 +13,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { registerTool } from '../src/utils/tool-helper.js';
+// The logger writes via pino.destination({ fd: 2, sync: true }) (SonicBoom), which
+// calls fs.writeSync(fd, ...) directly rather than console.error/process.stderr.write.
+// Default import, not `import * as fs`: the namespace form is a frozen ES module
+// object and vi.spyOn cannot redefine a property on it.
+import fs from 'node:fs';
+
+function captureLoggerOutput(): { written: string[]; restore: () => void } {
+  const written: string[] = [];
+  const spy = vi.spyOn(fs, 'writeSync').mockImplementation((fd: unknown, buffer: unknown) => {
+    if (fd === 2) {
+      const text = String(buffer);
+      written.push(text);
+      return Buffer.byteLength(text);
+    }
+    return 0;
+  });
+  return { written, restore: () => spy.mockRestore() };
+}
 
 interface CapturedTool {
   name: string;
@@ -38,7 +56,7 @@ describe('registerTool error logging', () => {
   });
 
   it('logs the tool name and error message when the callback throws (fail loud)', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { written, restore } = captureLoggerOutput();
     const server = fakeServer();
 
     registerTool(server as never, 'health_check', {}, async () => {
@@ -50,14 +68,15 @@ describe('registerTool error logging', () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Dockhand login failed');
 
-    expect(errorSpy).toHaveBeenCalledTimes(1);
-    const logged = errorSpy.mock.calls[0].join(' ');
+    expect(written).toHaveLength(1);
+    const logged = written[0];
     expect(logged).toContain('health_check');
     expect(logged).toContain('Dockhand login failed');
+    restore();
   });
 
   it('logs "Unknown error" for a thrown non-Error value without crashing', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { written, restore } = captureLoggerOutput();
     const server = fakeServer();
 
     registerTool(server as never, 'get_system_info', {}, async () => {
@@ -69,13 +88,14 @@ describe('registerTool error logging', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Unknown error');
-    const logged = errorSpy.mock.calls[0].join(' ');
+    const logged = written[0];
     expect(logged).toContain('get_system_info');
     expect(logged).toContain('Unknown error');
+    restore();
   });
 
   it('does not log anything when the callback succeeds (happy path)', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { written, restore } = captureLoggerOutput();
     const server = fakeServer();
 
     registerTool(server as never, 'get_host_info', { id: z.number() }, async ({ id }) => {
@@ -85,11 +105,12 @@ describe('registerTool error logging', () => {
     const result = await server.tools.get('get_host_info')!.handler({ id: 42 });
 
     expect(result.isError).toBeUndefined();
-    expect(errorSpy).not.toHaveBeenCalled();
+    expect(written).toHaveLength(0);
+    restore();
   });
 
   it('propagates a network-error message from a rejected client call and still logs it', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { written, restore } = captureLoggerOutput();
     const server = fakeServer();
 
     registerTool(server as never, 'list_containers', {}, async () => {
@@ -100,6 +121,7 @@ describe('registerTool error logging', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('ECONNREFUSED');
-    expect(errorSpy.mock.calls[0].join(' ')).toContain('ECONNREFUSED');
+    expect(written[0]).toContain('ECONNREFUSED');
+    restore();
   });
 });

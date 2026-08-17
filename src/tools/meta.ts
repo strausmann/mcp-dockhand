@@ -581,7 +581,7 @@ export interface LoginProbeResult {
  * `credentialsValid`.
  *
  * Deliberately NOT `SessionManager.login()` (src/auth/session.ts): that method
- * `console.error`s the configured username on failure and throws rather than
+ * logs the configured username at 'error' on failure and throws rather than
  * resolving to a result value — useful for its own job (diagnosable auto-relogin
  * failures in `docker logs`, Issue #116), wrong for this one. Two self-help tools
  * need the outcome as a plain value, not a side effect or an exception, and neither

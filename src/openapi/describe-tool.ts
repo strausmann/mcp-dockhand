@@ -21,6 +21,7 @@ import { toolEndpoint, endpointToTool } from './tool-endpoint.js';
 import { specOperation } from './spec-loader.js';
 import { TOOL_DESCRIPTION_OVERRIDES } from './description-overrides.js';
 import { TOOL_DESCRIPTION_SUFFIXES } from './description-suffixes.js';
+import { logger } from '../utils/logger.js';
 
 /** Appends the tool's operator-safety note, when it has one. See description-suffixes.ts. */
 function withSuffix(name: string, description: string): string {
@@ -36,15 +37,17 @@ export function describeTool(name: string): string {
 
   const endpoint = toolEndpoint(name);
   if (!endpoint) {
-    console.error(
-      `[describe-tool] No endpoint registry entry for tool "${name}" — using fallback description.`
+    logger.warn(
+      { component: 'openapi', tool: name },
+      'no endpoint registry entry for tool — using fallback description',
     );
   }
 
   const op = specOperation(endpoint);
   if (endpoint && !op) {
-    console.error(
-      `[describe-tool] Tool "${name}" maps to ${endpoint.method} ${endpoint.path}, but that operation was not found in the spec — using fallback description.`
+    logger.warn(
+      { component: 'openapi', tool: name, method: endpoint.method, path: endpoint.path },
+      'tool endpoint not found in spec — using fallback description',
     );
   }
 

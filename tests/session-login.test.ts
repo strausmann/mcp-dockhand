@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionManager } from '../src/auth/session.js';
 import type { DockhandConfig } from '../src/types/dockhand.js';
+// The logger writes via pino.destination({ fd: 2, sync: true }) (SonicBoom), which
+// calls fs.writeSync(fd, ...) directly rather than console.error/process.stderr.write.
+// Default import, not `import * as fs`: the namespace form is a frozen ES module
+// object and vi.spyOn cannot redefine a property on it.
+import fs from 'node:fs';
 
 interface MockResponseInit {
   ok: boolean;
@@ -97,15 +102,25 @@ describe('SessionManager login', () => {
       }),
     );
     vi.stubGlobal('fetch', fetchMock);
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const written: string[] = [];
+    const writeSyncSpy = vi.spyOn(fs, 'writeSync').mockImplementation((fd: unknown, buffer: unknown) => {
+      if (fd === 2) {
+        const text = String(buffer);
+        written.push(text);
+        return Buffer.byteLength(text);
+      }
+      return 0;
+    });
 
     const manager = new SessionManager(config());
 
     await expect(manager.getCookie()).rejects.toThrow(/HTTP 307/);
     await expect(manager.getCookie()).rejects.toThrow(/trailing slash/);
 
-    const logged = errorSpy.mock.calls.map((call) => call.join(' ')).join('\n');
+    const logged = written.join('\n');
     expect(logged).toContain('/login?redirect=%2Fapi%2Fauth%2Flogin');
+
+    writeSyncSpy.mockRestore();
   });
 
   it('throws with the response body on a rejected login (HTTP 401)', async () => {

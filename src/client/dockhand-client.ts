@@ -215,7 +215,7 @@ export class DockhandClient {
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
       // Fix round 3, Item B: redact any URL query string BEFORE this message reaches
-      // ANY of its consumers — console.error (docker logs), errorResponse (the calling
+      // ANY of its consumers — log().error (docker logs), errorResponse (the calling
       // MCP client), and recordError/get_runtime_stats (see src/utils/redact.ts's own
       // doc comment for the full rationale — a query param can carry a secret, e.g.
       // trigger_git_webhook's `?secret=<value>`).
@@ -262,7 +262,7 @@ export class DockhandClient {
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
       // Fix round 3, Item B: redact any URL query string BEFORE this message reaches
-      // ANY of its consumers — console.error (docker logs), errorResponse (the calling
+      // ANY of its consumers — log().error (docker logs), errorResponse (the calling
       // MCP client), and recordError/get_runtime_stats (see src/utils/redact.ts's own
       // doc comment for the full rationale — a query param can carry a secret, e.g.
       // trigger_git_webhook's `?secret=<value>`).

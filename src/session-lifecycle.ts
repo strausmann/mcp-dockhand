@@ -1,3 +1,5 @@
+import { logger } from './utils/logger.js';
+
 export interface SessionLifecycleConfig {
   inactivityTimeoutMs: number;
   cleanupIntervalMs: number;
@@ -148,12 +150,12 @@ export async function removeSessionEntry<T extends ManagedSessionEntry>(
   try {
     await entry.server.close();
   } catch (error) {
-    console.error(`[session] Error closing server for ${id}:`, error);
+    logger.error({ component: 'session', sid: id, err: error }, 'error closing server');
     try {
       await entry.transport.close?.();
     } catch {
       // Best-effort fallback only.
     }
   }
-  console.error(`[session] Removed session ${id} (${reason}; ${sessions.size} active)`);
+  logger.info({ component: 'session', sid: id, reason, active: sessions.size }, 'session removed');
 }

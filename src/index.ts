@@ -6,12 +6,16 @@
  */
 
 import { createServer } from './server.js';
+import { logger } from './utils/logger.js';
 
 function getEnvOrThrow(name: string): string {
   const value = process.env[name];
   if (!value) {
-    console.error(`[config] ERROR: Environment variable ${name} is required but not set.`);
-    console.error('[config] Copy .env.example to .env and fill in your Dockhand credentials.');
+    logger.error(
+      { component: 'config', variable: name },
+      `Environment variable ${name} is required but not set. ` +
+        'Copy .env.example to .env and fill in your Dockhand credentials.',
+    );
     process.exit(1);
   }
   return value;
@@ -27,12 +31,17 @@ const config = {
   host: process.env['MCP_HOST'] || '0.0.0.0',
 };
 
-console.error('[config] Starting MCP Dockhand server...');
-console.error(`[config] Dockhand URL: ${config.dockhand.url}`);
-console.error(`[config] Dockhand User: ${config.dockhand.username}`);
-console.error(`[config] MCP Port: ${config.port}`);
+logger.info(
+  {
+    component: 'config',
+    dockhandUrl: config.dockhand.url,
+    dockhandUser: config.dockhand.username,
+    port: config.port,
+  },
+  'starting MCP Dockhand server',
+);
 
-createServer(config).catch((error) => {
-  console.error('[fatal] Failed to start server:', error);
+createServer(config).catch((error: unknown) => {
+  logger.error({ component: 'server', err: error }, 'failed to start server');
   process.exit(1);
 });

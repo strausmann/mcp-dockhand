@@ -5,6 +5,7 @@
 
 import type { DockhandConfig, SessionInfo } from '../types/dockhand.js';
 import { describeLoginFailure, normalizeBaseUrl } from '../utils/url.js';
+import { logger } from '../utils/logger.js';
 
 const SESSION_TIMEOUT_MS = 23 * 60 * 60 * 1000; // 23h (conservative, actual is 24h)
 
@@ -55,11 +56,13 @@ export class SessionManager {
       const detail = describeLoginFailure(response.status, response.headers.get('location'), responseBody, response.statusText);
       // Fail loud: a login failure only ever surfaces to the caller as a
       // structured MCP tool error (src/utils/tool-helper.ts), which is never
-      // written to stderr/docker logs on its own. Log it here unconditionally
-      // (no LOG_LEVEL gate — the server doesn't implement log levels at all)
-      // so a failed login is always diagnosable from `docker logs`. See
-      // Issue #116.
-      console.error(`[session] Login failed for ${this.config.username}: HTTP ${response.status} — ${detail}`);
+      // written to stderr/docker logs on its own. Logged here at 'error' —
+      // the most restrictive level — so a failed login is always diagnosable
+      // from `docker logs` no matter what LOG_LEVEL is set to. See Issue #116.
+      logger.error(
+        { component: 'session', user: this.config.username, status: response.status, detail },
+        'login failed',
+      );
       throw new Error(`Dockhand login failed (HTTP ${response.status}): ${detail}`);
     }
 
@@ -100,7 +103,7 @@ export class SessionManager {
       expiresAt: Date.now() + SESSION_TIMEOUT_MS,
     };
 
-    console.error(`[session] Logged in to Dockhand as ${this.config.username}`);
+    logger.info({ component: 'session', user: this.config.username }, 'logged in to Dockhand');
   }
 
   /**
@@ -118,7 +121,7 @@ export class SessionManager {
    */
   invalidate(): void {
     this.session = null;
-    console.error('[session] Session invalidated, will re-login on next request');
+    logger.info({ component: 'session' }, 'session invalidated, will re-login on next request');
   }
 
   /**

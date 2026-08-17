@@ -3,6 +3,24 @@ import http from 'node:http';
 import type { Server as HttpServer } from 'node:http';
 import { createServer } from '../src/server.js';
 import type { ServerConfig } from '../src/server.js';
+// The logger writes via pino.destination({ fd: 2, sync: true }) (SonicBoom), which
+// calls fs.writeSync(fd, ...) directly rather than console.error/process.stderr.write.
+// Default import, not `import * as fs`: the namespace form is a frozen ES module
+// object and vi.spyOn cannot redefine a property on it.
+import fs from 'node:fs';
+
+function captureLoggerOutput(): { written: string[]; restore: () => void } {
+  const written: string[] = [];
+  const spy = vi.spyOn(fs, 'writeSync').mockImplementation((fd: unknown, buffer: unknown) => {
+    if (fd === 2) {
+      const text = String(buffer);
+      written.push(text);
+      return Buffer.byteLength(text);
+    }
+    return 0;
+  });
+  return { written, restore: () => spy.mockRestore() };
+}
 
 // End-to-end regression tests for the HIGH finding: the /mcp Streamable-HTTP
 // endpoint had no authentication and no DNS-rebinding/Origin protection, and
@@ -236,22 +254,23 @@ describe('/mcp opt-in bearer authentication', () => {
   });
 
   it('with neither MCP_ALLOWED_HOSTS nor MCP_AUTH_TOKEN configured: emits a startup warning that /mcp is unauthenticated and host-unchecked', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { written, restore } = captureLoggerOutput();
     await startServer();
 
-    const allOutput = errorSpy.mock.calls.map((call) => String(call.join(' '))).join('\n');
-    expect(allOutput).toContain('WARNING');
+    const allOutput = written.join('\n');
+    expect(allOutput).toContain('"level":"warn"');
     expect(allOutput).toContain('MCP_ALLOWED_HOSTS');
     expect(allOutput).toContain('MCP_AUTH_TOKEN');
+    restore();
   });
 
   it('with MCP_ALLOWED_HOSTS configured (but no token): does NOT emit the "no protection at all" warning', async () => {
     vi.stubEnv('MCP_ALLOWED_HOSTS', `127.0.0.1:${TEST_PORT}`);
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { written, restore } = captureLoggerOutput();
     await startServer();
 
-    const messages = errorSpy.mock.calls.map((call) => String(call.join(' ')));
-    expect(messages.some((msg) => msg.includes('WARNING'))).toBe(false);
+    expect(written.some((msg) => msg.includes('"level":"warn"'))).toBe(false);
+    restore();
   });
 
   it('(c) with MCP_AUTH_TOKEN configured: a request with no Authorization header is rejected (401)', async () => {
