@@ -43,13 +43,22 @@ jobs:
       # next nightly would have shipped that. Both generators are no-op-safe when nothing
       # changed, so regenerating and diffing is a clean gate.
       #
-      # If this fails: run `npm run api:coverage-doc` and `npm run api:tool-endpoint-map`,
-      # then commit the result.
+      # If this fails: run `npm run api:coverage-doc`, `npm run api:tool-endpoint-map` and
+      # `node scripts/generate-body-contract-doc.mjs`, then commit the result.
+      #
+      # NOT gated here: docs/dockhand-api-schema.json. Its generator (`npm run api:extract`)
+      # talks to a LIVE Dockhand instance, which CI has no access to — gating it would fail
+      # for a reason that is not a defect, and a gate that goes red without a defect is one
+      # people learn to ignore. It stays with the nightly api-schema-sync run.
       - name: Derived docs are in sync with the code
         run: |
           npm run api:coverage-doc
           npm run api:tool-endpoint-map
-          git diff --exit-code -- docs/coverage.md src/openapi/tool-endpoint-map.ts
+          node scripts/generate-body-contract-doc.mjs
+          git diff --exit-code -- \
+            docs/coverage.md \
+            src/openapi/tool-endpoint-map.ts \
+            docs/body-contract-report.md
 
   docker:
     runs-on: ubuntu-latest
