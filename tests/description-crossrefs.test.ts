@@ -76,16 +76,38 @@ interface Reference {
 }
 
 /** Runs `scan` over every `.describe()` line in src/tools, skipping self-registrations. */
+/**
+ * Suffix VALUES are scanned differently from `.describe()` lines, for two reasons Codex found
+ * on #208:
+ *
+ *   1. They are multi-line string concatenations, so a line-by-line scan splits an anchor from
+ *      its target: `… produced use ' +` ends one line and `'get_container_logs; …` begins the
+ *      next. Two of the four references in the exec_container notice were invisible that way.
+ *   2. The anchor vocabulary does not fit this prose anyway — the get_stack_env_raw notice says
+ *      "Prefer get_stack_env", and "prefer" is not a cross-reference verb.
+ *
+ * So instead of anchoring, EVERY snake_case identifier inside a suffix's string literals must
+ * be a registered tool. Map keys and JSDoc are excluded for free, because only string literal
+ * contents are read. If a suffix ever needs a snake_case word that is not a tool, this fails
+ * loudly and the wording gets changed — that is the right trade for a file whose whole purpose
+ * is telling agents which tool to use instead.
+ */
+function suffixStringReferences(): Reference[] {
+  const source = readFileSync(SUFFIXES_FILE, 'utf-8');
+  const refs: Reference[] = [];
+  for (const match of source.matchAll(/'((?:[^'\\]|\\.)*)'/g)) {
+    const lineNo = source.slice(0, match.index).split('\n').length;
+    for (const id of match[1].matchAll(SNAKE_CASE)) {
+      refs.push({ where: `src/openapi/description-suffixes.ts:${lineNo}`, tool: id[1] });
+    }
+  }
+  return refs;
+}
+
 const toolSources = () =>
   readdirSync(TOOLS_DIR)
     .filter((f) => f.endsWith('.ts'))
     .map((f) => ({ label: `src/tools/${f}`, path: join(TOOLS_DIR, f), describeOnly: true }));
-
-const suffixSource = {
-  label: 'src/openapi/description-suffixes.ts',
-  path: SUFFIXES_FILE,
-  describeOnly: false,
-};
 
 function scanDescribeLines(
   scan: RegExp,
@@ -115,7 +137,7 @@ describe('hand-written tool cross-references', () => {
   const registered = registeredToolNames();
   // Dangling-reference check covers BOTH files: a suffix reaches clients exactly like a
   // `.describe()` string does.
-  const anchored = scanDescribeLines(CROSSREF, () => true, [...toolSources(), suffixSource]);
+  const anchored = [...scanDescribeLines(CROSSREF, () => true, toolSources()), ...suffixStringReferences()];
   // The phrasing-coverage check stays on src/tools only. There, every registered tool name
   // inside a `.describe()` string really is a reference. description-suffixes.ts also carries
   // them as map KEYS and in explanatory prose ("`exec_container` does not execute…"), which
