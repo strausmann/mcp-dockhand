@@ -344,7 +344,19 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       name: z.string().describe('Stack name'),
     },
     async ({ environmentId, name }) => {
-      return textResponse(await client.get(`/api/stacks/${encodePath(name)}/env/raw`, { env: environmentId }));
+      // Dockhand answers with JSON (`{ content, noEnvFile? }`), never with the file's bytes.
+      // Passing that straight through handed callers `{"content":"KEY=value\n…"}` while the
+      // tool advertises "read the raw .env" — the envelope instead of the thing (#198).
+      const raw = await client.get<unknown>(`/api/stacks/${encodePath(name)}/env/raw`, { env: environmentId });
+
+      // "No env file at all" and "an env file that happens to be empty" both arrive as an
+      // empty string. They are different states — one means the stack has no .env, the other
+      // that it has one with nothing in it — and an empty tool response cannot express which.
+      if (raw && typeof raw === 'object' && (raw as { noEnvFile?: unknown }).noEnvFile === true) {
+        return textResponse('This stack has no .env file.');
+      }
+
+      return textResponse(extractDotEnvContent(raw));
     }
   );
 

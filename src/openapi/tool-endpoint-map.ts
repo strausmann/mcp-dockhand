@@ -168,7 +168,6 @@ export const TOOL_ENDPOINT_MAP: Readonly<Record<string, ToolEndpointEntry>> = {
   "get_stack_default_path": { method: "GET", path: "/api/stacks/default-path" },
   "get_stack_delete_preview": { method: "GET", path: "/api/stacks/{name}/delete-preview" },
   "get_stack_env": { method: "GET", path: "/api/stacks/{name}/env" },
-  "get_stack_env_raw": { method: "GET", path: "/api/stacks/{name}/env/raw" },
   "get_stack_path_hints": { method: "GET", path: "/api/stacks/path-hints" },
   "get_stack_sources": { method: "GET", path: "/api/stacks/sources" },
   "get_system_disk": { method: "GET", path: "/api/system/disk" },
