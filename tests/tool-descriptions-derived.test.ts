@@ -52,15 +52,18 @@ describe('derived tool descriptions', () => {
   it('a tool with a resolvable spec operation gets that operation\'s summary as its description core', () => {
     const listGitStacks = tools.find((t) => t.name === 'list_git_stacks');
     expect(listGitStacks).toBeDefined();
-    expect(listGitStacks!.description).toContain('List git-backed stacks');
+    // 1.0.42 reworded this summary ("git-backed" -> "git-deployed").
+    expect(listGitStacks!.description).toContain('List git-deployed stacks');
   });
 
-  it('a cross-referencing tool (create_git_stack) resolves its foreign-id references to tool names', () => {
-    const createGitStack = tools.find((t) => t.name === 'create_git_stack');
-    expect(createGitStack).toBeDefined();
-    expect(createGitStack!.description).toMatch(/environmentId from list_environments/);
-    expect(createGitStack!.description).toMatch(/repositoryId from list_git_repositories/);
-    expect(createGitStack!.description).toMatch(/credentialId from list_git_credentials/);
+  // Was create_git_stack until 1.0.42 dropped that operation's `description` upstream, taking
+  // its cross-references with it. request_git_preview_env still carries two, so this stays a
+  // multi-reference check rather than degrading to a single-reference one.
+  it('a cross-referencing tool (request_git_preview_env) resolves its foreign-id references to tool names', () => {
+    const previewEnv = tools.find((t) => t.name === 'request_git_preview_env');
+    expect(previewEnv).toBeDefined();
+    expect(previewEnv!.description).toMatch(/repositoryId from list_git_repositories/);
+    expect(previewEnv!.description).toMatch(/credentialId from list_git_credentials/);
   });
 
   it('the one known registry gap (get_prometheus_metrics) still gets a non-empty fallback description', () => {

@@ -354,3 +354,39 @@ describe('Dockhand API contract alignment', () => {
     expect(block).not.toMatch(/client\.post\('\/api\/git\/preview-env'\)/);
   });
 });
+
+describe('Dockhand 1.0.42 contract additions', () => {
+  // Verified against the 1.0.42 handlers, not inferred from the changelog:
+  //   src/routes/api/stacks/+server.ts            -> body destructures `secretProviderId`
+  //   src/routes/api/stacks/[name]/compose/+server.ts -> same field on PUT
+  //   src/routes/api/users/[id]/mfa/+server.ts    -> rejects any action != setup|verify
+  it('create_stack offers and forwards secretProviderId', () => {
+    const block = extractToolBlock(stacksSource, 'create_stack');
+
+    expect(block).toMatch(/secretProviderId:\s*z\.number\(\)\.optional\(\)/);
+    expect(block).toMatch(/body\.secretProviderId\s*=\s*secretProviderId/);
+    // Only when the caller supplied it — sending `undefined` would be a body field
+    // the endpoint sees as present-but-empty.
+    expect(block).toMatch(/if \(secretProviderId !== undefined\)/);
+  });
+
+  it('update_stack_compose offers and forwards secretProviderId', () => {
+    const block = extractToolBlock(stacksSource, 'update_stack_compose');
+
+    expect(block).toMatch(/secretProviderId:\s*z\.number\(\)\.optional\(\)/);
+    expect(block).toMatch(/body\.secretProviderId\s*=\s*secretProviderId/);
+  });
+
+  it('enable_user_mfa always sends an explicit action and can reach the verify path', () => {
+    const block = extractToolBlock(usersSource, 'enable_user_mfa');
+
+    // The contract marks `action` required; a default keeps the tool call
+    // backward-compatible while still putting the field on the wire every time.
+    expect(block).toMatch(/action:\s*z\.enum\(\['setup', 'verify'\]\)\.default\('setup'\)/);
+    expect(block).toMatch(/const body: Record<string, unknown> = \{ action \}/);
+    // `verify` needs the code, so the tool has to be able to carry it.
+    expect(block).toMatch(/token:\s*z\.string\(\)\.optional\(\)/);
+    // Regression: the pre-1.0.42 tool posted with no body at all.
+    expect(block).not.toMatch(/client\.post\(`\/api\/users\/\$\{encodePath\(userId\)\}\/mfa`\)/);
+  });
+});

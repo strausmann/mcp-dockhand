@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Dockhand API",
-    "version": "1.0.41",
+    "version": "1.0.42",
     "description": "Auto-generated from src/routes/**/+server.ts by scripts/generate-openapi.ts. Path, HTTP method, tag, and auth requirement are derived automatically from the route tree and hooks.server.ts PUBLIC_PATHS. Parameters, response status codes, and request body fields are additionally auto-detected from each handler’s own source (query params via url.searchParams, status codes via status:/error(), body fields via destructuring) — adding a new endpoint therefore requires ZERO manual spec edits to show up with real params/responses. An optional, additive `@openapi` JSDoc annotation on a handler replaces the generic auto-descriptions with hand-written summaries, exact types, and examples."
   },
   "servers": [
@@ -115,6 +115,9 @@
     },
     {
       "name": "schedules"
+    },
+    {
+      "name": "secret-providers"
     },
     {
       "name": "self-update"
@@ -4116,6 +4119,48 @@
         }
       }
     },
+    "/api/backup/instance": {
+      "get": {
+        "operationId": "get_api_backup_instance",
+        "tags": [
+          "backup"
+        ],
+        "summary": "This install's stable backup instance id, used to tell own snapshots from foreign orphans",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "instanceId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "instanceId"
+                  ]
+                },
+                "example": {
+                  "instanceId": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Requires backups:view; 403 (no permission) and 404 (backup feature disabled) come from the shared requireBackups guard."
+      }
+    },
     "/api/backup/restore": {
       "post": {
         "operationId": "post_api_backup_restore",
@@ -4217,20 +4262,17 @@
         "tags": [
           "backup"
         ],
-        "summary": "Preview the contents of a snapshot (volumes, metadata) before running a restore",
+        "summary": "Preview what a restore would write (resolved targets + volume/stack contents)",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "The snapshot preview object (contents/metadata used to plan a restore)"
+            "description": "The snapshot preview, optionally with a resolved targets list"
           },
           "400": {
-            "description": "Invalid input — missing destinationId/snapshotId or an invalid snapshot id"
+            "description": "Missing required fields (destinationId, snapshotId)"
           },
           "403": {
-            "description": "Permission denied — requires \"backups:manage\", or no access to the target or snapshot-owning environment"
-          },
-          "500": {
-            "description": "Failed to build the preview (restic error)"
+            "description": "Permission denied (needs backups:view) or access denied to the target environment"
           }
         },
         "security": [
@@ -4241,7 +4283,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "destinationId from GET /api/backup/destinations. snapshotId from GET /api/backup/snapshots. environmentId from GET /api/environments.",
+        "description": "With includeTargets it also resolves the concrete restore targets (host paths / volumes); without it, returns the metadata-only preview the initial modal load relies on.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4255,7 +4297,10 @@
                   "snapshotId": {
                     "type": "string"
                   },
-                  "environmentId": {
+                  "includeTargets": {
+                    "type": "boolean"
+                  },
+                  "targetEnvId": {
                     "type": "integer"
                   }
                 },
@@ -4265,8 +4310,10 @@
                 ]
               },
               "example": {
-                "destinationId": 3,
-                "snapshotId": "a1b2c3d4"
+                "destinationId": 0,
+                "snapshotId": "string",
+                "includeTargets": true,
+                "targetEnvId": 0
               }
             }
           }
@@ -4333,7 +4380,7 @@
         "tags": [
           "backup"
         ],
-        "summary": "List backup snapshots, either for a specific backup config or across a destination; exactly one of configId or destinationId is required",
+        "summary": "List restic snapshots for a backup config or a single destination (job-polled)",
         "parameters": [
           {
             "name": "configId",
@@ -4342,7 +4389,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "List snapshots for this backup configuration (matched by its stable config-id tag) (from GET /api/backup/configs)"
+            "description": "Backup config id (mutually exclusive with destinationId)"
           },
           {
             "name": "destinationId",
@@ -4351,7 +4398,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "List all snapshots in this destination (mutually exclusive with configId) (from GET /api/backup/destinations)"
+            "description": "Single destination id (mutually exclusive with configId)"
           },
           {
             "name": "allDestinations",
@@ -4360,24 +4407,21 @@
             "schema": {
               "type": "boolean"
             },
-            "description": "When \"true\" (with configId), search this config's snapshots across every destination"
+            "description": "With configId, include every destination of the config"
           }
         ],
         "responses": {
           "200": {
-            "description": "Array of snapshot objects"
+            "description": "Successful response"
           },
           "400": {
-            "description": "Neither configId nor destinationId supplied, or an invalid configId/destinationId"
+            "description": "Invalid or missing configId/destinationId"
           },
           "403": {
-            "description": "Permission denied — requires \"backups:view\", or no access to the config's environment"
+            "description": "Permission denied (needs backups:view) or environment access denied"
           },
           "404": {
-            "description": "Backup configuration not found (when configId is supplied)"
-          },
-          "500": {
-            "description": "Failed to list snapshots (restic error)"
+            "description": "Backup config not found"
           }
         },
         "security": [
@@ -4388,7 +4432,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "When allDestinations=true (with configId) all destinations are searched and a partial result is signalled via the X-Incomplete-Destinations response header. Enterprise callers only see snapshots for environments they can access."
+        "description": "Pass configId to list across the config's destinations, or destinationId for one. Job-polled so a reverse proxy can't abort the sync restic snapshots read at ~15s; match each snapshot's instance tag against GET /api/backup/instance to tell own snapshots from foreign orphans."
       }
     },
     "/api/backup/snapshots/{id}": {
@@ -4460,7 +4504,7 @@
         "tags": [
           "backup"
         ],
-        "summary": "Browse the files and directories at a path inside a snapshot, with a server-authoritative environment access gate",
+        "summary": "List directory entries at a path inside a snapshot (job-polled)",
         "parameters": [
           {
             "name": "id",
@@ -4469,16 +4513,16 @@
             "schema": {
               "type": "string"
             },
-            "description": "Restic snapshot id to browse (from GET /api/backup/snapshots)"
+            "description": "The restic snapshot id"
           },
           {
             "name": "destinationId",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "integer"
             },
-            "description": "Destination holding the snapshot (required) (from GET /api/backup/destinations)"
+            "description": "Destination the snapshot lives in"
           },
           {
             "name": "path",
@@ -4487,7 +4531,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Directory path to list inside the snapshot (defaults to \"/\")"
+            "description": "Directory path inside the snapshot to list"
           },
           {
             "name": "env",
@@ -4496,21 +4540,18 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Optional environment id for an early enterprise access check; the authoritative gate resolves the snapshot's owning environment server-side (from GET /api/environments)"
+            "description": "Environment context for access checks"
           }
         ],
         "responses": {
           "200": {
-            "description": "Returns { entries, path } — the directory entries at the requested path"
+            "description": "Successful response"
           },
           "400": {
-            "description": "Missing/invalid destinationId or an invalid snapshot id"
+            "description": "Missing/invalid destinationId"
           },
           "403": {
-            "description": "Permission denied — requires \"backups:view\", or no access to the snapshot's owning environment"
-          },
-          "500": {
-            "description": "Failed to browse the snapshot (restic error)"
+            "description": "Permission denied (needs backups:view) or environment access denied"
           }
         },
         "security": [
@@ -4520,7 +4561,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "Job-polled so a proxy can't abort the restic read at ~15s."
       }
     },
     "/api/backup/snapshots/{id}/dump": {
@@ -4529,7 +4571,7 @@
         "tags": [
           "backup"
         ],
-        "summary": "Dump a file or directory from a snapshot — inline JSON preview for text files, or a raw binary download (octet-stream for files, tar for directories) when download=1",
+        "summary": "Read a single file (or archive) out of a snapshot (job-polled restic dump)",
         "parameters": [
           {
             "name": "id",
@@ -4538,34 +4580,25 @@
             "schema": {
               "type": "string"
             },
-            "description": "Restic snapshot id (from GET /api/backup/snapshots)"
+            "description": "The restic snapshot id"
           },
           {
             "name": "destinationId",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "integer"
             },
-            "description": "Destination holding the snapshot (required) (from GET /api/backup/destinations)"
+            "description": "Destination the snapshot lives in"
           },
           {
             "name": "path",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Path inside the snapshot to read (must be under /volumes or /metadata)"
-          },
-          {
-            "name": "download",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string"
             },
-            "description": "Set to \"1\" to download raw bytes instead of an inline preview"
+            "description": "Path inside the snapshot (must resolve under /volumes or /metadata)"
           },
           {
             "name": "type",
@@ -4574,24 +4607,30 @@
             "schema": {
               "type": "string"
             },
-            "description": "Set to \"directory\" to download a directory as a tar archive (with download=1)"
+            "description": "Payload kind (e.g. inline preview vs archive)"
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "When set, stream the file/directory as a tar"
           }
         ],
         "responses": {
           "200": {
-            "description": "Inline preview returns { content } (JSON); with download=1 the body is the raw file bytes (application/octet-stream) or a tar archive (application/x-tar)"
+            "description": "Successful response"
           },
           "400": {
-            "description": "Missing/invalid destinationId, missing path, an invalid snapshot id, or a path outside the allowed roots / containing traversal"
+            "description": "Missing/invalid destinationId or path"
           },
           "403": {
-            "description": "metadata.json cannot be downloaded raw (download=1); use this endpoint without download for the redacted inline preview"
-          },
-          "404": {
-            "description": "The redacted metadata.json preview could not be parsed"
+            "description": "Permission denied (needs backups:view), or a raw metadata.json download was refused"
           },
           "500": {
-            "description": "Failed to read the file/directory from the snapshot (restic error)"
+            "description": "The restic dump failed"
           }
         },
         "security": [
@@ -4602,7 +4641,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "Paths are restricted to the /volumes and /metadata snapshot roots and rejected if they contain traversal (\"..\"). Permission (\"backups:view\") and environment-access denials are produced by the shared requireBackups/guardSnapshotEnvAccess route guards."
+        "description": "Job-polled so a proxy can't abort the restic dump at ~15s. type selects the payload (inline preview vs archive); download requests a raw file/directory tar. A raw metadata.json download is refused (403) - it would bypass redaction."
       }
     },
     "/api/backup/snapshots/{id}/metadata": {
@@ -4611,7 +4650,7 @@
         "tags": [
           "backup"
         ],
-        "summary": "Fetch the stored metadata for a snapshot, with a server-authoritative environment access gate",
+        "summary": "The snapshot's redacted metadata layout (job-polled restic dump)",
         "parameters": [
           {
             "name": "id",
@@ -4620,30 +4659,24 @@
             "schema": {
               "type": "string"
             },
-            "description": "Restic snapshot id (from GET /api/backup/snapshots)"
+            "description": "The restic snapshot id"
           },
           {
             "name": "destinationId",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "integer"
             },
-            "description": "Destination holding the snapshot (required) (from GET /api/backup/destinations)"
+            "description": "Destination the snapshot lives in"
           }
         ],
         "responses": {
           "200": {
-            "description": "The snapshot metadata object"
+            "description": "Successful response"
           },
           "400": {
-            "description": "Missing/invalid destinationId or an invalid snapshot id"
-          },
-          "404": {
-            "description": "No metadata available for this snapshot"
-          },
-          "500": {
-            "description": "Failed to read the snapshot metadata (restic error)"
+            "description": "Missing/invalid destinationId"
           }
         },
         "security": [
@@ -4654,7 +4687,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "Permission (\"backups:view\") and environment-access denials (403) are produced by the shared requireBackups/guardSnapshotEnvAccess route guards; the owning environment is resolved server-side from the snapshot's own tag, not a caller-supplied param."
+        "description": "Job-polled so a proxy can't abort the restic dump at ~15s. The layout is redacted (stack secrets and container Config.Env/Labels stripped) before it leaves the server."
       }
     },
     "/api/backup/snapshots/diff": {
@@ -4663,45 +4696,42 @@
         "tags": [
           "backup"
         ],
-        "summary": "Compute the file-level difference between two snapshots in the same destination, gating access on both snapshots' owning environments",
+        "summary": "Diff two snapshots' file trees (added/changed/removed) - job-polled",
         "parameters": [
           {
             "name": "destinationId",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "integer"
             },
-            "description": "Destination holding both snapshots (required) (from GET /api/backup/destinations)"
+            "description": "Destination both snapshots live in"
           },
           {
             "name": "snapshotA",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string"
             },
-            "description": "First (base) restic snapshot id (required)"
+            "description": "The baseline snapshot id"
           },
           {
             "name": "snapshotB",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string"
             },
-            "description": "Second (compared) restic snapshot id (required)"
+            "description": "The snapshot to compare against the baseline"
           }
         ],
         "responses": {
           "200": {
-            "description": "The diff result object (added/removed/changed entries between the two snapshots)"
+            "description": "Successful response"
           },
           "400": {
-            "description": "Missing required params (destinationId, snapshotA, snapshotB) or an invalid snapshot id"
-          },
-          "500": {
-            "description": "Failed to diff the snapshots (restic error)"
+            "description": "Missing destinationId, snapshotA, or snapshotB"
           }
         },
         "security": [
@@ -4712,7 +4742,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "Permission (\"backups:view\") and environment-access denials (403) are produced by the shared requireBackups/guardSnapshotEnvAccess route guards."
+        "description": "Job-polled so a proxy can't abort the restic read at ~15s."
       }
     },
     "/api/backup/stack-dir-listing": {
@@ -8548,6 +8578,125 @@
         }
       }
     },
+    "/api/containers/{id}/version-notes": {
+      "get": {
+        "operationId": "get_api_containers_id_version-notes",
+        "tags": [
+          "containers"
+        ],
+        "summary": "Resolve GitHub release notes for the versions a semver update-check surfaced (requires the 'view' permission)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Container ID or name (from GET /api/containers)"
+          },
+          {
+            "name": "env",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The target environment ID (omit for the local/default Docker host) (from GET /api/environments)"
+          },
+          {
+            "name": "versions",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated version tags to fetch notes for (target + skipped), e.g. \"16.3-alpine,16.4-alpine\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changelogUrl": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string"
+                    },
+                    "notes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "githubTag": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "publishedAt": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "version",
+                          "url"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "notes"
+                  ]
+                },
+                "example": {
+                  "changelogUrl": "https://github.com/go-gitea/gitea/releases",
+                  "source": "go-gitea/gitea",
+                  "notes": [
+                    {
+                      "version": "1.22.0",
+                      "name": "v1.22.0",
+                      "githubTag": "v1.22.0",
+                      "body": "## Changes...",
+                      "publishedAt": "2024-05-01T00:00:00Z",
+                      "url": "https://github.com/go-gitea/gitea/releases/tag/v1.22.0"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "500": {
+            "description": "Failed to resolve release notes"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/containers/batch-update": {
       "post": {
         "operationId": "post_api_containers_batch-update",
@@ -8939,13 +9088,20 @@
                           },
                           "checkedAt": {
                             "type": "string"
+                          },
+                          "hasImageUpdate": {
+                            "type": "boolean"
+                          },
+                          "newerVersion": {
+                            "type": "string"
                           }
                         },
                         "required": [
                           "containerId",
                           "containerName",
                           "currentImage",
-                          "checkedAt"
+                          "checkedAt",
+                          "hasImageUpdate"
                         ]
                       }
                     }
@@ -8962,7 +9118,9 @@
                       "containerId": "string",
                       "containerName": "string",
                       "currentImage": "string",
-                      "checkedAt": "string"
+                      "checkedAt": "string",
+                      "hasImageUpdate": true,
+                      "newerVersion": "string"
                     }
                   ]
                 }
@@ -8993,7 +9151,7 @@
         "tags": [
           "containers"
         ],
-        "summary": "Clear the pending-update record for a single container (requires the 'manage' permission)",
+        "summary": "Clear pending-update records for an environment, or for a single container when containerId is given",
         "parameters": [
           {
             "name": "env",
@@ -9007,11 +9165,11 @@
           {
             "name": "containerId",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string"
             },
-            "description": "The container ID whose pending update should be cleared (required) (from GET /api/containers)"
+            "description": "The container to clear; omit to clear ALL pending updates in the environment (from GET /api/containers)"
           }
         ],
         "responses": {
@@ -9037,7 +9195,7 @@
             }
           },
           "400": {
-            "description": "Environment ID and container ID are both required"
+            "description": "Environment ID is required"
           },
           "403": {
             "description": "Permission denied"
@@ -9628,6 +9786,12 @@
         "responses": {
           "200": {
             "description": "The generated OpenAPI document — see GET /api/docs/ui for an interactive viewer"
+          },
+          "304": {
+            "description": "Not modified — the client's If-None-Match matches the current spec ETag"
+          },
+          "404": {
+            "description": "Not found — API docs are disabled (set FEAT_API_DOCS=true to enable)"
           }
         },
         "security": []
@@ -11759,6 +11923,18 @@
                   },
                   "vulnerabilityCriteria": {
                     "type": "string"
+                  },
+                  "checkPinnedVersions": {
+                    "type": "boolean"
+                  },
+                  "semverMaxBump": {
+                    "type": "string"
+                  },
+                  "semverMatchFlavor": {
+                    "type": "boolean"
+                  },
+                  "semverIncludePrerelease": {
+                    "type": "boolean"
                   }
                 }
               },
@@ -11766,7 +11942,11 @@
                 "enabled": true,
                 "cron": "0 4 * * *",
                 "autoUpdate": false,
-                "vulnerabilityCriteria": "never"
+                "vulnerabilityCriteria": "never",
+                "checkPinnedVersions": true,
+                "semverMaxBump": "minor",
+                "semverMatchFlavor": true,
+                "semverIncludePrerelease": false
               }
             }
           }
@@ -13350,7 +13530,7 @@
         "tags": [
           "git"
         ],
-        "summary": "List git-backed stacks (optionally scoped to one environment)",
+        "summary": "List git-deployed stacks (optionally scoped to one environment)",
         "parameters": [
           {
             "name": "env",
@@ -13359,70 +13539,18 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id — omitted returns stacks across all environments plus legacy null-scoped ones (from GET /api/environments)"
+            "description": "Filter to a single environment id"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "integer"
-                      },
-                      "stackName": {
-                        "type": "string"
-                      },
-                      "environmentId": {
-                        "type": "integer"
-                      },
-                      "repositoryId": {
-                        "type": "integer"
-                      },
-                      "composePath": {
-                        "type": "string"
-                      },
-                      "autoUpdate": {
-                        "type": "boolean"
-                      },
-                      "syncStatus": {
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "id",
-                      "stackName",
-                      "repositoryId",
-                      "composePath",
-                      "autoUpdate",
-                      "syncStatus"
-                    ]
-                  }
-                },
-                "example": [
-                  {
-                    "id": 1,
-                    "stackName": "immich",
-                    "environmentId": 2,
-                    "repositoryId": 3,
-                    "composePath": "compose.yaml",
-                    "autoUpdate": true,
-                    "syncStatus": "synced"
-                  }
-                ]
-              }
-            }
+            "description": "Successful response"
           },
           "403": {
-            "description": "Permission denied (RBAC 'stacks:view' missing)"
+            "description": "Permission denied (needs stacks:view)"
           },
           "500": {
-            "description": "Unexpected error while loading git stacks"
+            "description": "Failed to list git stacks"
           }
         },
         "security": [
@@ -13439,60 +13567,23 @@
         "tags": [
           "git"
         ],
-        "summary": "Create a git-backed stack (creating the repository too if url is given instead of repositoryId)",
+        "summary": "Create a git-deployed stack (from an existing repo or new repo url/branch)",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "With deployNow:true this is the FINAL result of an SSE job stream (includes a nested deployResult); without it, the created record is returned immediately.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "integer"
-                    },
-                    "stackName": {
-                      "type": "string"
-                    },
-                    "environmentId": {
-                      "type": "integer"
-                    },
-                    "repositoryId": {
-                      "type": "integer"
-                    },
-                    "syncStatus": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "stackName",
-                    "repositoryId",
-                    "syncStatus"
-                  ]
-                },
-                "example": {
-                  "id": 7,
-                  "stackName": "immich",
-                  "environmentId": 2,
-                  "repositoryId": 3,
-                  "syncStatus": "pending"
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "400": {
-            "description": "Invalid stackName/url, duplicate environment-variable keys, or repository/credential not found"
+            "description": "Invalid stack name, or secretProviderId is not a number/null"
           },
           "403": {
-            "description": "Permission denied (RBAC 'stacks:create' missing)"
+            "description": "Permission denied (needs stacks:create; binding a secret provider also needs secrets:view)"
           },
           "409": {
-            "description": "A stack with this name already exists on this environment"
+            "description": "A git stack with this name already exists in the environment"
           },
           "500": {
-            "description": "Unexpected error while creating the git stack"
+            "description": "Failed to create the git stack"
           }
         },
         "security": [
@@ -13503,7 +13594,6 @@
             "bearerAuth": []
           }
         ],
-        "description": "environmentId from GET /api/environments. repositoryId from GET /api/git/repositories. credentialId from GET /api/git/credentials.",
         "requestBody": {
           "required": true,
           "content": {
@@ -13520,35 +13610,14 @@
                   "repositoryId": {
                     "type": "integer"
                   },
-                  "url": {
-                    "type": "string"
-                  },
-                  "branch": {
-                    "type": "string"
-                  },
-                  "credentialId": {
+                  "secretProviderId": {
                     "type": "integer"
-                  },
-                  "composePath": {
-                    "type": "string"
-                  },
-                  "envFilePath": {
-                    "type": "string"
-                  },
-                  "autoUpdate": {
-                    "type": "boolean"
-                  },
-                  "autoUpdateCron": {
-                    "type": "string"
                   },
                   "webhookEnabled": {
                     "type": "boolean"
                   },
-                  "envVars": {
+                  "webhookSecret": {
                     "type": "string"
-                  },
-                  "deployNow": {
-                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -13556,19 +13625,12 @@
                 ]
               },
               "example": {
-                "stackName": "immich",
-                "environmentId": 2,
-                "url": "https://git.example.com/infra/immich.git",
-                "branch": "main",
-                "composePath": "compose.yaml",
-                "deployNow": true,
-                "envVars": [
-                  {
-                    "key": "TZ",
-                    "value": "Europe/Berlin",
-                    "isSecret": false
-                  }
-                ]
+                "stackName": "string",
+                "environmentId": 0,
+                "repositoryId": 0,
+                "secretProviderId": 0,
+                "webhookEnabled": true,
+                "webhookSecret": "string"
               }
             }
           }
@@ -13581,7 +13643,7 @@
         "tags": [
           "git"
         ],
-        "summary": "Get a single git stack by its numeric id",
+        "summary": "Get one git stack",
         "parameters": [
           {
             "name": "id",
@@ -13590,63 +13652,21 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack id (from GET /api/git/stacks)"
+            "description": "The git stack id"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "integer"
-                    },
-                    "stackName": {
-                      "type": "string"
-                    },
-                    "environmentId": {
-                      "type": "integer"
-                    },
-                    "repositoryId": {
-                      "type": "integer"
-                    },
-                    "composePath": {
-                      "type": "string"
-                    },
-                    "syncStatus": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "stackName",
-                    "repositoryId",
-                    "composePath",
-                    "syncStatus"
-                  ]
-                },
-                "example": {
-                  "id": 7,
-                  "stackName": "immich",
-                  "environmentId": 2,
-                  "repositoryId": 3,
-                  "composePath": "compose.yaml",
-                  "syncStatus": "synced"
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "403": {
-            "description": "Permission denied (RBAC 'stacks:view' missing)"
+            "description": "Permission denied (needs stacks:view)"
           },
           "404": {
             "description": "Git stack not found"
           },
           "500": {
-            "description": "Unexpected error while loading the git stack"
+            "description": "Failed to load the git stack"
           }
         },
         "security": [
@@ -13663,7 +13683,7 @@
         "tags": [
           "git"
         ],
-        "summary": "Update a git stack's configuration; optionally save env-var overrides and/or redeploy",
+        "summary": "Update a git stack (rename, schedule, webhook, secret-provider binding)",
         "parameters": [
           {
             "name": "id",
@@ -13672,56 +13692,24 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack id (from GET /api/git/stacks)"
+            "description": "The git stack id"
           }
         ],
         "responses": {
           "200": {
-            "description": "With deployNow:true this is the final SSE-job result (includes a nested deployResult).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "integer"
-                    },
-                    "stackName": {
-                      "type": "string"
-                    },
-                    "environmentId": {
-                      "type": "integer"
-                    },
-                    "syncStatus": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "stackName",
-                    "syncStatus"
-                  ]
-                },
-                "example": {
-                  "id": 7,
-                  "stackName": "immich",
-                  "environmentId": 2,
-                  "syncStatus": "synced"
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "400": {
-            "description": "Invalid stackName format, or duplicate environment-variable keys"
+            "description": "Invalid stack name, or secretProviderId is not a number/null"
           },
           "403": {
-            "description": "Permission denied (RBAC 'stacks:edit' missing)"
+            "description": "Permission denied (needs stacks:edit; binding a secret provider also needs secrets:view)"
           },
           "404": {
             "description": "Git stack not found"
           },
           "500": {
-            "description": "Unexpected error while updating the git stack"
+            "description": "Failed to update the git stack"
           }
         },
         "security": [
@@ -13742,30 +13730,22 @@
                   "stackName": {
                     "type": "string"
                   },
-                  "composePath": {
-                    "type": "string"
+                  "secretProviderId": {
+                    "type": "integer"
                   },
-                  "envFilePath": {
-                    "type": "string"
-                  },
-                  "autoUpdate": {
+                  "webhookEnabled": {
                     "type": "boolean"
                   },
-                  "autoUpdateCron": {
+                  "webhookSecret": {
                     "type": "string"
-                  },
-                  "envVars": {
-                    "type": "string"
-                  },
-                  "deployNow": {
-                    "type": "boolean"
                   }
                 }
               },
               "example": {
-                "autoUpdate": true,
-                "autoUpdateCron": "0 3 * * *",
-                "deployNow": false
+                "stackName": "string",
+                "secretProviderId": 0,
+                "webhookEnabled": true,
+                "webhookSecret": "string"
               }
             }
           }
@@ -13776,7 +13756,7 @@
         "tags": [
           "git"
         ],
-        "summary": "Delete a git stack (removes git files, the stack_sources record, and env var overrides)",
+        "summary": "Delete a git stack (removes its deploy files and stack source)",
         "parameters": [
           {
             "name": "id",
@@ -13785,39 +13765,21 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Git stack id (from GET /api/git/stacks)"
+            "description": "The git stack id"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "success"
-                  ]
-                },
-                "example": {
-                  "success": true
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "403": {
-            "description": "Permission denied (RBAC 'stacks:remove' missing)"
+            "description": "Permission denied (needs stacks:delete)"
           },
           "404": {
             "description": "Git stack not found"
           },
           "500": {
-            "description": "Unexpected error while deleting the git stack"
+            "description": "Failed to delete the git stack"
           }
         },
         "security": [
@@ -15465,6 +15427,71 @@
             }
           }
         }
+      }
+    },
+    "/api/images/load": {
+      "post": {
+        "operationId": "post_api_images_load",
+        "tags": [
+          "images"
+        ],
+        "summary": "Load a Docker image from an uploaded tar (docker load) for air-gapped hosts",
+        "parameters": [
+          {
+            "name": "env",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Target environment id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "loaded echoes the daemon's final line, e.g. \"Loaded image: alpine:3.20\"",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "loaded": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                },
+                "example": {
+                  "success": true,
+                  "loaded": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body (an image tar) is required"
+          },
+          "403": {
+            "description": "Permission denied (needs images:load), or access denied to this environment"
+          },
+          "500": {
+            "description": "The daemon rejected the tar or the load failed"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "The request body is the raw image tar (Content-Type application/x-tar), streamed straight to the daemon without buffering. Local/socket or direct TCP only; Hawser is rejected."
       }
     },
     "/api/images/pull": {
@@ -19320,59 +19347,20 @@
         "tags": [
           "profile"
         ],
-        "summary": "Get the authenticated user's theme preferences",
+        "summary": "Get the current user's UI preferences (theme, fonts, editor options)",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "lightTheme": {
-                      "type": "string"
-                    },
-                    "darkTheme": {
-                      "type": "string"
-                    },
-                    "font": {
-                      "type": "string"
-                    },
-                    "fontSize": {
-                      "type": "string"
-                    },
-                    "gridFontSize": {
-                      "type": "string"
-                    },
-                    "terminalFont": {
-                      "type": "string"
-                    },
-                    "editorFont": {
-                      "type": "string"
-                    }
-                  }
-                },
-                "example": {
-                  "lightTheme": "string",
-                  "darkTheme": "string",
-                  "font": "string",
-                  "fontSize": "string",
-                  "gridFontSize": "string",
-                  "terminalFont": "string",
-                  "editorFont": "string"
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "400": {
-            "description": "Authentication is not enabled"
+            "description": "Not authenticated / no user in context"
           },
           "401": {
             "description": "Not authenticated"
           },
           "500": {
-            "description": "Failed to read the preferences"
+            "description": "Failed to load preferences"
           }
         },
         "security": [
@@ -19389,59 +19377,20 @@
         "tags": [
           "profile"
         ],
-        "summary": "Update the authenticated user's theme preferences (each supplied value is validated against the allowed theme/font/size lists)",
+        "summary": "Update the current user's UI preferences (each field is optional)",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "lightTheme": {
-                      "type": "string"
-                    },
-                    "darkTheme": {
-                      "type": "string"
-                    },
-                    "font": {
-                      "type": "string"
-                    },
-                    "fontSize": {
-                      "type": "string"
-                    },
-                    "gridFontSize": {
-                      "type": "string"
-                    },
-                    "terminalFont": {
-                      "type": "string"
-                    },
-                    "editorFont": {
-                      "type": "string"
-                    }
-                  }
-                },
-                "example": {
-                  "lightTheme": "string",
-                  "darkTheme": "string",
-                  "font": "string",
-                  "fontSize": "string",
-                  "gridFontSize": "string",
-                  "terminalFont": "string",
-                  "editorFont": "string"
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "400": {
-            "description": "Authentication is not enabled, or a supplied theme/font/size value is invalid"
+            "description": "A supplied field has the wrong type (e.g. editorIndentGuides not a boolean)"
           },
           "401": {
             "description": "Not authenticated"
           },
           "500": {
-            "description": "Failed to update the preferences"
+            "description": "Failed to save preferences"
           }
         },
         "security": [
@@ -19479,13 +19428,33 @@
                   },
                   "editorFont": {
                     "type": "string"
+                  },
+                  "animateIcons": {
+                    "type": "boolean"
+                  },
+                  "coloredActionButtons": {
+                    "type": "boolean"
+                  },
+                  "actionIconSize": {
+                    "type": "string"
+                  },
+                  "editorIndentGuides": {
+                    "type": "boolean"
                   }
                 }
               },
               "example": {
-                "darkTheme": "tokyo-night",
-                "font": "inter",
-                "fontSize": "normal"
+                "lightTheme": "string",
+                "darkTheme": "string",
+                "font": "string",
+                "fontSize": "string",
+                "gridFontSize": "string",
+                "terminalFont": "string",
+                "editorFont": "string",
+                "animateIcons": true,
+                "coloredActionButtons": true,
+                "actionIconSize": "string",
+                "editorIndentGuides": true
               }
             }
           }
@@ -22039,6 +22008,665 @@
         ]
       }
     },
+    "/api/secret-providers": {
+      "get": {
+        "operationId": "get_api_secret-providers",
+        "tags": [
+          "secret-providers"
+        ],
+        "summary": "List configured secret providers (summaries never include the decrypted config)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "type"
+                    ]
+                  }
+                },
+                "example": [
+                  {
+                    "id": 0,
+                    "name": "string",
+                    "type": "string"
+                  }
+                ]
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied (needs secrets:view)"
+          },
+          "500": {
+            "description": "Failed to fetch secret providers"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "post_api_secret-providers",
+        "tags": [
+          "secret-providers"
+        ],
+        "summary": "Create a secret provider (Vault, Infisical, Doppler, 1Password Connect)",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ]
+                },
+                "example": {
+                  "id": 0,
+                  "name": "string",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Name and type are required, unknown provider type, config missing, or a provider with this name already exists"
+          },
+          "403": {
+            "description": "Permission denied (needs secrets:create)"
+          },
+          "500": {
+            "description": "Failed to create secret provider"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "type",
+                  "config"
+                ]
+              },
+              "example": {
+                "name": "string",
+                "type": "string",
+                "config": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/secret-providers/{id}": {
+      "get": {
+        "operationId": "get_api_secret-providers_id",
+        "tags": [
+          "secret-providers"
+        ],
+        "summary": "Get one secret provider with its non-secret config coordinates (the token is redacted out)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The secret provider id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "config": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "config"
+                  ]
+                },
+                "example": {
+                  "id": 0,
+                  "name": "string",
+                  "type": "string",
+                  "config": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid secret provider ID"
+          },
+          "403": {
+            "description": "Permission denied (needs secrets:view)"
+          },
+          "404": {
+            "description": "Secret provider not found"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "put_api_secret-providers_id",
+        "tags": [
+          "secret-providers"
+        ],
+        "summary": "Update a secret provider (name, type, and/or rotate its config); omitted fields are left unchanged",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The secret provider id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ]
+                },
+                "example": {
+                  "id": 0,
+                  "name": "string",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ID, empty name, unknown type, config not an object, or the name already exists"
+          },
+          "403": {
+            "description": "Permission denied (needs secrets:edit)"
+          },
+          "404": {
+            "description": "Secret provider not found"
+          },
+          "500": {
+            "description": "Failed to update secret provider"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "name": "string",
+                "type": "string",
+                "config": "string"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_api_secret-providers_id",
+        "tags": [
+          "secret-providers"
+        ],
+        "summary": "Delete a secret provider",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The secret provider id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                },
+                "example": {
+                  "success": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid secret provider ID"
+          },
+          "403": {
+            "description": "Permission denied (needs secrets:delete)"
+          },
+          "404": {
+            "description": "Secret provider not found"
+          },
+          "500": {
+            "description": "Failed to delete secret provider"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/secret-providers/{id}/probe": {
+      "post": {
+        "operationId": "post_api_secret-providers_id_probe",
+        "tags": [
+          "secret-providers"
+        ],
+        "summary": "Live-probe which key NAMES exist in a stored provider (names only, values never leave the server)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The secret provider id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok=true returns the key names found via the bulk selector and the resolved op:// refs; ok=false folds a provider error in (still 200) so a slow or auth-gated provider never breaks the editor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "bulkKeys": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "resolvedRefs": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                },
+                "example": {
+                  "ok": true,
+                  "bulkKeys": [
+                    "string"
+                  ],
+                  "resolvedRefs": [
+                    "string"
+                  ],
+                  "error": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ID or unknown provider type"
+          },
+          "403": {
+            "description": "Permission denied (needs secrets:view)"
+          },
+          "404": {
+            "description": "Secret provider not found"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "selector": {
+                    "type": "string"
+                  },
+                  "refs": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "example": {
+                "selector": "prod",
+                "refs": [
+                  "op://vault/db/password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/secret-providers/{id}/test": {
+      "post": {
+        "operationId": "post_api_secret-providers_id_test",
+        "tags": [
+          "secret-providers"
+        ],
+        "summary": "Test a stored provider's connectivity, optionally against typed override fields the edit form would save",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The secret provider id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok=false carries the connection error (still 200 so the edit form can show it inline)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                },
+                "example": {
+                  "ok": true,
+                  "error": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid secret provider ID"
+          },
+          "403": {
+            "description": "Permission denied (needs secrets:view)"
+          },
+          "404": {
+            "description": "Secret provider not found"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "config": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "config": {
+                  "host": "https://vault.example.com",
+                  "mount": "secret"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/secret-providers/test": {
+      "post": {
+        "operationId": "post_api_secret-providers_test",
+        "tags": [
+          "secret-providers"
+        ],
+        "summary": "Test an unsaved provider config (before creating the provider)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok=false carries the reason (invalid type, missing config, or a connection error) - still 200 so the form shows it inline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                },
+                "example": {
+                  "ok": true,
+                  "error": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "403": {
+            "description": "Permission denied (needs secrets:create)"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "config"
+                ]
+              },
+              "example": {
+                "type": "vault",
+                "config": {
+                  "host": "https://vault.example.com",
+                  "mount": "secret",
+                  "token": "hvs...."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/self-update": {
       "post": {
         "operationId": "post_api_self-update",
@@ -22052,7 +22680,7 @@
             "description": "text/event-stream SSE response (steps: pulling_image, building_config, pulling_updater, creating_container, launching_updater, then a \"launched\"/\"error\" event) — or, with \"Accept: application/json\", the final event as plain JSON"
           },
           "400": {
-            "description": "newImage missing, not running in Docker, Docker socket is read-only, or own container has no name"
+            "description": "newImage missing, not running in Docker, or the Docker socket is read-only"
           },
           "403": {
             "description": "Admin access required"
@@ -22247,173 +22875,17 @@
         "tags": [
           "settings"
         ],
-        "summary": "Get the global general settings (UI preferences, retention/cleanup schedules, monitoring intervals, theme defaults, stack paths)",
+        "summary": "Get global (instance-wide) general settings",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "confirmDestructive": {
-                      "type": "boolean"
-                    },
-                    "showStoppedContainers": {
-                      "type": "boolean"
-                    },
-                    "highlightUpdates": {
-                      "type": "boolean"
-                    },
-                    "timeFormat": {
-                      "type": "string"
-                    },
-                    "dateFormat": {
-                      "type": "string"
-                    },
-                    "downloadFormat": {
-                      "type": "string"
-                    },
-                    "defaultGrypeArgs": {
-                      "type": "string"
-                    },
-                    "defaultTrivyArgs": {
-                      "type": "string"
-                    },
-                    "scheduleRetentionDays": {
-                      "type": "integer"
-                    },
-                    "eventRetentionDays": {
-                      "type": "integer"
-                    },
-                    "scheduleCleanupCron": {
-                      "type": "string"
-                    },
-                    "eventCleanupCron": {
-                      "type": "string"
-                    },
-                    "scheduleCleanupEnabled": {
-                      "type": "boolean"
-                    },
-                    "eventCleanupEnabled": {
-                      "type": "boolean"
-                    },
-                    "logBufferSizeKb": {
-                      "type": "integer"
-                    },
-                    "defaultTimezone": {
-                      "type": "string"
-                    },
-                    "eventCollectionMode": {
-                      "type": "string"
-                    },
-                    "eventPollInterval": {
-                      "type": "integer"
-                    },
-                    "metricsCollectionInterval": {
-                      "type": "integer"
-                    },
-                    "lightTheme": {
-                      "type": "string"
-                    },
-                    "darkTheme": {
-                      "type": "string"
-                    },
-                    "font": {
-                      "type": "string"
-                    },
-                    "fontSize": {
-                      "type": "string"
-                    },
-                    "gridFontSize": {
-                      "type": "string"
-                    },
-                    "terminalFont": {
-                      "type": "string"
-                    },
-                    "editorFont": {
-                      "type": "string"
-                    },
-                    "externalStackPaths": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "primaryStackLocation": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "confirmDestructive",
-                    "showStoppedContainers",
-                    "highlightUpdates",
-                    "timeFormat",
-                    "dateFormat",
-                    "downloadFormat",
-                    "defaultGrypeArgs",
-                    "defaultTrivyArgs",
-                    "scheduleRetentionDays",
-                    "eventRetentionDays",
-                    "scheduleCleanupCron",
-                    "eventCleanupCron",
-                    "scheduleCleanupEnabled",
-                    "eventCleanupEnabled",
-                    "logBufferSizeKb",
-                    "defaultTimezone",
-                    "eventCollectionMode",
-                    "eventPollInterval",
-                    "metricsCollectionInterval",
-                    "lightTheme",
-                    "darkTheme",
-                    "font",
-                    "fontSize",
-                    "gridFontSize",
-                    "terminalFont",
-                    "editorFont"
-                  ]
-                },
-                "example": {
-                  "confirmDestructive": true,
-                  "showStoppedContainers": true,
-                  "highlightUpdates": true,
-                  "timeFormat": "string",
-                  "dateFormat": "string",
-                  "downloadFormat": "string",
-                  "defaultGrypeArgs": "string",
-                  "defaultTrivyArgs": "string",
-                  "scheduleRetentionDays": 0,
-                  "eventRetentionDays": 0,
-                  "scheduleCleanupCron": "string",
-                  "eventCleanupCron": "string",
-                  "scheduleCleanupEnabled": true,
-                  "eventCleanupEnabled": true,
-                  "logBufferSizeKb": 0,
-                  "defaultTimezone": "string",
-                  "eventCollectionMode": "string",
-                  "eventPollInterval": 0,
-                  "metricsCollectionInterval": 0,
-                  "lightTheme": "string",
-                  "darkTheme": "string",
-                  "font": "string",
-                  "fontSize": "string",
-                  "gridFontSize": "string",
-                  "terminalFont": "string",
-                  "editorFont": "string",
-                  "externalStackPaths": [
-                    "string"
-                  ],
-                  "primaryStackLocation": "string"
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "401": {
-            "description": "Authentication required (auth is enabled and the caller is not authenticated)"
+            "description": "Not authenticated"
           },
           "500": {
-            "description": "Failed to read the general settings"
+            "description": "Failed to load settings"
           }
         },
         "security": [
@@ -22430,173 +22902,17 @@
         "tags": [
           "settings"
         ],
-        "summary": "Update the global general settings (only supplied, valid fields are persisted; returns the full effective settings)",
+        "summary": "Update global general settings (all fields optional; only supplied keys are written)",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "confirmDestructive": {
-                      "type": "boolean"
-                    },
-                    "showStoppedContainers": {
-                      "type": "boolean"
-                    },
-                    "highlightUpdates": {
-                      "type": "boolean"
-                    },
-                    "timeFormat": {
-                      "type": "string"
-                    },
-                    "dateFormat": {
-                      "type": "string"
-                    },
-                    "downloadFormat": {
-                      "type": "string"
-                    },
-                    "defaultGrypeArgs": {
-                      "type": "string"
-                    },
-                    "defaultTrivyArgs": {
-                      "type": "string"
-                    },
-                    "scheduleRetentionDays": {
-                      "type": "integer"
-                    },
-                    "eventRetentionDays": {
-                      "type": "integer"
-                    },
-                    "scheduleCleanupCron": {
-                      "type": "string"
-                    },
-                    "eventCleanupCron": {
-                      "type": "string"
-                    },
-                    "scheduleCleanupEnabled": {
-                      "type": "boolean"
-                    },
-                    "eventCleanupEnabled": {
-                      "type": "boolean"
-                    },
-                    "logBufferSizeKb": {
-                      "type": "integer"
-                    },
-                    "defaultTimezone": {
-                      "type": "string"
-                    },
-                    "eventCollectionMode": {
-                      "type": "string"
-                    },
-                    "eventPollInterval": {
-                      "type": "integer"
-                    },
-                    "metricsCollectionInterval": {
-                      "type": "integer"
-                    },
-                    "lightTheme": {
-                      "type": "string"
-                    },
-                    "darkTheme": {
-                      "type": "string"
-                    },
-                    "font": {
-                      "type": "string"
-                    },
-                    "fontSize": {
-                      "type": "string"
-                    },
-                    "gridFontSize": {
-                      "type": "string"
-                    },
-                    "terminalFont": {
-                      "type": "string"
-                    },
-                    "editorFont": {
-                      "type": "string"
-                    },
-                    "externalStackPaths": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "primaryStackLocation": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "confirmDestructive",
-                    "showStoppedContainers",
-                    "highlightUpdates",
-                    "timeFormat",
-                    "dateFormat",
-                    "downloadFormat",
-                    "defaultGrypeArgs",
-                    "defaultTrivyArgs",
-                    "scheduleRetentionDays",
-                    "eventRetentionDays",
-                    "scheduleCleanupCron",
-                    "eventCleanupCron",
-                    "scheduleCleanupEnabled",
-                    "eventCleanupEnabled",
-                    "logBufferSizeKb",
-                    "defaultTimezone",
-                    "eventCollectionMode",
-                    "eventPollInterval",
-                    "metricsCollectionInterval",
-                    "lightTheme",
-                    "darkTheme",
-                    "font",
-                    "fontSize",
-                    "gridFontSize",
-                    "terminalFont",
-                    "editorFont"
-                  ]
-                },
-                "example": {
-                  "confirmDestructive": true,
-                  "showStoppedContainers": true,
-                  "highlightUpdates": true,
-                  "timeFormat": "string",
-                  "dateFormat": "string",
-                  "downloadFormat": "string",
-                  "defaultGrypeArgs": "string",
-                  "defaultTrivyArgs": "string",
-                  "scheduleRetentionDays": 0,
-                  "eventRetentionDays": 0,
-                  "scheduleCleanupCron": "string",
-                  "eventCleanupCron": "string",
-                  "scheduleCleanupEnabled": true,
-                  "eventCleanupEnabled": true,
-                  "logBufferSizeKb": 0,
-                  "defaultTimezone": "string",
-                  "eventCollectionMode": "string",
-                  "eventPollInterval": 0,
-                  "metricsCollectionInterval": 0,
-                  "lightTheme": "string",
-                  "darkTheme": "string",
-                  "font": "string",
-                  "fontSize": "string",
-                  "gridFontSize": "string",
-                  "terminalFont": "string",
-                  "editorFont": "string",
-                  "externalStackPaths": [
-                    "string"
-                  ],
-                  "primaryStackLocation": "string"
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "403": {
-            "description": "Permission denied (missing settings:edit)"
+            "description": "Permission denied (needs settings:edit)"
           },
           "500": {
-            "description": "Failed to save the general settings"
+            "description": "Failed to save settings"
           }
         },
         "security": [
@@ -22607,6 +22923,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "A large flat settings bag - theme/fonts, scanner defaults, cleanup schedules, event/metrics collection, editor options (e.g. editorIndentGuides), and more.",
         "requestBody": {
           "required": true,
           "content": {
@@ -22614,62 +22931,14 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "confirmDestructive": {
+                  "animateIcons": {
                     "type": "boolean"
                   },
-                  "showStoppedContainers": {
+                  "editorIndentGuides": {
                     "type": "boolean"
                   },
-                  "highlightUpdates": {
+                  "coloredActionButtons": {
                     "type": "boolean"
-                  },
-                  "timeFormat": {
-                    "type": "string"
-                  },
-                  "dateFormat": {
-                    "type": "string"
-                  },
-                  "downloadFormat": {
-                    "type": "string"
-                  },
-                  "defaultGrypeArgs": {
-                    "type": "string"
-                  },
-                  "defaultTrivyArgs": {
-                    "type": "string"
-                  },
-                  "scheduleRetentionDays": {
-                    "type": "integer"
-                  },
-                  "eventRetentionDays": {
-                    "type": "integer"
-                  },
-                  "scheduleCleanupCron": {
-                    "type": "string"
-                  },
-                  "eventCleanupCron": {
-                    "type": "string"
-                  },
-                  "scheduleCleanupEnabled": {
-                    "type": "boolean"
-                  },
-                  "eventCleanupEnabled": {
-                    "type": "boolean"
-                  },
-                  "logBufferSizeKb": {
-                    "type": "integer"
-                  },
-                  "defaultTimezone": {
-                    "type": "string"
-                  },
-                  "eventCollectionMode": {
-                    "type": "string"
-                  },
-                  "eventPollInterval": {
-                    "type": "integer"
-                  },
-                  "metricsCollectionInterval": {
-                    "type": "integer"
                   },
                   "lightTheme": {
                     "type": "string"
@@ -22677,38 +22946,26 @@
                   "darkTheme": {
                     "type": "string"
                   },
-                  "font": {
+                  "defaultTimezone": {
                     "type": "string"
                   },
-                  "fontSize": {
-                    "type": "string"
-                  },
-                  "gridFontSize": {
-                    "type": "string"
-                  },
-                  "terminalFont": {
-                    "type": "string"
-                  },
-                  "editorFont": {
-                    "type": "string"
+                  "logBufferSizeKb": {
+                    "type": "integer"
                   },
                   "externalStackPaths": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "primaryStackLocation": {
                     "type": "string"
                   }
                 }
               },
               "example": {
-                "confirmDestructive": true,
-                "timeFormat": "24h",
-                "dateFormat": "DD.MM.YYYY",
-                "eventCollectionMode": "stream",
-                "metricsCollectionInterval": 30000
+                "animateIcons": true,
+                "editorIndentGuides": true,
+                "coloredActionButtons": true,
+                "lightTheme": "string",
+                "darkTheme": "string",
+                "defaultTimezone": "string",
+                "logBufferSizeKb": 0,
+                "externalStackPaths": "string"
               }
             }
           }
@@ -23196,59 +23453,11 @@
         "tags": [
           "settings"
         ],
-        "summary": "Get the app-level theme settings (public — used by the login page before authentication); defaults are returned on error",
+        "summary": "Public theme + editor display settings (used by the login page before auth)",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "lightTheme": {
-                      "type": "string"
-                    },
-                    "darkTheme": {
-                      "type": "string"
-                    },
-                    "font": {
-                      "type": "string"
-                    },
-                    "fontSize": {
-                      "type": "string"
-                    },
-                    "gridFontSize": {
-                      "type": "string"
-                    },
-                    "terminalFont": {
-                      "type": "string"
-                    },
-                    "editorFont": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "lightTheme",
-                    "darkTheme",
-                    "font",
-                    "fontSize",
-                    "gridFontSize",
-                    "terminalFont",
-                    "editorFont"
-                  ]
-                },
-                "example": {
-                  "lightTheme": "default",
-                  "darkTheme": "default",
-                  "font": "system",
-                  "fontSize": "normal",
-                  "gridFontSize": "normal",
-                  "terminalFont": "system-mono",
-                  "editorFont": "system-mono"
-                }
-              }
-            }
+            "description": "Light/dark theme, fonts, and editor display flags (e.g. editorIndentGuides)"
           }
         },
         "security": []
@@ -23260,7 +23469,7 @@
         "tags": [
           "stacks"
         ],
-        "summary": "List compose stacks (running + database-only entries) for one environment",
+        "summary": "List compose stacks for one environment (internal, external, and git)",
         "parameters": [
           {
             "name": "env",
@@ -23269,58 +23478,15 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id — an empty array is returned if omitted (from GET /api/environments)"
+            "description": "Environment id"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "name": {
-                        "type": "string"
-                      },
-                      "containers": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "status": {
-                        "type": "string"
-                      },
-                      "sourceType": {
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "name",
-                      "containers",
-                      "status"
-                    ]
-                  }
-                },
-                "example": [
-                  {
-                    "name": "immich",
-                    "containers": [
-                      "immich_server",
-                      "immich_redis"
-                    ],
-                    "status": "running",
-                    "sourceType": "git"
-                  }
-                ]
-              }
-            }
+            "description": "Successful response"
           },
           "403": {
-            "description": "Permission denied, or access denied to this environment (RBAC)"
+            "description": "Permission denied (needs stacks:view)"
           },
           "404": {
             "description": "Environment not found"
@@ -23340,7 +23506,7 @@
         "tags": [
           "stacks"
         ],
-        "summary": "Create an internal (non-git) stack; optionally deploy immediately",
+        "summary": "Create and (optionally) deploy a compose stack",
         "parameters": [
           {
             "name": "env",
@@ -23349,44 +23515,21 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id to create the stack in (from GET /api/environments)"
+            "description": "Target environment id"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "started": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "started"
-                  ]
-                },
-                "example": {
-                  "success": true,
-                  "started": true
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "400": {
-            "description": "Missing/invalid name or compose content"
+            "description": "Invalid request (e.g. missing name/compose, or secretProviderId wrong type)"
           },
           "403": {
-            "description": "Permission denied (RBAC 'stacks:create' missing)"
+            "description": "Permission denied (needs stacks:create; binding a secret provider also needs secrets:view)"
           },
           "500": {
-            "description": "Deploy failed (docker compose error) — stack record may still have been created"
+            "description": "Failed to create or deploy the stack"
           }
         },
         "security": [
@@ -23397,6 +23540,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Writes the compose + .env to the stack dir, stores secrets in the DB, and with start deploys it. Can bind a secret provider.",
         "requestBody": {
           "required": true,
           "content": {
@@ -23410,20 +23554,26 @@
                   "compose": {
                     "type": "string"
                   },
-                  "start": {
-                    "type": "boolean"
-                  },
-                  "envVars": {
-                    "type": "string"
-                  },
-                  "rawEnvContent": {
-                    "type": "string"
-                  },
                   "composePath": {
                     "type": "string"
                   },
                   "envPath": {
                     "type": "string"
+                  },
+                  "envVars": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "rawEnvContent": {
+                    "type": "string"
+                  },
+                  "secretProviderId": {
+                    "type": "integer"
+                  },
+                  "start": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -23432,8 +23582,15 @@
                 ]
               },
               "example": {
-                "name": "gitcheck",
-                "compose": "services:\n  web:\n    image: nginx:alpine\n",
+                "name": "string",
+                "compose": "string",
+                "composePath": "string",
+                "envPath": "string",
+                "envVars": [
+                  "string"
+                ],
+                "rawEnvContent": "string",
+                "secretProviderId": 0,
                 "start": true
               }
             }
@@ -23650,7 +23807,7 @@
         "tags": [
           "stacks"
         ],
-        "summary": "Read the resolved compose file content for a stack, along with the resolved compose/env file paths",
+        "summary": "Get a stack's compose file content plus its resolved compose/env paths",
         "parameters": [
           {
             "name": "name",
@@ -23659,7 +23816,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name (from GET /api/stacks)"
+            "description": "The stack name"
           },
           {
             "name": "env",
@@ -23668,55 +23825,21 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to (from GET /api/environments)"
+            "description": "Environment id the stack belongs to"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "content": {
-                      "type": "string"
-                    },
-                    "stackDir": {
-                      "type": "string"
-                    },
-                    "composePath": {
-                      "type": "string"
-                    },
-                    "envPath": {
-                      "type": "string"
-                    },
-                    "suggestedEnvPath": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "content"
-                  ]
-                },
-                "example": {
-                  "content": "services:\n  web:\n    image: nginx",
-                  "stackDir": "/opt/stacks/web",
-                  "composePath": "/opt/stacks/web/compose.yaml",
-                  "envPath": "/opt/stacks/web/.env",
-                  "suggestedEnvPath": "/opt/stacks/web/.env"
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "403": {
-            "description": "Permission denied (requires stacks:view)"
+            "description": "Permission denied (needs stacks:view)"
           },
           "404": {
-            "description": "Compose file not found — the response carries needsFileLocation plus the suggested composePath/envPath"
+            "description": "Stack or compose file not found"
           },
           "500": {
-            "description": "Failed to get compose file"
+            "description": "Failed to read the compose file"
           }
         },
         "security": [
@@ -23733,7 +23856,7 @@
         "tags": [
           "stacks"
         ],
-        "summary": "Save the compose file content (with optional custom/moved paths); when restart=true the stack is redeployed with force-recreate and progress streams over SSE",
+        "summary": "Save a stack's compose file (and optionally relocate it, bind a secret provider, and redeploy)",
         "parameters": [
           {
             "name": "name",
@@ -23742,7 +23865,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name (from GET /api/stacks)"
+            "description": "The stack name"
           },
           {
             "name": "env",
@@ -23751,36 +23874,18 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID the stack belongs to (from GET /api/environments)"
+            "description": "Environment id the stack belongs to"
           }
         ],
         "responses": {
           "200": {
-            "description": "File saved (restart=false) or a Server-Sent-Events job stream (restart=true) reporting deploy progress and the final result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "success"
-                  ]
-                },
-                "example": {
-                  "success": true
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "400": {
-            "description": "Compose file content is required"
+            "description": "Invalid request (e.g. missing content, or secretProviderId wrong type)"
           },
           "403": {
-            "description": "Permission denied (requires stacks:edit)"
+            "description": "Permission denied (needs stacks:edit; binding a secret provider also needs secrets:view)"
           },
           "500": {
             "description": "Failed to save or deploy the compose file"
@@ -23794,6 +23899,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Every accepted PUT persists the compose content; with restart it also redeploys. Supports moving the compose/env to a new path and binding a secret provider.",
         "requestBody": {
           "required": true,
           "content": {
@@ -23804,16 +23910,10 @@
                   "content": {
                     "type": "string"
                   },
-                  "restart": {
-                    "type": "boolean"
-                  },
                   "composePath": {
                     "type": "string"
                   },
                   "envPath": {
-                    "type": "string"
-                  },
-                  "moveFromDir": {
                     "type": "string"
                   },
                   "oldComposePath": {
@@ -23821,6 +23921,15 @@
                   },
                   "oldEnvPath": {
                     "type": "string"
+                  },
+                  "moveFromDir": {
+                    "type": "string"
+                  },
+                  "restart": {
+                    "type": "boolean"
+                  },
+                  "secretProviderId": {
+                    "type": "integer"
                   }
                 },
                 "required": [
@@ -23828,8 +23937,14 @@
                 ]
               },
               "example": {
-                "content": "services:\n  web:\n    image: nginx",
-                "restart": false
+                "content": "string",
+                "composePath": "string",
+                "envPath": "string",
+                "oldComposePath": "string",
+                "oldEnvPath": "string",
+                "moveFromDir": "string",
+                "restart": true,
+                "secretProviderId": 0
               }
             }
           }
@@ -24087,7 +24202,7 @@
         "tags": [
           "stacks"
         ],
-        "summary": "Get all environment variables for a stack (secrets masked)",
+        "summary": "Get a stack's env vars (non-secrets from file, secrets masked from DB) plus injected provider keys",
         "parameters": [
           {
             "name": "name",
@@ -24096,7 +24211,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name (as shown in Dockhand, e.g. \"gitcheck\") (from GET /api/stacks)"
+            "description": "The stack name"
           },
           {
             "name": "env",
@@ -24105,12 +24220,12 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id to scope the lookup; omit for the default/legacy (null) scope (from GET /api/environments)"
+            "description": "Environment id the stack belongs to"
           }
         ],
         "responses": {
           "200": {
-            "description": "Merged non-secret (.env file) + secret (DB, masked) variables for the stack",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
@@ -24119,24 +24234,17 @@
                     "variables": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "key": {
-                            "type": "string"
-                          },
-                          "value": {
-                            "type": "string"
-                          },
-                          "isSecret": {
-                            "type": "boolean"
-                          }
-                        },
-                        "required": [
-                          "key",
-                          "value",
-                          "isSecret"
-                        ]
+                        "type": "string"
                       }
+                    },
+                    "injectedSecretKeys": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "secretProvider": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -24145,26 +24253,21 @@
                 },
                 "example": {
                   "variables": [
-                    {
-                      "key": "GITCHECK_PORT",
-                      "value": "18080",
-                      "isSecret": false
-                    },
-                    {
-                      "key": "DB_PASSWORD",
-                      "value": "***",
-                      "isSecret": true
-                    }
-                  ]
+                    "string"
+                  ],
+                  "injectedSecretKeys": [
+                    "string"
+                  ],
+                  "secretProvider": "string"
                 }
               }
             }
           },
           "403": {
-            "description": "Permission denied or access denied to this environment"
+            "description": "Permission denied (needs stacks:view)"
           },
           "500": {
-            "description": "Unexpected error while loading environment variables"
+            "description": "Failed to read env vars"
           }
         },
         "security": [
@@ -24181,7 +24284,7 @@
         "tags": [
           "stacks"
         ],
-        "summary": "Save environment variables for a stack (secrets stored encrypted in the DB, non-secrets written to the on-disk .env)",
+        "summary": "Save a stack's secret env vars to the DB (secrets never hit disk)",
         "parameters": [
           {
             "name": "name",
@@ -24190,7 +24293,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Stack name (from GET /api/stacks)"
+            "description": "The stack name"
           },
           {
             "name": "env",
@@ -24199,44 +24302,21 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment id (from GET /api/environments)"
+            "description": "Environment id the stack belongs to"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "count": {
-                      "type": "integer"
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "count"
-                  ]
-                },
-                "example": {
-                  "success": true,
-                  "count": 2
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "400": {
-            "description": "variables missing/not an array, or an entry has an invalid key/value"
+            "description": "Invalid variables payload"
           },
           "403": {
-            "description": "Permission denied or access denied to this environment"
+            "description": "Permission denied (needs stacks:edit)"
           },
           "500": {
-            "description": "Unexpected error while saving environment variables"
+            "description": "Failed to save env vars"
           }
         },
         "security": [
@@ -24257,22 +24337,7 @@
                   "variables": {
                     "type": "array",
                     "items": {
-                      "type": "object",
-                      "properties": {
-                        "key": {
-                          "type": "string"
-                        },
-                        "value": {
-                          "type": "string"
-                        },
-                        "isSecret": {
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "key",
-                        "value"
-                      ]
+                      "type": "string"
                     }
                   }
                 },
@@ -24282,16 +24347,7 @@
               },
               "example": {
                 "variables": [
-                  {
-                    "key": "GITCHECK_MARKER",
-                    "value": "marker-001",
-                    "isSecret": false
-                  },
-                  {
-                    "key": "DB_PASSWORD",
-                    "value": "***",
-                    "isSecret": true
-                  }
+                  "string"
                 ]
               }
             }
@@ -25392,7 +25448,7 @@
         "tags": [
           "stacks"
         ],
-        "summary": "Return a map of stack name to its source metadata (sourceType, composePath, repository) for the given environment",
+        "summary": "List stack source records (their stored compose/env paths and source type)",
         "parameters": [
           {
             "name": "env",
@@ -25401,18 +25457,18 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Environment ID to scope the stacks (from GET /api/environments)"
+            "description": "Filter to a single environment id"
           }
         ],
         "responses": {
           "200": {
-            "description": "Object keyed by stack name, each value carrying sourceType plus optional composePath and repository"
+            "description": "Successful response"
           },
           "403": {
-            "description": "Permission denied (requires stacks:view)"
+            "description": "Permission denied (needs stacks:view)"
           },
           "500": {
-            "description": "Failed to get stack sources"
+            "description": "Failed to list stack sources"
           }
         },
         "security": [
@@ -26907,7 +26963,7 @@
         "tags": [
           "users"
         ],
-        "summary": "Set up MFA for a user — without a body returns a new TOTP secret/QR; with action=verify enables MFA and returns backup codes",
+        "summary": "Set up or verify MFA for a user (action=setup regenerates a secret; action=verify confirms a code)",
         "parameters": [
           {
             "name": "id",
@@ -26916,57 +26972,24 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the user (from GET /api/users)"
+            "description": "The user id"
           }
         ],
         "responses": {
           "200": {
-            "description": "Setup response ({secret, qrDataUrl}); or, for action=verify, {success, message, backupCodes}",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "secret": {
-                      "type": "string"
-                    },
-                    "qrDataUrl": {
-                      "type": "string"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "backupCodes": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                },
-                "example": {
-                  "secret": "string",
-                  "qrDataUrl": "string",
-                  "success": true,
-                  "message": "string",
-                  "backupCodes": [
-                    "string"
-                  ]
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "400": {
-            "description": "User id is required, MFA token missing, or the MFA code was invalid"
+            "description": "Missing user id, missing/invalid MFA token, or an unknown action"
           },
           "403": {
-            "description": "Permission denied (may only manage own MFA unless admin)"
+            "description": "Permission denied"
           },
           "404": {
             "description": "User not found"
+          },
+          "409": {
+            "description": "MFA is already enabled (disable it before setting up again)"
           },
           "500": {
             "description": "Failed to set up MFA"
@@ -26993,11 +27016,14 @@
                   "token": {
                     "type": "string"
                   }
-                }
+                },
+                "required": [
+                  "action"
+                ]
               },
               "example": {
-                "action": "verify",
-                "token": "123456"
+                "action": "string",
+                "token": "string"
               }
             }
           }
@@ -27008,7 +27034,7 @@
         "tags": [
           "users"
         ],
-        "summary": "Disable MFA for a user (self or admin)",
+        "summary": "Disable MFA for a user",
         "parameters": [
           {
             "name": "id",
@@ -27017,41 +27043,18 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Numeric id of the user (from GET /api/users)"
+            "description": "The user id"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "message"
-                  ]
-                },
-                "example": {
-                  "success": true,
-                  "message": "string"
-                }
-              }
-            }
+            "description": "Successful response"
           },
           "400": {
-            "description": "User id is required"
+            "description": "Missing user id"
           },
           "403": {
-            "description": "Permission denied (may only manage own MFA unless admin)"
+            "description": "Permission denied"
           },
           "404": {
             "description": "User not found"

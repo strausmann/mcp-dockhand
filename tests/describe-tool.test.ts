@@ -20,8 +20,13 @@ describe('describeTool', () => {
     expect(description).not.toBe('No description available.');
   });
 
-  it('resolves cross-references to tool names for create_git_stack', () => {
-    const description = describeTool('create_git_stack');
+  // Was pinned to create_git_stack until Dockhand 1.0.42, whose spec dropped that
+  // operation's `description` (and with it its cross-references) — the mechanism itself is
+  // unaffected: 26 operations still carry operation-level cross-refs, 21 of them backed by
+  // a tool. create_hawser_token is one of them and carries exactly one, which keeps this
+  // test a focused check of resolution rather than of a particular endpoint's prose.
+  it('resolves cross-references to tool names for create_hawser_token', () => {
+    const description = describeTool('create_hawser_token');
     expect(description).toMatch(/environmentId from list_environments/);
   });
 
@@ -80,7 +85,8 @@ describe('describeTool', () => {
       // tools the spec operation's summary actually describes — they must keep getting the
       // plain derived text (no override entry for them).
       expect(describeTool('update_stack_env_raw')).toMatch(/write raw \.env file/i);
-      expect(describeTool('get_stack_env')).toMatch(/get all environment variables/i);
+      // 1.0.42 reworded this summary and now also mentions the provider-injected keys.
+      expect(describeTool('get_stack_env')).toMatch(/env vars .*secrets masked/i);
       expect(describeTool('remove_user_role')).toMatch(/remove a role assignment/i);
       expect(describeTool('trigger_git_webhook')).toMatch(
         /secret passed as the `secret` query parameter/i,

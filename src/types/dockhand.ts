@@ -51,6 +51,13 @@ export interface StackCompose {
 export interface StackEnv {
   variables: EnvVariable[];
   rawContent?: string;
+  /**
+   * Key NAMES (never values) that a bound secret provider injected at the last
+   * deploy, plus the provider it came from. Both added by Dockhand 1.0.42 to
+   * `GET /api/stacks/{name}/env`; older servers simply omit them.
+   */
+  injectedSecretKeys?: string[];
+  secretProvider?: { type: string; name: string } | null;
 }
 
 export interface EnvVariable {

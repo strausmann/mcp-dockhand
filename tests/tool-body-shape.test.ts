@@ -105,6 +105,8 @@ describe('getToolBodyShape — captured from a real tool registration (create_st
       'start',
       'envVars',
       'rawEnvContent',
+      // Added for Dockhand 1.0.42 — binds the stack to a configured secret provider.
+      'secretProviderId',
     ]);
     expect(result.passthrough).toBe(false);
   });
@@ -113,5 +115,43 @@ describe('getToolBodyShape — captured from a real tool registration (create_st
     const { shapes } = createCapturingServer();
 
     expect(() => getToolBodyShape('does_not_exist', shapes)).toThrow(/does_not_exist/);
+  });
+});
+
+describe('computeBodyShape — .default() counts as always-sent, not optional', () => {
+  /**
+   * `requiredSent` answers "is this field on the wire on every call?", not "may the caller
+   * omit it?". Zod's own `isOptional()` answers the latter and returns true for a defaulted
+   * field, which made the validator report BODY_PARAM_MISSING_REQUIRED for a contract-required
+   * field that the tool in fact sends every single time (hit by enable_user_mfa when the
+   * 1.0.42 contract marked `action` required).
+   *
+   * Counter-check performed: with the `hasZodDefault()` guard removed, the first assertion
+   * below fails with `requiredSent: []` — the test does exercise the fix rather than passing
+   * for an unrelated reason.
+   */
+  it('treats a defaulted field as required-sent', () => {
+    const shape = { action: z.enum(['setup', 'verify']).default('setup') };
+
+    expect(computeBodyShape(shape)).toEqual({
+      sentFields: ['action'],
+      requiredSent: ['action'],
+      passthrough: false,
+    });
+  });
+
+  it('still treats a plain .optional() field as optional', () => {
+    const shape = { token: z.string().optional() };
+
+    expect(computeBodyShape(shape)).toEqual({
+      sentFields: ['token'],
+      requiredSent: [],
+      passthrough: false,
+    });
+  });
+
+  it('handles .default() wrapped in .optional() (either nesting order)', () => {
+    expect(computeBodyShape({ a: z.string().default('x').optional() }).requiredSent).toEqual(['a']);
+    expect(computeBodyShape({ b: z.string().optional().default('y') }).requiredSent).toEqual(['b']);
   });
 });

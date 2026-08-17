@@ -64,9 +64,21 @@ export function registerUserTools(server: McpServer, client: DockhandClient): vo
   );
 
   registerTool(server, 'enable_user_mfa',
-    { userId: z.number().describe('User ID') },
-    async ({ userId }) => {
-      return jsonResponse(await client.post(`/api/users/${encodePath(userId)}/mfa`));
+    {
+      userId: z.number().describe('User ID'),
+      // Dockhand 1.0.42 rejects any action other than "setup"/"verify" (#1399: a
+      // stray empty POST used to destroy a live enrolment). An omitted action still
+      // means "setup" — the handler reads the body via
+      // `request.json().catch(() => ({}))` — but we send it explicitly and always:
+      // it makes the intent unambiguous at the call site, and the OpenAPI contract
+      // marks the field required (`action:string!`), which the validator gates on.
+      action: z.enum(['setup', 'verify']).default('setup').describe('"setup" (default) regenerates the secret; "verify" confirms a code and requires token'),
+      token: z.string().optional().describe('The TOTP code — required when action is "verify"'),
+    },
+    async ({ userId, action, token }) => {
+      const body: Record<string, unknown> = { action };
+      if (token !== undefined) body.token = token;
+      return jsonResponse(await client.post(`/api/users/${encodePath(userId)}/mfa`, body));
     }
   );
 

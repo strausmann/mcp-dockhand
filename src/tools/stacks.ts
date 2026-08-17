@@ -34,14 +34,16 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         isSecret: z.boolean().optional(),
       })).optional().describe('Environment variables'),
       rawEnvContent: z.string().optional().describe('Raw .env file content'),
+      secretProviderId: z.number().optional().describe('Bind the stack to a configured secret provider (id from list_secret_providers); its secrets are injected at deploy. Dockhand 1.0.42+'),
     },
-    async ({ environmentId, name, compose, composePath, envPath, start, envVars, rawEnvContent }) => {
+    async ({ environmentId, name, compose, composePath, envPath, start, envVars, rawEnvContent, secretProviderId }) => {
       const body: Record<string, unknown> = { name, compose };
       if (composePath !== undefined) body.composePath = composePath;
       if (envPath !== undefined) body.envPath = envPath;
       if (start !== undefined) body.start = start;
       if (envVars) body.envVars = envVars;
       if (rawEnvContent) body.rawEnvContent = rawEnvContent;
+      if (secretProviderId !== undefined) body.secretProviderId = secretProviderId;
 
       return jsonResponse(await client.postSSE('/api/stacks', body, { env: environmentId }));
     }
@@ -131,10 +133,12 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       name: z.string().describe('Stack name'),
       content: z.string().describe('New compose file content'),
       restart: z.boolean().optional().describe('Redeploy after update (default: false)'),
+      secretProviderId: z.number().optional().describe('Bind the stack to a configured secret provider (id from list_secret_providers); its secrets are injected at deploy. Dockhand 1.0.42+'),
     },
-    async ({ environmentId, name, content, restart }) => {
+    async ({ environmentId, name, content, restart, secretProviderId }) => {
       const body: Record<string, unknown> = { content };
       if (restart !== undefined) body.restart = restart;
+      if (secretProviderId !== undefined) body.secretProviderId = secretProviderId;
 
       if (restart) {
         return jsonResponse(await client.putSSE(`/api/stacks/${encodePath(name)}/compose`, body, { env: environmentId }));
