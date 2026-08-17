@@ -13,8 +13,7 @@ function getEnvOrThrow(name: string): string {
   if (!value) {
     logger.error(
       { component: 'config', variable: name },
-      `Environment variable ${name} is required but not set. ` +
-        'Copy .env.example to .env and fill in your Dockhand credentials.',
+      'required environment variable is not set — copy .env.example to .env and fill in your Dockhand credentials',
     );
     process.exit(1);
   }

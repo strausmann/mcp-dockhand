@@ -310,6 +310,8 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
           host,
           port: config.port,
           dockhandUrl: config.dockhand.url,
+          health: `http://localhost:${config.port}/health`,
+          mcp: `http://localhost:${config.port}/mcp`,
         },
         'MCP Dockhand server listening',
       );
