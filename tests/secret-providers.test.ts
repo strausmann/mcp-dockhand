@@ -161,3 +161,29 @@ describe('operator-safety suffix', () => {
     expect(description).not.toBe('No description available.');
   });
 });
+
+describe('exec_container limitation notice (#195)', () => {
+  it('states outright that it runs nothing and returns no output', () => {
+    const description = describeTool('exec_container');
+
+    expect(description).toMatch(/does NOT run a command/);
+    expect(description).toMatch(/cannot return output/i);
+    expect(description).toMatch(/do not retry expecting output/i);
+  });
+
+  it('names the tools that do serve the underlying need', () => {
+    const description = describeTool('exec_container');
+
+    // A dead end without an alternative just moves the guesswork one step along.
+    expect(description).toMatch(/get_container_logs/);
+    expect(description).toMatch(/get_container_file_content/);
+    expect(description).toMatch(/get_container_top/);
+  });
+
+  it('keeps the spec-derived description alongside the notice', () => {
+    const description = describeTool('exec_container');
+
+    expect(description).toMatch(/exec instance/i);
+    expect(description.indexOf('IMPORTANT')).toBeGreaterThan(0);
+  });
+});

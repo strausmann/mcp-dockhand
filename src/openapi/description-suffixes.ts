@@ -47,7 +47,30 @@ const RETURNS_THE_FILE_VERBATIM =
   'you specifically need the file itself. If you only need to know WHICH keys exist, say so ' +
   'and read the key names rather than printing the response.';
 
+/**
+ * `exec_container` does not execute anything the caller can name, and its result cannot be
+ * read back over REST. Verified against the 1.0.42 handler: the exec instance is created with
+ * `cmd: [shell]` — the shell and nothing else, there is no command parameter — and the
+ * response is an exec id plus Docker connection coordinates so a browser terminal can attach
+ * to the daemon directly. The stream never passes through Dockhand's HTTP API, and no other
+ * upstream endpoint runs a command and returns its output (`createExec` has exactly two
+ * call sites there).
+ *
+ * The endpoint's own summary does say "return its ID plus the Docker connection info for a
+ * terminal WebSocket", but a tool named exec_container invites the attempt anyway — so the
+ * dead end is stated outright, along with what to reach for instead. Reported as #195 by a
+ * user who went looking for the output and found none.
+ */
+const EXEC_RETURNS_NO_OUTPUT =
+  'IMPORTANT: this does NOT run a command and cannot return output. It only opens an ' +
+  'interactive shell session for a client that can attach a terminal — there is no command ' +
+  'parameter, and the stream does not travel over the REST API, so no follow-up call can ' +
+  'retrieve results. Do not retry expecting output. For what a container already produced use ' +
+  'get_container_logs; for state on disk use list_container_files and ' +
+  'get_container_file_content; for running processes use get_container_top.';
+
 export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
+  exec_container: EXEC_RETURNS_NO_OUTPUT,
   get_stack_env_raw: RETURNS_THE_FILE_VERBATIM,
   create_secret_provider: CONFIG_CARRIES_CREDENTIALS,
   update_secret_provider: CONFIG_CARRIES_CREDENTIALS,
