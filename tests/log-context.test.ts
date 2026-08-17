@@ -3,13 +3,16 @@
  * other's identifiers. That is the whole reason for AsyncLocalStorage over a module
  * variable, so it is the thing worth testing.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import pino from 'pino';
+import { Transform } from 'stream';
 import {
   runWithLogContext,
   extendLogContext,
   currentLogContext,
   log,
 } from '../src/utils/log-context.js';
+import { logger } from '../src/utils/logger.js';
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -63,49 +66,46 @@ describe('log context', () => {
 
   describe('log()', () => {
     it('returns the base logger outside any context', () => {
-      const logger = log();
-      expect(logger).toBeDefined();
-      // Outside context, currentLogContext() is empty
+      const returnedLogger = log();
+      expect(returnedLogger).toBe(logger);
       expect(currentLogContext()).toEqual({});
-      // Verify logger.info is callable
-      expect(logger.info).toBeDefined();
-      expect(typeof logger.info).toBe('function');
     });
 
-    it('returns a context-bound child logger inside runWithLogContext', () => {
-      const outsideLogger = log();
-      let insideLogger: any;
+    it('binds context fields to the child logger', () => {
+      let boundLogger: any;
 
-      runWithLogContext({ req: 'r1', call: 'c1' }, () => {
-        insideLogger = log();
-        // Inside context, should be a different logger instance (child)
-        expect(insideLogger).not.toBe(outsideLogger);
+      runWithLogContext({ req: 'r1', sid: 's1', call: 'c1' }, () => {
+        boundLogger = log();
       });
 
-      // Both loggers should be defined and different instances
-      expect(outsideLogger).toBeDefined();
-      expect(insideLogger).toBeDefined();
-      expect(outsideLogger).not.toBe(insideLogger);
+      // Outside context, log() returns the base logger
+      const unboundLogger = log();
+      expect(unboundLogger).toBe(logger);
+
+      // Inside context, log() returns a child logger with bindings
+      expect(boundLogger).not.toBe(logger);
+
+      // Pino stores bindings in the child logger
+      const bindings = boundLogger.bindings?.();
+      expect(bindings).toBeDefined();
+      expect(bindings?.req).toBe('r1');
+      expect(bindings?.sid).toBe('s1');
+      expect(bindings?.call).toBe('c1');
     });
 
-    it('child logger emits context bindings', () => {
-      const outsideLogger = log();
-      let insideLogger1: any;
-      let insideLogger2: any;
+    it('binds extended context fields to the child logger', () => {
+      let boundLogger: any;
 
-      runWithLogContext({ req: 'r1', call: 'c1' }, () => {
-        insideLogger1 = log();
-        insideLogger2 = log();
-        // Both inside calls should create child loggers (different instances each time)
-        expect(insideLogger1).not.toBe(outsideLogger);
-        expect(insideLogger2).not.toBe(outsideLogger);
+      runWithLogContext({ req: 'r1' }, () => {
+        extendLogContext({ call: 'c1', tool: 'list_stacks' });
+        boundLogger = log();
       });
 
-      // Verify that inside context loggers are different from outside
-      expect(insideLogger1).toBeDefined();
-      expect(insideLogger2).toBeDefined();
-      expect(insideLogger1).not.toBe(outsideLogger);
-      expect(insideLogger2).not.toBe(outsideLogger);
+      // Pino stores bindings in the child logger
+      const bindings = boundLogger.bindings?.();
+      expect(bindings?.req).toBe('r1');
+      expect(bindings?.call).toBe('c1');
+      expect(bindings?.tool).toBe('list_stacks');
     });
   });
 
