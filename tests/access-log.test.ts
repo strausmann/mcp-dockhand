@@ -10,6 +10,30 @@ import { formatAccessLine } from '../src/utils/access-log.js';
 
 const AT = new Date(Date.UTC(2026, 7, 17, 20, 44, 1));
 
+/**
+ * Mirrors the grok QUOTEDSTRING rule `"(?:\\.|[^"\\])*"`: the only escape the parser
+ * understands is "backslash followed by any one character", consumed as a pair. This
+ * decodes a quoted field starting at `start` (the opening quote) exactly the way
+ * nginx-logs would, so a test can assert that what comes out the other end of
+ * CrowdSec's parser is the original, unmangled value — not just that our own escaping
+ * looks plausible.
+ */
+function decodeQuotedField(text: string, start: number): string {
+  let i = start + 1;
+  let out = '';
+  while (i < text.length) {
+    if (text[i] === '\\' && i + 1 < text.length) {
+      out += text[i + 1];
+      i += 2;
+      continue;
+    }
+    if (text[i] === '"') return out;
+    out += text[i];
+    i += 1;
+  }
+  throw new Error('unterminated quoted field in test fixture');
+}
+
 describe('formatAccessLine', () => {
   it('produces the exact combined format verified against CrowdSec', () => {
     expect(
@@ -86,5 +110,47 @@ describe('formatAccessLine', () => {
     });
 
     expect(line.endsWith('"we\\"ird"')).toBe(true);
+  });
+
+  it('escapes a pre-existing backslash before escaping a quote, so grok cannot desync the field', () => {
+    // A naive "escape the quote" pass leaves an existing backslash alone. Grok's
+    // QUOTEDSTRING then reads that backslash paired with the escaped quote's own
+    // backslash as ONE escaped-backslash sequence, and treats the quote that follows
+    // as the field's real, unescaped close — ending the field one character early.
+    // Decoding with the same rule the parser uses is the only check that catches that.
+    const ua = 'trailing backslash then quote: \\"';
+    const line = formatAccessLine({
+      ip: '203.0.113.9', time: AT, method: 'GET', path: '/health', httpVersion: '1.1',
+      status: 200, bytes: 2, userAgent: ua,
+    });
+
+    const boundary = line.lastIndexOf('"-" "');
+    expect(boundary).toBeGreaterThan(-1);
+    const uaFieldStart = boundary + '"-" "'.length - 1;
+    expect(decodeQuotedField(line, uaFieldStart)).toBe(ua);
+  });
+
+  it('strips a newline from the ip field, which nginx never quotes', () => {
+    // The ip field is interpolated unquoted (nginx doesn't quote it either, and
+    // CrowdSec's grok expects it bare) — but a newline in it is still the one thing
+    // cheap enough to defend against here, rather than trusting a caller's guarantee
+    // that it never hands one back. Unquoted also means an attacker's injected text
+    // still lands, verbatim, inside the single resulting line — that's expected and
+    // is not what this test is about; the only real defense is against a second line.
+    const line = formatAccessLine({
+      ip: '203.0.113.9\n1.2.3.4 - - [17/Aug/2026:20:44:01 +0000] "GET / HTTP/1.1" 200 0 "-" "forged"',
+      time: AT, method: 'GET', path: '/health', httpVersion: '1.1', status: 200, bytes: 2,
+    });
+
+    expect(line.split('\n')).toHaveLength(1);
+  });
+
+  it('never prints NaN for status or bytes', () => {
+    const line = formatAccessLine({
+      ip: '203.0.113.9', time: AT, method: 'GET', path: '/health', httpVersion: '1.1',
+      status: Number.NaN, bytes: Number.NaN,
+    });
+
+    expect(line).not.toContain('NaN');
   });
 });

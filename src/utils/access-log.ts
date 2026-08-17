@@ -43,23 +43,51 @@ function formatTime(at: Date): string {
   );
 }
 
+/** Strips C0 control characters and DEL — the one substitution every field gets. */
+function stripControlChars(value: string): string {
+  return value.replace(CONTROL_CHARS, ' ');
+}
+
 /**
- * A user agent or referer is attacker-controlled. Without this a newline in one ends
- * the line and starts a forged one in a stream CrowdSec reads.
+ * A user agent or referer is attacker-controlled. Without the control-character strip
+ * a newline in one ends the line and starts a forged one in a stream CrowdSec reads.
+ *
+ * Backslashes are escaped BEFORE quotes, not after. Escaping only the quote leaves a
+ * pre-existing backslash untouched, so a value ending in `\"` becomes `\\"` in the
+ * output; grok's `QUOTEDSTRING` reads `\\` as one escaped backslash and then treats
+ * the quote that follows as the field's real, unescaped close — the field ends one
+ * character early and everything after it is misread as content outside the quotes.
+ * Escaping the backslash first turns that same input into `\\\"`, which the same
+ * parser reads back as backslash-then-quote: the field closes in the right place.
  */
 function quoted(value: string | undefined): string {
   if (!value) return '"-"';
-  const safe = value.replace(CONTROL_CHARS, ' ').replace(/"/g, '\\"');
+  const safe = stripControlChars(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return `"${safe}"`;
+}
+
+/**
+ * `status`/`bytes` reach a `%{NUMBER}` grok field. A non-finite value (the realistic
+ * path: a multi-value header collapsing to an array before it's coerced) would print
+ * the literal text "NaN" there and break parsing for that line.
+ */
+function finiteOrZero(value: number): number {
+  return Number.isFinite(value) ? value : 0;
 }
 
 export function formatAccessLine(fields: AccessLogFields): string {
   const target = fields.path.split('?')[0];
   const request = quoted(`${fields.method} ${target} HTTP/${fields.httpVersion}`);
 
+  // nginx never quotes this field and CrowdSec's grok expects it bare, so it isn't
+  // run through quoted() — but a newline in it is still cheap to strip here rather
+  // than trust that resolveClientIp() (Task 4) never hands one back.
+  const ip = stripControlChars(fields.ip);
+
   let line =
-    `${fields.ip} - - [${formatTime(fields.time)}] ${request} ` +
-    `${fields.status} ${fields.bytes} ${quoted(fields.referer)} ${quoted(fields.userAgent)}`;
+    `${ip} - - [${formatTime(fields.time)}] ${request} ` +
+    `${finiteOrZero(fields.status)} ${finiteOrZero(fields.bytes)} ` +
+    `${quoted(fields.referer)} ${quoted(fields.userAgent)}`;
 
   if (fields.req !== undefined || fields.sid !== undefined) {
     line += ` req=${fields.req ?? '-'} sid=${fields.sid ?? '-'}`;
