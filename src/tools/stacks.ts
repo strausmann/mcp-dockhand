@@ -8,7 +8,7 @@ import type { DockhandClient } from '../client/dockhand-client.js';
 import type { StackEnv, EnvVariable } from '../types/dockhand.js';
 import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
 import { encodePath } from '../utils/encode-path.js';
-import { diffEnvVars, parseDotEnvKeys, removeKeysFromDotEnv, upsertDotEnv } from '../utils/env-helpers.js';
+import { diffEnvVars, extractDotEnvContent, parseDotEnvKeys, removeKeysFromDotEnv, upsertDotEnv } from '../utils/env-helpers.js';
 import type { EnvDiff } from '../utils/env-helpers.js';
 
 export function registerStackTools(server: McpServer, client: DockhandClient): void {
@@ -270,8 +270,8 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         try {
           let newContent: string;
           if (mode === 'merge') {
-            const raw = await client.get<string>(envRawPath, { env: environmentId });
-            rawStr = typeof raw === 'string' ? raw : '';
+            const raw = await client.get<unknown>(envRawPath, { env: environmentId });
+            rawStr = extractDotEnvContent(raw);
             newContent = upsertDotEnv(rawStr, payloadNonSecrets.map((v) => ({ key: v.key, value: v.value })));
             // N1: the live .env is authoritative for non-secrets — only migrate
             // orphaned DB rows whose key is NOT already in .env, so a stale DB
@@ -372,9 +372,9 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       const structuredKeys = new Set(vars.map((v) => v.key));
       const secretKeys = new Set(vars.filter((v) => v.isSecret).map((v) => v.key));
 
-      const raw = await client.get<string>(
+      const raw = await client.get<unknown>(
         `/api/stacks/${encodePath(name)}/env/raw`, { env: environmentId });
-      const rawStr = typeof raw === 'string' ? raw : '';
+      const rawStr = extractDotEnvContent(raw);
       const envKeys = new Set(parseDotEnvKeys(rawStr));
 
       const removed = uniqueKeys.filter((k) => structuredKeys.has(k) || envKeys.has(k));
@@ -429,9 +429,9 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       const secretKeys = new Set(
         (Array.isArray(structured?.variables) ? structured.variables : [])
           .filter((v) => v && v.isSecret && typeof v.key === 'string').map((v) => v.key));
-      const raw = await client.get<string>(
+      const raw = await client.get<unknown>(
         `/api/stacks/${encodePath(name)}/env/raw`, { env: environmentId });
-      const envKeys = parseDotEnvKeys(typeof raw === 'string' ? raw : '');
+      const envKeys = parseDotEnvKeys(extractDotEnvContent(raw));
       const collisions = envKeys.filter((k) => secretKeys.has(k));
       return jsonResponse(
         collisions.length > 0

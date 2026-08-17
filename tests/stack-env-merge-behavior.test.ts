@@ -48,10 +48,19 @@ function setup(): { handler: ToolHandler; client: MockClient } {
   return { handler, client };
 }
 
-/** Wires client.get so `/env/raw` and the structured `/env` return different mocked payloads. */
+/**
+ * Wires client.get so `/env/raw` and the structured `/env` return different mocked payloads.
+ *
+ * `/env/raw` is wrapped in `{ content }` because that is what Dockhand actually
+ * answers — every return path of its handler is a `json(...)` call, and our HTTP
+ * client parses `application/json` into an object. This helper used to hand the
+ * raw text back as a bare string, which meant the whole suite validated an
+ * assumption instead of the real contract and stayed green while
+ * `update_stack_env` truncated .env files in production (#196).
+ */
 function wireGet(client: MockClient, structured: unknown, raw: string) {
   client.get.mockImplementation((path: string) =>
-    path.endsWith('/env/raw') ? Promise.resolve(raw) : Promise.resolve(structured));
+    path.endsWith('/env/raw') ? Promise.resolve({ content: raw }) : Promise.resolve(structured));
 }
 
 function envPut(client: MockClient) {
