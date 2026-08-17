@@ -35,6 +35,22 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Derived documents must match the code in the same commit. `docs/coverage.md` and
+      # `src/openapi/tool-endpoint-map.ts` are generated from the tool registrations plus the
+      # committed OpenAPI spec, but until now nothing checked them on a PR — they were only
+      # refreshed by the nightly api-schema-sync run. Adding eight tools in #201 therefore
+      # left docs/coverage.md advertising them as MISSING_TOOL, and a release cut before the
+      # next nightly would have shipped that. Both generators are no-op-safe when nothing
+      # changed, so regenerating and diffing is a clean gate.
+      #
+      # If this fails: run `npm run api:coverage-doc` and `npm run api:tool-endpoint-map`,
+      # then commit the result.
+      - name: Derived docs are in sync with the code
+        run: |
+          npm run api:coverage-doc
+          npm run api:tool-endpoint-map
+          git diff --exit-code -- docs/coverage.md src/openapi/tool-endpoint-map.ts
+
   docker:
     runs-on: ubuntu-latest
     needs: build
