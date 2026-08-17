@@ -7,7 +7,7 @@ import { partitionMissingTools } from '../scripts/lib/omission-registry.mjs';
  * `partitionMissingTools()` trennt die rohen MISSING_TOOL-Funde von
  * `computeValidation()` (scripts/validate-mcp-tools.mjs) in zwei Eimer:
  * - `realGaps` — Endpunkte ohne Tool, die NICHT in der Registry stehen (echte Lücke,
- *   z.B. die Backup-API #164 — geplant, nur noch nicht implementiert)
+ *   z.B. die Backup-API #202 — geplant, nur noch nicht implementiert)
  * - `deliberatelyOmitted` — Endpunkte, die bewusst nie ein MCP-Tool bekommen sollen
  *   (docs/omitted-endpoints.json), inkl. der Begründung aus dem Registry-Eintrag
  */
