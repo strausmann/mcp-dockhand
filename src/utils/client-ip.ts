@@ -29,6 +29,13 @@ function normalizeAddress(address: string): string {
   return mapped ? mapped[1] : trimmed;
 }
 
+function isValidAddress(address: string): boolean {
+  return isIPv4(address) || isIPv6(address);
+}
+
+/** Only a bare, in-range decimal prefix is accepted — never trust Number()'s leniency. */
+const DECIMAL_PREFIX = /^\d+$/;
+
 export function parseTrustedProxies(raw: string | undefined): TrustedProxies {
   const warnings: string[] = [];
   const list = new BlockList();
@@ -48,7 +55,19 @@ export function parseTrustedProxies(raw: string | undefined): TrustedProxies {
       if (prefix === undefined) {
         list.addAddress(normalized, family);
       } else {
-        list.addSubnet(normalized, Number(prefix), family);
+        // Number('') === 0 and Number('0x10') === 16 — a naive Number(prefix) would
+        // silently accept a truncated CIDR as "/0" (trust everyone) or a hex spelling
+        // as a valid prefix. Only a bare decimal string is a legitimate prefix; /0
+        // itself stays legitimate when it is written that way deliberately.
+        if (!DECIMAL_PREFIX.test(prefix)) {
+          throw new Error(`invalid prefix "${prefix}"`);
+        }
+        const prefixLength = Number(prefix);
+        const maxPrefix = family === 'ipv4' ? 32 : 128;
+        if (prefixLength > maxPrefix) {
+          throw new Error(`prefix ${prefixLength} exceeds ${maxPrefix} for ${family}`);
+        }
+        list.addSubnet(normalized, prefixLength, family);
       }
       count += 1;
     } catch {
@@ -83,15 +102,22 @@ export function resolveClientIp({ peer, forwardedFor, realIp, trusted }: ClientI
   if (forwardedFor) {
     const chain = forwardedFor.split(',').map(normalizeAddress).filter(Boolean);
     // Walk right to left: the rightmost entry this proxy added is the closest hop.
-    // The first one that is not itself a trusted proxy is the client.
+    // The first VALID address that is not itself a trusted proxy is the client. A
+    // malformed entry (a proxy's literal "unknown", a stray "host:port") must be
+    // skipped rather than returned — it would corrupt the field CrowdSec bans from.
     for (let i = chain.length - 1; i >= 0; i -= 1) {
-      if (!trusted.contains(chain[i])) return chain[i];
+      const candidate = chain[i];
+      if (isValidAddress(candidate) && !trusted.contains(candidate)) return candidate;
     }
-    // Every hop was trusted — report the outermost rather than inventing one.
-    return chain[0] ?? direct;
+    // Every hop was either trusted or malformed. Report the outermost VALID one
+    // rather than inventing an address; if none is valid, fall back to the peer.
+    return chain.find(isValidAddress) ?? direct;
   }
 
-  if (realIp) return normalizeAddress(realIp);
+  if (realIp) {
+    const normalizedRealIp = normalizeAddress(realIp);
+    return isValidAddress(normalizedRealIp) ? normalizedRealIp : direct;
+  }
 
   return direct;
 }

@@ -31,6 +31,39 @@ describe('parseTrustedProxies', () => {
     expect(trusted.warnings).toHaveLength(1);
     expect(trusted.warnings[0]).toMatch(/not-an-address/);
   });
+
+  it('rejects a trailing-slash entry instead of matching every address', () => {
+    // Number('') === 0, not NaN — without a digit check this becomes a /0 that
+    // trusts the entire internet, silently turning "trust nobody" into "trust everybody".
+    const trusted = parseTrustedProxies('10.0.0.0/');
+    expect(trusted.isEmpty).toBe(true);
+    expect(trusted.contains('8.8.8.8')).toBe(false);
+    expect(trusted.contains('255.255.255.255')).toBe(false);
+    expect(trusted.warnings).toHaveLength(1);
+    expect(trusted.warnings[0]).toMatch(/10\.0\.0\.0\//);
+  });
+
+  it('rejects a hex-looking prefix instead of silently truncating it', () => {
+    // Number('0x10') === 16 — a non-decimal spelling must not be accepted as a prefix.
+    const trusted = parseTrustedProxies('10.0.0.0/0x10');
+    expect(trusted.isEmpty).toBe(true);
+    expect(trusted.warnings).toHaveLength(1);
+  });
+
+  it('rejects a prefix outside the address family range', () => {
+    const trusted = parseTrustedProxies('10.0.0.0/33');
+    expect(trusted.isEmpty).toBe(true);
+    expect(trusted.warnings).toHaveLength(1);
+  });
+
+  it('accepts an explicit /0 as a deliberate trust-everything subnet', () => {
+    // /0 is a legitimate, deliberate choice — only the malformed spelling (a missing
+    // or non-digit prefix) is rejected, not the value zero itself.
+    const trusted = parseTrustedProxies('0.0.0.0/0');
+    expect(trusted.isEmpty).toBe(false);
+    expect(trusted.warnings).toHaveLength(0);
+    expect(trusted.contains('8.8.8.8')).toBe(true);
+  });
 });
 
 describe('resolveClientIp', () => {
@@ -118,5 +151,40 @@ describe('resolveClientIp', () => {
     expect(
       resolveClientIp({ peer: undefined, forwardedFor: undefined, realIp: undefined, trusted: NONE }),
     ).toBe('-');
+  });
+
+  it('falls back to the peer when X-Forwarded-For is unparsable', () => {
+    // Some proxies emit the literal "unknown". It must never be logged as if it were
+    // the client — that would corrupt the exact field CrowdSec parses bans from.
+    expect(
+      resolveClientIp({
+        peer: '10.0.0.5',
+        forwardedFor: 'unknown',
+        realIp: undefined,
+        trusted: PROXY,
+      }),
+    ).toBe('10.0.0.5');
+  });
+
+  it('skips a malformed entry and keeps walking left for a valid one', () => {
+    expect(
+      resolveClientIp({
+        peer: '10.0.0.5',
+        forwardedFor: '203.0.113.9, 1.2.3.4:5678',
+        realIp: undefined,
+        trusted: PROXY,
+      }),
+    ).toBe('203.0.113.9');
+  });
+
+  it('falls back to the peer when X-Real-IP is unparsable', () => {
+    expect(
+      resolveClientIp({
+        peer: '10.0.0.5',
+        forwardedFor: undefined,
+        realIp: 'unknown',
+        trusted: PROXY,
+      }),
+    ).toBe('10.0.0.5');
   });
 });
