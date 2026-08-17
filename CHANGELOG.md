@@ -5,6 +5,16 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.2](https://github.com/strausmann/mcp-dockhand/compare/v1.13.1...v1.13.2) (2026-08-17)
+
+### Bug Fixes
+
+* **stacks:** raw-.env-Antwort als JSON auswerten statt still zu verwerfen ([337b270](https://github.com/strausmann/mcp-dockhand/commit/337b270bfe71867550c113806cff7a5e61fa1d11)), references [#196](https://github.com/strausmann/mcp-dockhand/issues/196)
+
+### Documentation
+
+* **api:** update API coverage report (automated) ([ccc193f](https://github.com/strausmann/mcp-dockhand/commit/ccc193f694a1b00fe54f21824e66a2181b9acdc5))
+
 ## [1.13.1](https://github.com/strausmann/mcp-dockhand/compare/v1.13.0...v1.13.1) (2026-08-15)
 
 ### Bug Fixes
