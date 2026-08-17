@@ -3,9 +3,7 @@
  * other's identifiers. That is the whole reason for AsyncLocalStorage over a module
  * variable, so it is the thing worth testing.
  */
-import { describe, it, expect, vi } from 'vitest';
-import pino from 'pino';
-import { Transform } from 'stream';
+import { describe, it, expect } from 'vitest';
 import {
   runWithLogContext,
   extendLogContext,
@@ -72,7 +70,7 @@ describe('log context', () => {
     });
 
     it('binds context fields to the child logger', () => {
-      let boundLogger: any;
+      let boundLogger;
 
       runWithLogContext({ req: 'r1', sid: 's1', call: 'c1' }, () => {
         boundLogger = log();
@@ -94,7 +92,7 @@ describe('log context', () => {
     });
 
     it('binds extended context fields to the child logger', () => {
-      let boundLogger: any;
+      let boundLogger;
 
       runWithLogContext({ req: 'r1' }, () => {
         extendLogContext({ call: 'c1', tool: 'list_stacks' });
