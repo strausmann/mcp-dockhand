@@ -27,7 +27,13 @@ import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { loadSchema, extractToolCalls, computeValidation } from './validate-mcp-tools.mjs';
+import {
+  loadSchema,
+  extractToolCalls,
+  computeValidation,
+  loadToolBodyShapes,
+  BodyShapeCollectorError,
+} from './validate-mcp-tools.mjs';
 import { buildBodyContractDoc } from './lib/body-contract-report.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -46,34 +52,35 @@ function stripTimestamp(content) {
   return content.replace(TIMESTAMP_LINE, '**Erzeugt:** <normalized>');
 }
 
-/**
- * Siehe loadToolBodyShapes() in validate-mcp-tools.mjs für das ausführliche WARUM
- * (tsx-Subprozess statt direktem Import) — dieselbe Logik, hier dupliziert statt
- * importiert, damit dieser Generator eigenständig lauffähig bleibt und nicht an
- * validate-mcp-tools.mjs's CLI-Seiteneffekten (validate() läuft beim direkten Import
- * NICHT automatisch, siehe dessen `import.meta.url`-Guard -- unproblematisch, aber
- * eine unnötige Kopplung für ein reines Lese-Skript).
- * @returns {Record<string, {sentFields: string[], requiredSent: string[], passthrough: boolean}>|null}
- */
-function loadToolBodyShapes() {
-  try {
-    const output = execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['tsx', COLLECT_SHAPES_SCRIPT], {
-      cwd: PROJECT_ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'inherit'],
-      maxBuffer: 10 * 1024 * 1024,
-    });
-    return JSON.parse(output);
-  } catch (err) {
-    console.error(`[body-contract-doc] Body-Shapes nicht verfügbar (tsx-Collector fehlgeschlagen): ${err.message}`);
-    return null;
-  }
-}
-
 function main() {
   const schema = loadSchema();
   const toolCalls = extractToolCalls();
-  const toolBodyShapes = loadToolBodyShapes();
+
+  // Fail CLOSED. Hier stand eine eigene Kopie von loadToolBodyShapes(), die jeden
+  // Collector-Fehler abfing und `null` zurueckgab — und `null` ist fuer computeValidation()
+  // das Signal "Body-Checks bewusst uebersprungen", also nicht unterscheidbar von "Collector
+  // abgestuerzt". Ergebnis waere ein Bericht mit NULL Findings, der aussieht wie ein sauberes
+  // Ergebnis. Solange der echte Bericht Findings enthaelt, faellt das im Sync-Tor noch auf;
+  // sobald das Repo legitim bei null Findings ankommt, waere das Dokument identisch und das
+  // Tor gruen, ohne dass je ein Contract geprueft wurde.
+  //
+  // validate-mcp-tools.mjs hat exakt diesen fail-open-Fehler in #173 behoben und wirft
+  // seither BodyShapeCollectorError. Diese Datei war die duplizierte Kopie, die den Fix nie
+  // bekam — deshalb jetzt importiert statt nachgebaut. Die Begruendung fuer die Duplikation
+  // ("bleibt eigenstaendig lauffaehig") trug ohnehin nicht: drei weitere Funktionen kommen
+  // bereits aus demselben Modul.
+  let toolBodyShapes;
+  try {
+    toolBodyShapes = loadToolBodyShapes();
+  } catch (err) {
+    if (err instanceof BodyShapeCollectorError) {
+      console.error(`[body-contract-doc] ${err.message}`);
+      console.error('[body-contract-doc] KEIN Bericht geschrieben — ein Bericht ohne Body-Shapes waere leer und damit falsch.');
+      process.exit(1);
+    }
+    throw err;
+  }
+
 
   const { bodyFindings } = computeValidation(schema, toolCalls, toolBodyShapes);
 
