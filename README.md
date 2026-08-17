@@ -74,7 +74,8 @@ DOCKHAND_URL=https://your-server.com DOCKHAND_USERNAME=admin DOCKHAND_PASSWORD=s
 | `MCP_ALLOWED_HOSTS` | No | *(unset — Host check disabled)* | Comma-separated `Host` header allowlist for `/mcp` (DNS-rebinding protection). **Opt-in**: unset means no Host check at all (pre-existing behavior, so existing deployments aren't broken by an update). Recommended once you set it up — see [Securing the transport](#securing-the-transport) |
 | `MCP_ALLOWED_ORIGINS` | No | *(unset — Origin check disabled)* | Comma-separated `Origin` header allowlist for `/mcp`. Opt-in, same as above. Only enforced when a caller actually sends an `Origin` header at all (non-browser MCP clients typically don't) |
 | `MCP_AUTH_TOKEN` | No | *(unset — endpoint unauthenticated)* | Shared secret required as `Authorization: Bearer <token>` on every `/mcp` request. Opt-in; recommended once the endpoint is reachable beyond your own loopback — see [Securing the transport](#securing-the-transport) |
-| `LOG_LEVEL` | No | `info` | Log level |
+| `LOG_LEVEL` | No | `info` | `error`, `warn`, `info` or `debug`. `debug` adds one line per Dockhand request (method, endpoint template, status, duration) — never a path segment or a parameter value. An unrecognised value warns and falls back to `info`. |
+| `TRUSTED_PROXIES` | No | _(empty)_ | Comma-separated addresses or CIDRs allowed to set `X-Forwarded-For` / `X-Real-IP`, e.g. `10.0.0.0/8, 100.64.0.0/10`. Empty means the headers are ignored and the peer address is used. |
 
 ### Securing the transport
 
@@ -119,6 +120,56 @@ MCP_ALLOWED_HOSTS=dock-mcp.internal.example.com
 #MCP_ALLOWED_HOSTS=100.100.50.40:8222
 MCP_AUTH_TOKEN=<a long random secret, e.g. `openssl rand -hex 32`>
 ```
+
+## Securing the server with CrowdSec
+
+The server writes an nginx-format access line to **stdout** for every request,
+including the ones it rejects, while the structured application log goes to
+**stderr**. CrowdSec parses the access lines with its stock collections — no custom
+parser required.
+
+Add an acquisition file on the host running your CrowdSec agent:
+
+```yaml
+source: docker
+container_name:
+  - mcp-dockhand
+labels:
+  type: docker
+  program: nginx-mcp
+```
+
+**Both labels are required, and neither fails loudly if you forget it.**
+`type: docker` enables `crowdsecurity/docker-logs`, which unwraps Docker's JSON
+envelope. `program: nginx-mcp` enables `crowdsecurity/nginx-logs`, which matches on
+`program` starting with `nginx` — the `-mcp` suffix keeps this source distinguishable
+from your other nginx sources. With one label missing the chain simply produces
+nothing, and nothing reports it.
+
+Once wired up, the stock scenarios apply:
+
+| Scenario | What it means here |
+|---|---|
+| `LePresidente/http-generic-401-bf` | Repeated `401` on `/mcp` — someone is guessing `MCP_AUTH_TOKEN` |
+| `crowdsecurity/http-dos-swithcing-ua` | Request floods with rotating user agents |
+
+A `403` is worth watching too: it means a request failed the `MCP_ALLOWED_HOSTS` or
+`MCP_ALLOWED_ORIGINS` check, which is what a DNS-rebinding attempt looks like from
+here.
+
+> **Set `TRUSTED_PROXIES` before you enable this.**
+> Behind a reverse proxy every request arrives from the proxy's address. Without
+> `TRUSTED_PROXIES` that address is what gets logged — so the first ban CrowdSec
+> issues takes out the proxy, and with it every user behind it. Set it to the
+> address or subnet your proxy talks from.
+>
+> The setting is equally deliberate in the other direction: the forwarding headers
+> are only honoured from a peer on that list. Trusting them unconditionally would let
+> any direct caller name an arbitrary third party and have them banned.
+
+**One expected side effect:** the structured JSON lines share the container's log
+stream and carry the same `program` label, so they fail the nginx pattern and count
+as `unparsed` in `cscli metrics`. That is noise, not a fault — no alert, no decision.
 
 ## MCP Client Configuration
 
@@ -548,6 +599,14 @@ The server uses session-based cookie authentication. It automatically:
 - Stores the session cookie in memory
 - Re-authenticates on 401 responses
 - Handles session timeout (24h)
+
+### Troubleshooting
+
+Start with `LOG_LEVEL=debug`. Every Dockhand request then appears with its endpoint,
+status code and duration, and every line of a single call shares one `call`
+identifier — `grep` for it to get the whole sequence. The `req` identifier ties those
+lines back to the access line that started them, and `sid` covers everything one
+client did across its whole session.
 
 ## Development
 
