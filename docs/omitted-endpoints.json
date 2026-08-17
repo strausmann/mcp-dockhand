@@ -159,5 +159,12 @@
     "reason": "Binäres Avatar-Upload — gleiche Einschränkung wie das Environment-Icon-Upload.",
     "adr": "docs/adr/0001-omission-registry.md",
     "date": "2026-08-10"
+  },
+  {
+    "method": "POST",
+    "path": "/api/git/stacks/{id}/webhook",
+    "reason": "Eingehender Webhook-EMPFAENGER, kein aufrufbarer Vorgang: GitHub/GitLab rufen ihn mit einer Signatur bzw. einem Token auf, die der Handler prueft, und deployen damit den Git-Stack. Ein Agent hat weder die Signatur noch einen Grund, sie nachzubilden — fuer den absichtlichen Deploy gibt es deploy_git_stack, fuer die Webhook-Verwaltung get_git_stack_webhook (GET, vorhanden). Der Endpunkt taucht sonst dauerhaft als MISSING_TOOL auf und laesst den Luecken-Zaehler groesser aussehen, als er ist.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-08-17"
   }
 ]

@@ -2,7 +2,7 @@
 
 **Status:** accepted
 **Datum:** 2026-08-10
-**Refs:** #57 (P3-Plan), #171 (env-files-Removal), #164 (Backup-API — echte Lücke, KEINE Omission)
+**Refs:** #57 (P3-Plan), #171 (env-files-Removal), #202 (Backup-API — echte Lücke, KEINE Omission)
 
 ## Kontext
 
@@ -15,8 +15,8 @@ MCP-Tools (`src/tools/*.ts`). Jeder Endpunkt ohne Tool erzeugt einen `MISSING_TO
 Zwei grundverschiedene Situationen erzeugen denselben `MISSING_TOOL`-Fund:
 
 1. **Echte Lücke** — der Endpunkt existiert, ein Tool dafür ist geplant, aber (noch) nicht
-   gebaut. Beispiel: die komplette Backup-API (`/api/backup/*`), 29 Endpunkte, Tracking-Issue
-   #164.
+   gebaut. Beispiel: die komplette Backup-API (`/api/backup/*`), 30 Endpunkte, Tracking-Issue
+   #202.
 2. **Bewusste Auslassung** — wir werden NIE ein Tool dafür bauen, aus einem dokumentierten
    Grund (Sicherheit, Redundanz, technische Eignung). Beispiel: `POST
    /api/git/stacks/{id}/env-files` wurde in #171 als eigenes Tool entfernt, weil es
@@ -35,7 +35,7 @@ Vor diesem ADR gab es dafür zwei getrennte, unvollständige Mechanismen:
 
 Das Problem: ohne Unterscheidung sieht ein Betrachter von `docs/coverage.md` 37
 `MISSING_TOOL`-Einträge und kann nicht erkennen, welche davon tatsächlich noch zu bauen
-sind (#164, priorisierbar) und welche für immer offen bleiben werden (kein Backlog-Posten).
+sind (#202, priorisierbar) und welche für immer offen bleiben werden (kein Backlog-Posten).
 
 ## Entscheidung
 
@@ -80,10 +80,10 @@ Registry-Eintrag, kein neues `IGNORED_PATTERNS`-Pattern nötig.
 
 ### Was NIEMALS in die Registry gehört
 
-Eine geplante, aber noch nicht gebaute API-Fläche — auch wenn sie groß ist (Backup-API #164,
-29 Endpunkte). Ein Registry-Eintrag bedeutet "wir bauen das NIE", nicht "wir haben es noch
+Eine geplante, aber noch nicht gebaute API-Fläche — auch wenn sie groß ist (Backup-API #202,
+30 Endpunkte). Ein Registry-Eintrag bedeutet "wir bauen das NIE", nicht "wir haben es noch
 nicht gebaut". Eine versehentliche Registrierung würde `MISSING_TOOL` für einen echten
-Rückstand fälschlich zum Schweigen bringen — genau das Risiko, das `#164` in Task P3.7
+Rückstand fälschlich zum Schweigen bringen — genau das Risiko, das `#202` in Task P3.7
 (dieses ADR) explizit als Gegenbeispiel benannt hat.
 
 ## Konsequenz
@@ -108,5 +108,5 @@ Rückstand fälschlich zum Schweigen bringen — genau das Risiko, das `#164` in
 - Sichtbarkeit: `scripts/lib/coverage-report.mjs` (`buildCoverageDoc()`, Abschnitt
   "Deliberately omitted (with reason)")
 - Tests: `tests/omission-registry.test.ts`
-- Tracking-Issue echte Lücke (KEINE Omission): #164 (Backup-API, 29 fehlende Tools)
+- Tracking-Issue echte Lücke (KEINE Omission): #202 (Backup-API, 30 fehlende Tools)
 - Auslöser-Removal: #171 (`POST /api/git/stacks/{id}/env-files`)
