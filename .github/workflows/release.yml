@@ -7,6 +7,17 @@ on:
   schedule:
     - cron: '0 3 * * *'  # 03:00 UTC nightly
   workflow_dispatch:
+    inputs:
+      build_tag:
+        # Wiederherstellungspfad: Schlaegt ein Lauf NACH dem Git-Push, aber VOR
+        # dem Image-Build fehl (real passiert am 17.08.2026 waehrend einer
+        # GitHub-Stoerung — Tag v1.13.2 gepusht, GitHub-Release und Image
+        # fehlten), dann meldet ein erneuter Lauf "no new release" und
+        # docker-build wird uebersprungen. Ohne diesen Eingang gibt es dann
+        # keinen Weg mehr, das Image zum bestehenden Tag zu bauen.
+        description: 'Vorhandenen Release-Tag bauen (z. B. v1.13.2) statt ein neues Release zu erzeugen. Leer lassen fuer den normalen Lauf.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -18,8 +29,10 @@ jobs:
   release:
     runs-on: ubuntu-latest
     outputs:
-      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
-      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+      # Der Zwangs-Build setzt dieselben Ausgaben wie ein echter Release-Lauf,
+      # damit docker-build/docker-merge unveraendert bleiben.
+      new_release_published: ${{ steps.forced.outputs.new_release_published || steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.forced.outputs.new_release_version || steps.semantic.outputs.new_release_version }}
 
     steps:
       - name: Checkout
@@ -28,29 +41,63 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Resolve forced tag build
+        id: forced
+        if: ${{ github.event.inputs.build_tag != '' }}
+        env:
+          BUILD_TAG: ${{ github.event.inputs.build_tag }}
+        run: |
+          set -euo pipefail
+          # Eingang wird ueber env uebergeben und nur in Anfuehrungszeichen
+          # verwendet — nie in den Skripttext interpoliert.
+          if ! git rev-parse --verify "refs/tags/${BUILD_TAG}" >/dev/null 2>&1; then
+            echo "::error::Tag '${BUILD_TAG}' existiert nicht — nichts zu bauen."
+            exit 1
+          fi
+          echo "new_release_published=true" >> "$GITHUB_OUTPUT"
+          echo "new_release_version=${BUILD_TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Zwangs-Build fuer vorhandenen Tag ${BUILD_TAG} — semantic-release wird uebersprungen."
+
       - name: Setup Node.js
+        if: ${{ github.event.inputs.build_tag == '' }}
         uses: actions/setup-node@v7
         with:
           node-version: "lts/*"
 
       - name: Install dependencies
+        if: ${{ github.event.inputs.build_tag == '' }}
         run: npm install
 
       - name: Release
         id: semantic
+        if: ${{ github.event.inputs.build_tag == '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npx semantic-release > release_output.txt 2>&1
-          cat release_output.txt
+          # Die Ausgabe MUSS im Log stehen. Zuvor lief hier
+          # `npx semantic-release > release_output.txt 2>&1`, wodurch bei einem
+          # Fehlschlag `bash -e` den nachfolgenden `cat` nie erreichte: Der Job
+          # brach mit exit 1 ab und das Log enthielt keine einzige Zeile zur
+          # Ursache (real passiert am 17.08.2026 — die Diagnose musste danach
+          # aus dem Git-Zustand rekonstruiert werden). `tee` zeigt und sichert
+          # die Ausgabe gleichzeitig.
+          set -o pipefail
+          status=0
+          npx semantic-release 2>&1 | tee release_output.txt || status=$?
+
+          if [ "$status" -ne 0 ]; then
+            echo "::error::semantic-release ist mit Status ${status} gescheitert — die vollstaendige Ausgabe steht oben im Log."
+            echo "::warning::Pruefen, ob Tag und Versions-Commit trotzdem gepusht wurden. Falls ja, ist das Release halb erfolgt: GitHub-Release nachtragen und diesen Workflow mit dem Eingang build_tag erneut starten, damit das Image gebaut wird."
+            exit "$status"
+          fi
 
           if grep -q "Published release" release_output.txt; then
-            echo "new_release_published=true" >> $GITHUB_OUTPUT
+            echo "new_release_published=true" >> "$GITHUB_OUTPUT"
             VERSION=$(grep "Published release" release_output.txt | sed -n 's/.*Published release \([0-9.]*\).*/\1/p' | head -1)
-            echo "new_release_version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "new_release_version=${VERSION}" >> "$GITHUB_OUTPUT"
             echo "New release: ${VERSION}"
           else
-            echo "new_release_published=false" >> $GITHUB_OUTPUT
+            echo "new_release_published=false" >> "$GITHUB_OUTPUT"
             echo "No new release"
           fi
 
