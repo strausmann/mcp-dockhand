@@ -34,7 +34,21 @@ const CONFIG_CARRIES_CREDENTIALS =
   'to proceed and whether they would rather do it in the Dockhand UI. If they say go ahead, go ' +
   'ahead — this is a supported administrative operation, not a forbidden one.';
 
+/**
+ * `get_stack_env_raw` returns the .env file verbatim. For stacks that keep credentials there
+ * — which is the norm for internal and adopted stacks — that means the response carries them
+ * in the clear, unlike `get_stack_env`, which masks anything stored as a secret. The endpoint
+ * description says "raw", not "contains secrets", and the difference is invisible until the
+ * values are already in the transcript.
+ */
+const RETURNS_THE_FILE_VERBATIM =
+  'SECURITY: this returns the .env file exactly as it is on disk, including any credentials ' +
+  'it contains — nothing is masked. Prefer get_stack_env, which masks stored secrets, unless ' +
+  'you specifically need the file itself. If you only need to know WHICH keys exist, say so ' +
+  'and read the key names rather than printing the response.';
+
 export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
+  get_stack_env_raw: RETURNS_THE_FILE_VERBATIM,
   create_secret_provider: CONFIG_CARRIES_CREDENTIALS,
   update_secret_provider: CONFIG_CARRIES_CREDENTIALS,
   test_secret_provider: CONFIG_CARRIES_CREDENTIALS,

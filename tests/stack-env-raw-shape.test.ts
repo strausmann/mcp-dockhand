@@ -22,6 +22,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { registerStackTools } from '../src/tools/stacks.js';
 import { extractDotEnvContent } from '../src/utils/env-helpers.js';
+import { describeTool } from '../src/openapi/describe-tool.js';
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 
@@ -166,5 +167,67 @@ describe('check_stack_env_collisions — #196: the check can actually fire', () 
     const out = jsonOut(await handler({ environmentId: 8, name: 'paperless' }));
 
     expect(out.collisions).toEqual(['DUPE']);
+  });
+});
+
+describe('get_stack_env_raw — #198: returns the file, not the envelope', () => {
+  function setupRaw() {
+    const handlers = new Map<string, ToolHandler>();
+    const server = {
+      tool: (name: string, _d: string, _s: unknown, cb: ToolHandler) => {
+        handlers.set(name, cb);
+      },
+    };
+    const client = { get: vi.fn(), put: vi.fn() };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    registerStackTools(server as any, client as any);
+    const handler = handlers.get('get_stack_env_raw');
+    if (!handler) throw new Error('get_stack_env_raw was not registered');
+    return { handler, client };
+  }
+
+  const textOf = (res: unknown) => (res as { content: { text: string }[] }).content[0].text;
+
+  it('returns the .env content itself', async () => {
+    const { handler, client } = setupRaw();
+    client.get.mockResolvedValue({ content: 'A=1\nB=2\n' });
+
+    expect(textOf(await handler({ environmentId: 8, name: 'demo' }))).toBe('A=1\nB=2\n');
+  });
+
+  it('does not hand back the JSON envelope', async () => {
+    const { handler, client } = setupRaw();
+    client.get.mockResolvedValue({ content: 'A=1\n' });
+
+    // The pre-#198 behaviour: `{"content":"A=1\n"}` as text.
+    expect(textOf(await handler({ environmentId: 8, name: 'demo' }))).not.toContain('"content"');
+  });
+
+  it('distinguishes "no env file" from "an empty env file"', async () => {
+    // Both arrive as an empty string; an empty response cannot say which, and the two mean
+    // different things for the caller.
+    const noFile = setupRaw();
+    noFile.client.get.mockResolvedValue({ content: '', noEnvFile: true });
+    expect(textOf(await noFile.handler({ environmentId: 8, name: 'demo' }))).toMatch(/no \.env file/i);
+
+    const emptyFile = setupRaw();
+    emptyFile.client.get.mockResolvedValue({ content: '' });
+    expect(textOf(await emptyFile.handler({ environmentId: 8, name: 'demo' }))).toBe('');
+  });
+
+  it('aborts on an unexpected response shape instead of returning something plausible', async () => {
+    const { handler, client } = setupRaw();
+    client.get.mockResolvedValue({ unexpected: 'shape' });
+
+    const res = await handler({ environmentId: 8, name: 'demo' });
+    expect(JSON.stringify(res)).toMatch(/Refusing to continue/);
+  });
+
+  it('warns that the response carries credentials verbatim', () => {
+    const description = describeTool('get_stack_env_raw');
+
+    expect(description).toMatch(/SECURITY/);
+    expect(description).toMatch(/nothing is masked/i);
+    expect(description).toMatch(/get_stack_env/);
   });
 });
