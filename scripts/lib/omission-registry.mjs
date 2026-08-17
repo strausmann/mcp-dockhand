@@ -4,7 +4,7 @@
  * `docs/omitted-endpoints.json` listet Dockhand-Endpunkte, die WIR bewusst NIE als
  * MCP-Tool aufnehmen (z.B. das in #171 entfernte `POST /api/git/stacks/{id}/env-files`,
  * oder `POST /api/self-update` — gefährlich über MCP). Das ist etwas ANDERES als eine
- * echte Lücke: die Backup-API (`/api/backup/*`, #164, 29 fehlende Tools) ist geplant,
+ * echte Lücke: die Backup-API (`/api/backup/*`, #202, 30 fehlende Tools) ist geplant,
  * nur noch nicht implementiert -- sie gehört NIE in diese Registry, sonst würde
  * `MISSING_TOOL` sie fälschlich unterdrücken.
  *
@@ -62,7 +62,7 @@ function buildRegistryIndex(registry) {
 
 /**
  * Trennt die rohen MISSING_TOOL-Funde in `realGaps` (kein Registry-Eintrag -- bleibt
- * eine echte Lücke, z.B. die Backup-API #164) und `deliberatelyOmitted` (Registry-Treffer
+ * eine echte Lücke, z.B. die Backup-API #202) und `deliberatelyOmitted` (Registry-Treffer
  * -- bewusste Auslassung, mit `reason`/`adr` aus dem Registry-Eintrag angereichert, damit
  * `docs/coverage.md` sie SICHTBAR unter "Deliberately omitted" auflisten kann statt sie
  * kommentarlos verschwinden zu lassen).

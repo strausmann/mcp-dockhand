@@ -31,7 +31,7 @@
  * die WIR BEWUSST NIE als Tool aufnehmen, z.B. das in #171 entfernte
  * `POST /api/git/stacks/{id}/env-files`) wandert nach `deliberatelyOmitted` statt
  * `missingTool` -- sichtbar in docs/coverage.md unter "Deliberately omitted", aber nicht
- * mehr als offene Lücke gemeldet. Eine ECHTE Lücke (z.B. die Backup-API, #164, 29 fehlende
+ * mehr als offene Lücke gemeldet. Eine ECHTE Lücke (z.B. die Backup-API, #202, 30 fehlende
  * Tools -- geplant, nur noch nicht gebaut) bleibt unverändert `missingTool`. Siehe
  * scripts/lib/omission-registry.mjs (`partitionMissingTools()`).
  *

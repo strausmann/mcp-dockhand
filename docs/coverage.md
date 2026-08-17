@@ -4,7 +4,7 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-08-17T19:10:22.772Z
+**Erzeugt:** 2026-08-17T19:18:33.894Z
 **Dockhand-Upstream-Commit:** `19548772df38f37ed5272575561d28911476c083`
 **Schema-Endpunkte gesamt:** 242
 
@@ -70,7 +70,7 @@ ersten Pfad-Segment nach `/api/`:
 
 Endpunkte, die laut Schema existieren, aber laut `docs/omitted-endpoints.json` bewusst
 NIE ein MCP-Tool bekommen sollen. Unterscheidet sich von MISSING_TOOL oben: dort stehen
-echte, noch offene Lücken (z.B. die Backup-API, siehe #164).
+echte, noch offene Lücken (z.B. die Backup-API, siehe #202).
 
 | HTTP | Pfad | Begründung | ADR |
 |------|------|------------|-----|

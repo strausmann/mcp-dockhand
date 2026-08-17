@@ -15,6 +15,15 @@
  * @param {string} path
  * @returns {string}
  */
+/**
+ * Tracking-Issue der grössten echten Lücke (Backup-API). Kanonisch in ADR-0001 gepflegt
+ * (docs/adr/0001-omission-registry.md) — beim Ändern BEIDE Stellen nachziehen. Stand hier
+ * als Literal im Fliesstext und blieb deshalb auf #164 stehen, als das Issue geschlossen
+ * wurde: die ADR-Korrektur allein wirkte nicht, weil das erzeugte Dokument aus DIESER Datei
+ * kommt. Genau deshalb jetzt eine benannte Konstante statt einer Zahl mitten im Satz.
+ */
+const BACKUP_GAP_ISSUE = '#202';
+
 function areaOf(path) {
   const match = path.match(/^\/api\/([^/]+)/);
   return match ? match[1] : path;
@@ -147,7 +156,7 @@ function buildCoverageDoc({
     lines.push(
       'NIE ein MCP-Tool bekommen sollen. Unterscheidet sich von MISSING_TOOL oben: dort stehen'
     );
-    lines.push('echte, noch offene Lücken (z.B. die Backup-API, siehe #164).');
+    lines.push(`echte, noch offene Lücken (z.B. die Backup-API, siehe ${BACKUP_GAP_ISSUE}).`);
     lines.push('');
     lines.push('| HTTP | Pfad | Begründung | ADR |');
     lines.push('|------|------|------------|-----|');
