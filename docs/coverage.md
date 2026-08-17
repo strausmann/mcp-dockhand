@@ -4,18 +4,18 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-08-15T05:07:06.933Z
+**Erzeugt:** 2026-08-17T19:06:02.895Z
 **Dockhand-Upstream-Commit:** `19548772df38f37ed5272575561d28911476c083`
 **Schema-Endpunkte gesamt:** 242
 
 ## Coverage
 
-**87.8%** (287/327 in-Scope-Endpunkte haben ein MCP-Tool)
+**90.2%** (295/327 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
-| COVERED | 287 |
-| MISSING_TOOL | 40 |
+| COVERED | 295 |
+| MISSING_TOOL | 32 |
 | Deliberately omitted (Registry, siehe unten) | 1 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -71,19 +71,6 @@ ersten Pfad-Segment nach `/api/`:
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
 | POST | `/api/images/load` | - |
-
-### secret-providers (8)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/api/secret-providers` | - |
-| POST | `/api/secret-providers` | - |
-| DELETE | `/api/secret-providers/{id}` | id |
-| GET | `/api/secret-providers/{id}` | id |
-| PUT | `/api/secret-providers/{id}` | id |
-| POST | `/api/secret-providers/{id}/probe` | id |
-| POST | `/api/secret-providers/{id}/test` | id |
-| POST | `/api/secret-providers/test` | - |
 
 ## Deliberately omitted (with reason)
 
