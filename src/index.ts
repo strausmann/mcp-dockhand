@@ -6,7 +6,7 @@
  */
 
 import { createServer } from './server.js';
-import { logger } from './utils/logger.js';
+import { logger, flushLogsSync } from './utils/logger.js';
 
 function getEnvOrThrow(name: string): string {
   const value = process.env[name];
@@ -15,6 +15,7 @@ function getEnvOrThrow(name: string): string {
       { component: 'config', variable: name },
       'required environment variable is not set — copy .env.example to .env and fill in your Dockhand credentials',
     );
+    flushLogsSync();
     process.exit(1);
   }
   return value;
@@ -42,5 +43,6 @@ logger.info(
 
 createServer(config).catch((error: unknown) => {
   logger.error({ component: 'server', err: error }, 'failed to start server');
+  flushLogsSync();
   process.exit(1);
 });
