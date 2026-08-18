@@ -14,7 +14,16 @@ WORKDIR /app
 ARG MCP_SERVER_VERSION="0.0.0-dev"
 ARG MCP_GIT_SHA="unknown"
 ARG MCP_BUILD_DATE="unknown"
-ENV MCP_SERVER_VERSION=$MCP_SERVER_VERSION \
+# NODE_ENV=production is load-bearing, not cosmetic. Express reads it once at
+# startup (application.js: `process.env.NODE_ENV || 'development'`) and passes the
+# result to finalhandler, which serialises `err.stack` into the response body for
+# any value other than 'production'. Because express.json() is registered ahead of
+# the bearer guard (deliberately, so rejected requests still produce an access
+# line), a malformed body from an UNAUTHENTICATED caller reaches finalhandler
+# without ever meeting the guard — and returned a full stack trace with container
+# paths and dependency line offsets. Found by the security audit, 2026-08-18.
+ENV NODE_ENV=production \
+    MCP_SERVER_VERSION=$MCP_SERVER_VERSION \
     MCP_GIT_SHA=$MCP_GIT_SHA \
     MCP_BUILD_DATE=$MCP_BUILD_DATE
 RUN addgroup -g 1001 mcp && adduser -u 1001 -G mcp -D mcp
