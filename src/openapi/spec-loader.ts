@@ -89,15 +89,32 @@ export function specInfoVersion(): string | undefined {
   return spec?.info?.version;
 }
 
+/** A path template plus the HTTP methods (lowercased) the spec defines an operation for. */
+export interface SpecPathTemplate {
+  readonly template: string;
+  readonly methods: readonly string[];
+}
+
+// A Path Item Object may carry non-operation keys (parameters, summary, description,
+// servers, $ref) alongside the verbs. Only these are real operations.
+const HTTP_METHODS = new Set(['get', 'put', 'post', 'delete', 'patch', 'head', 'options', 'trace']);
+
 /**
- * Returns every path template key from the pinned OpenAPI spec (e.g.
- * `/api/stacks/{name}/env/raw`), or `[]` when the spec is unavailable (see `loadSpec()`).
- * Used by `matchRoute()` (src/openapi/match-route.ts) to reverse-match a concrete request
- * pathname back to its template — the set this function returns is the ONLY thing a debug
- * log line is ever allowed to contain instead of the caller's real path, so an empty
- * result must make every match fail closed, not throw.
+ * Returns every path template from the pinned OpenAPI spec (e.g. `/api/stacks/{name}/env/raw`)
+ * together with the HTTP methods it defines, or `[]` when the spec is unavailable (see
+ * `loadSpec()`). Used by `matchRoute()` (src/openapi/match-route.ts) to reverse-match a concrete
+ * request back to its template — the set this function returns is the ONLY thing a debug log line
+ * is ever allowed to contain instead of the caller's real path, so an empty result must make every
+ * match fail closed, not throw. The methods are carried because a concrete pathname can match two
+ * templates that differ only by which verb each defines (e.g. `POST /api/stacks/adopt` the literal
+ * vs. `DELETE /api/stacks/{name}` where `name` is `adopt`) — the matcher needs the method to pick
+ * the right one.
  */
-export function specPathTemplates(): string[] {
+export function specPathTemplates(): SpecPathTemplate[] {
   const spec = loadSpec();
-  return spec?.paths ? Object.keys(spec.paths) : [];
+  if (!spec?.paths) return [];
+  return Object.entries(spec.paths).map(([template, operations]) => ({
+    template,
+    methods: Object.keys(operations).filter((key) => HTTP_METHODS.has(key.toLowerCase())),
+  }));
 }

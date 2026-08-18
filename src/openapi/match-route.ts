@@ -17,6 +17,8 @@ interface TemplateEntry {
   readonly template: string;
   readonly segments: readonly string[];
   readonly literalCount: number;
+  /** Lowercased HTTP methods the spec defines for this template. */
+  readonly methods: ReadonlySet<string>;
 }
 
 /** Bucketed by segment count so a match never compares templates of the wrong shape. */
@@ -32,10 +34,15 @@ function isPlaceholder(segment: string): boolean {
 
 function buildIndex(): Map<number, TemplateEntry[]> {
   const index = new Map<number, TemplateEntry[]>();
-  for (const template of specPathTemplates()) {
+  for (const { template, methods } of specPathTemplates()) {
     const segments = splitSegments(template);
     const literalCount = segments.filter((segment) => !isPlaceholder(segment)).length;
-    const entry: TemplateEntry = { template, segments, literalCount };
+    const entry: TemplateEntry = {
+      template,
+      segments,
+      literalCount,
+      methods: new Set(methods.map((method) => method.toLowerCase())),
+    };
     const bucket = index.get(segments.length);
     if (bucket) {
       bucket.push(entry);
@@ -57,34 +64,59 @@ function segmentsMatch(templateSegments: readonly string[], pathSegments: readon
 }
 
 /**
- * Resolves `pathname` to the most specific matching OpenAPI path template — "most
- * specific" meaning the most literal (non-`{...}`) segments, so a literal route like
- * `/api/stacks/adopt` wins over the parameterised `/api/stacks/{name}` it would
- * otherwise also match. Ties (equally-literal templates) break lexicographically; ties
- * only happen between equally-safe templates, so the tie-break is cosmetic, not a
- * safety decision.
+ * Resolves a concrete request (`method` + `pathname`) to the most specific matching OpenAPI
+ * path template.
  *
- * Returns `undefined` when no known template matches — including when the spec is
- * unavailable, since `specPathTemplates()` then yields an empty set and every pathname
- * fails to match by construction.
+ * The METHOD is decisive first, because a pathname alone can match two templates that differ
+ * only by which verb each defines. `DELETE /api/stacks/adopt` (the `delete_stack` tool acting
+ * on a stack literally named `adopt`) matches both the literal `/api/stacks/adopt` — which the
+ * spec defines only for POST — and `/api/stacks/{name}`, which is where DELETE actually lives.
+ * Picking purely by literal-count would log the nonexistent `DELETE /api/stacks/adopt`. So a
+ * candidate whose spec operations include the request's method always beats one whose do not.
+ * (Codex, PR #219.)
+ *
+ * Among candidates of equal method standing, "most specific" then means the most literal
+ * (non-`{...}`) segments — so `POST /api/stacks/adopt` still resolves to the literal template.
+ * Ties break lexicographically; ties only happen between equally-safe templates, so the
+ * tie-break is cosmetic, not a safety decision. If NO matching template defines the method
+ * (a spec gap), the method-agnostic most-literal template is still returned rather than
+ * dropping to `coarseRoute` — it is a valid known template, never a caller value.
+ *
+ * Returns `undefined` when no known template matches at all — including when the spec is
+ * unavailable, since `specPathTemplates()` then yields an empty set and every pathname fails
+ * to match by construction.
  */
-export function matchRoute(pathname: string): string | undefined {
+export function matchRoute(pathname: string, method: string): string | undefined {
   indexByLength ??= buildIndex();
 
   const pathSegments = splitSegments(pathname);
   const candidates = indexByLength.get(pathSegments.length);
   if (!candidates) return undefined;
 
+  const wantedMethod = method.toLowerCase();
   let best: TemplateEntry | undefined;
+  let bestMethodMatch = false;
   for (const candidate of candidates) {
     if (!segmentsMatch(candidate.segments, pathSegments)) continue;
-    if (
-      !best ||
-      candidate.literalCount > best.literalCount ||
-      (candidate.literalCount === best.literalCount && candidate.template < best.template)
-    ) {
+    const methodMatch = candidate.methods.has(wantedMethod);
+    if (!best || preferred(methodMatch, candidate, bestMethodMatch, best)) {
       best = candidate;
+      bestMethodMatch = methodMatch;
     }
   }
   return best?.template;
+}
+
+/** Whether (methodMatch, candidate) should replace the current (bestMethodMatch, best). */
+function preferred(
+  methodMatch: boolean,
+  candidate: TemplateEntry,
+  bestMethodMatch: boolean,
+  best: TemplateEntry,
+): boolean {
+  // A template that defines the request's method always wins over one that does not.
+  if (methodMatch !== bestMethodMatch) return methodMatch;
+  // Then most-literal wins, then lexicographic (cosmetic — both are safe templates).
+  if (candidate.literalCount !== best.literalCount) return candidate.literalCount > best.literalCount;
+  return candidate.template < best.template;
 }

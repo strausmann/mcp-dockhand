@@ -217,7 +217,7 @@ export class DockhandClient {
   private async loggedFetch(method: string, url: string, init: RequestInit): Promise<Response> {
     const started = Date.now();
     const parsed = new URL(url);
-    const route = matchRoute(parsed.pathname) ?? coarseRoute(parsed.pathname);
+    const route = matchRoute(parsed.pathname, method) ?? coarseRoute(parsed.pathname);
     const query = [...parsed.searchParams.keys()];
 
     try {
