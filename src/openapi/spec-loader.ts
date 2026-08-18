@@ -23,6 +23,7 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { OpenApiOperation } from './derive-description.js';
 import type { ToolEndpointEntry } from './tool-endpoint-map.js';
+import { logger } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -47,8 +48,10 @@ function loadSpec(): OpenApiSpec | null {
 
   if (!existsSync(SPEC_FILE)) {
     if (!loggedMissing) {
-      console.error(
-        `[openapi] Spec file not found at ${SPEC_FILE} — tool descriptions will use the fallback text. Run \`node scripts/fetch-openapi.mjs\` (dev) or check the Docker image build (prod).`
+      logger.warn(
+        { component: 'openapi', specFile: SPEC_FILE },
+        'spec file not found — tool descriptions will use the fallback text. ' +
+          'Run `node scripts/fetch-openapi.mjs` (dev) or check the Docker image build (prod).',
       );
       loggedMissing = true;
     }

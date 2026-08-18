@@ -5,6 +5,7 @@
 
 import type { DockhandConfig, SessionInfo } from '../types/dockhand.js';
 import { describeLoginFailure, normalizeBaseUrl } from '../utils/url.js';
+import { log } from '../utils/log-context.js';
 
 const SESSION_TIMEOUT_MS = 23 * 60 * 60 * 1000; // 23h (conservative, actual is 24h)
 
@@ -37,16 +38,7 @@ export class SessionManager {
   private async performLogin(): Promise<void> {
     const url = `${normalizeBaseUrl(this.config.url)}/api/auth/login`;
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: this.config.username,
-        password: this.config.password,
-        provider: 'local',
-      }),
-      redirect: 'manual',
-    });
+    const response = await this.loggedLoginFetch(url);
 
     // Read body once and cache it to avoid double-read errors
     const responseBody = await response.text().catch(() => '');
@@ -55,11 +47,19 @@ export class SessionManager {
       const detail = describeLoginFailure(response.status, response.headers.get('location'), responseBody, response.statusText);
       // Fail loud: a login failure only ever surfaces to the caller as a
       // structured MCP tool error (src/utils/tool-helper.ts), which is never
-      // written to stderr/docker logs on its own. Log it here unconditionally
-      // (no LOG_LEVEL gate — the server doesn't implement log levels at all)
-      // so a failed login is always diagnosable from `docker logs`. See
-      // Issue #116.
-      console.error(`[session] Login failed for ${this.config.username}: HTTP ${response.status} — ${detail}`);
+      // written to stderr/docker logs on its own. Logged here at 'error' —
+      // the most restrictive level — so a failed login is always diagnosable
+      // from `docker logs` no matter what LOG_LEVEL is set to. See Issue #116.
+      //
+      // Through log() rather than the bare logger so it carries req/sid/call/tool
+      // when a request is what triggered it. This is the line Issue #116 is about:
+      // without them an operator sees 'tool failed' with a call id and 'login
+      // failed' with nothing to join it to, and has to match the two up by
+      // timestamp.
+      log().error(
+        { component: 'session', user: this.config.username, status: response.status, detail },
+        'login failed',
+      );
       throw new Error(`Dockhand login failed (HTTP ${response.status}): ${detail}`);
     }
 
@@ -100,7 +100,66 @@ export class SessionManager {
       expiresAt: Date.now() + SESSION_TIMEOUT_MS,
     };
 
-    console.error(`[session] Logged in to Dockhand as ${this.config.username}`);
+    log().info({ component: 'session', user: this.config.username }, 'logged in to Dockhand');
+  }
+
+  /**
+   * The login is the one request to Dockhand that does not go through
+   * DockhandClient.loggedFetch — SessionManager holds no client, it is what the client
+   * is built on. So it was the one request with no debug line: at LOG_LEVEL=debug
+   * against an unreachable Dockhand an operator saw the tool failure and not a single
+   * component:"client" line, for the exact request Issue #116 is about.
+   *
+   * Same shape as loggedFetch, not the same function: component, method, route, status
+   * and duration on success; a warn carrying only the exception's NAME when the call
+   * never got that far (that path is the interesting one — an unreachable host throws
+   * rather than answering).
+   *
+   * `route` is a constant. loggedFetch derives it from the call context or truncates a
+   * caller-supplied path to two segments; here the path is fixed at the one call site
+   * above, and /api/auth is what that truncation would produce. Nothing derived from
+   * the URL, the body or the credentials is passed to the logger at all — which is
+   * what keeps the debug level's no-values guarantee true with a second call site
+   * (tests/no-console.test.ts allowlists this file for exactly that reason).
+   */
+  private async loggedLoginFetch(url: string): Promise<Response> {
+    const started = Date.now();
+    const route = '/api/auth';
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: this.config.username,
+          password: this.config.password,
+          provider: 'local',
+        }),
+        redirect: 'manual',
+      });
+    } catch (error) {
+      // `err: { type }` and no message, mirroring the client: an exception name is
+      // bounded to the DOM/Node vocabulary (TypeError, TimeoutError, ...), the message
+      // is free text from an exception this code did not construct.
+      log().warn(
+        {
+          component: 'client',
+          method: 'POST',
+          route,
+          ms: Date.now() - started,
+          err: { type: error instanceof Error ? error.name : 'UnknownError' },
+        },
+        'dockhand request failed',
+      );
+      throw error;
+    }
+
+    log().debug(
+      { component: 'client', method: 'POST', route, status: response.status, ms: Date.now() - started },
+      'dockhand request',
+    );
+    return response;
   }
 
   /**
@@ -118,7 +177,7 @@ export class SessionManager {
    */
   invalidate(): void {
     this.session = null;
-    console.error('[session] Session invalidated, will re-login on next request');
+    log().info({ component: 'session' }, 'session invalidated, will re-login on next request');
   }
 
   /**

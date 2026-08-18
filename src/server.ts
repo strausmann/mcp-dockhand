@@ -28,6 +28,10 @@ import {
   selectOldestIdleSession,
 } from './session-lifecycle.js';
 import type { DockhandConfig } from './types/dockhand.js';
+import { logger } from './utils/logger.js';
+import { extendLogContext, log } from './utils/log-context.js';
+import { createAccessLogMiddleware } from './utils/access-log-middleware.js';
+import { parseTrustedProxies } from './utils/client-ip.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
 
@@ -59,16 +63,32 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
   const security = getTransportSecurityConfig(config.port);
   const hostOriginEnforced = isHostOriginEnforcementActive(security);
   if (!hostOriginEnforced && !security.authToken) {
-    console.error(
-      '[security] WARNING: /mcp has no Host/Origin allowlist (MCP_ALLOWED_HOSTS) and no bearer token ' +
-        '(MCP_AUTH_TOKEN) configured — it accepts requests from any reachable client with no checks at all.',
-    );
-    console.error(
-      '[security] This is the compatible default. Set MCP_ALLOWED_HOSTS (DNS-rebinding protection) and ' +
-        'MCP_AUTH_TOKEN ("Authorization: Bearer <token>") once this endpoint is reachable beyond loopback.',
+    logger.warn(
+      { component: 'security' },
+      '/mcp has no Host/Origin allowlist (MCP_ALLOWED_HOSTS) and no bearer token (MCP_AUTH_TOKEN) ' +
+        'configured — it accepts requests from any reachable client with no checks at all. This is the ' +
+        'compatible default; set MCP_ALLOWED_HOSTS (DNS-rebinding protection) and MCP_AUTH_TOKEN ' +
+        '("Authorization: Bearer <token>") once this endpoint is reachable beyond loopback.',
     );
   }
   const app = express();
+
+  const trustedProxies = parseTrustedProxies(process.env['TRUSTED_PROXIES']);
+  for (const warning of trustedProxies.warnings) {
+    logger.warn({ component: 'config' }, warning);
+  }
+  // Registered ahead of the Host/Origin and bearer guards below (deliberately —
+  // see the comment at their registration) so a rejected request still produces
+  // an access line: a 401 on /mcp means someone is guessing the token, a 403
+  // means a DNS-rebinding attempt, and both are the lines an operator most wants.
+  app.use(createAccessLogMiddleware(trustedProxies));
+
+  // And ahead of express.json() for the same reason, which is less obvious: a body
+  // parser rejects a malformed or oversized payload by calling next(err), and that
+  // skips every remaining non-error middleware. Registered the other way round, this
+  // middleware never runs for such a request at all — so it never attaches its
+  // res.on('finish') handler, and a 400 or a 413 produces no access line whatsoever.
+  // Malformed-payload probing is exactly what CrowdSec is here to see.
   app.use(express.json());
 
   const sessions = new Map<string, SessionEntry>();
@@ -124,7 +144,10 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
       if (lifecycle.maxSessions !== 0 && sessions.size + pendingSessions >= lifecycle.maxSessions) {
         const candidate = selectOldestIdleSession(sessions);
         if (!candidate) return false;
-        console.error(`[session] Capacity ${lifecycle.maxSessions} reached; evicting idle session ${candidate}`);
+        log().warn(
+          { component: 'session', sid: candidate, maxSessions: lifecycle.maxSessions },
+          'capacity reached; evicting idle session',
+        );
         await removeSession(candidate, 'capacity eviction');
       }
 
@@ -149,7 +172,7 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
       for (const [sessionId, entry] of sessions) {
         if (entry.activeRequests !== 0) continue;
         if (now - entry.lastActivity > lifecycle.inactivityTimeoutMs) {
-          console.error(`[session] Session ${sessionId} timed out after inactivity`);
+          logger.info({ component: 'session', sid: sessionId }, 'session timed out after inactivity');
           await removeSession(sessionId, 'inactivity timeout');
         }
       }
@@ -217,7 +240,12 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
             // session must not be a candidate for capacity eviction (see
             // selectOldestIdleSession / reserveSessionSlot).
             beginFoundingSession(sessions, id, { server: server!, transport: transport! });
-            console.error(`[session] New session ${id} (${sessions.size} active)`);
+            // The founding request arrives without an mcp-session-id header, so its
+            // access line and every line it logs would read sid=- while being the
+            // request that created the session. Backfilling it here ties the two
+            // together: the access line is written on 'finish', long after this runs.
+            extendLogContext({ sid: id });
+            log().info({ component: 'session', sid: id, active: sessions.size }, 'session created');
           },
         });
 
@@ -225,7 +253,7 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
           const sid = [...sessions.entries()].find(([, entry]) => entry.transport === transport)?.[0];
           if (sid) {
             sessions.delete(sid);
-            console.error(`[session] Session ${sid} transport closed (${sessions.size} active)`);
+            log().info({ component: 'session', sid, active: sessions.size }, 'session transport closed');
           }
         };
 
@@ -254,7 +282,7 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
         releasePendingSessionSlot();
       }
     } catch (error) {
-      console.error('[server] Error handling MCP request:', error);
+      log().error({ component: 'server', err: error }, 'error handling MCP request');
       if (!res.headersSent) {
         res.status(500).json({ error: 'Internal server error' });
       }
@@ -300,12 +328,28 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
   const host = config.host || '0.0.0.0';
   return await new Promise<HttpServer>((resolve) => {
     const httpServer = app.listen(config.port, host, () => {
-      console.error(`[server] MCP Dockhand server v${pkg.version} listening on ${host}:${config.port}`);
-      console.error(`[server] Dockhand URL: ${config.dockhand.url}`);
-      console.error(`[server] Health: http://localhost:${config.port}/health`);
-      console.error(`[server] MCP endpoint: http://localhost:${config.port}/mcp`);
-      console.error(
-        `[session] Lifecycle ttl=${lifecycle.inactivityTimeoutMs / 1000}s cleanup=${lifecycle.cleanupIntervalMs / 1000}s max=${lifecycle.maxSessions === 0 ? 'unlimited' : lifecycle.maxSessions}`,
+      logger.info(
+        {
+          component: 'server',
+          version: pkg.version,
+          host,
+          port: config.port,
+          dockhandUrl: config.dockhand.url,
+          health: `http://localhost:${config.port}/health`,
+          mcp: `http://localhost:${config.port}/mcp`,
+          logLevel: logger.level,
+          trustedProxies: trustedProxies.isEmpty ? 'none' : 'configured',
+        },
+        'MCP Dockhand server listening',
+      );
+      logger.info(
+        {
+          component: 'session',
+          ttlSeconds: lifecycle.inactivityTimeoutMs / 1000,
+          cleanupIntervalSeconds: lifecycle.cleanupIntervalMs / 1000,
+          maxSessions: lifecycle.maxSessions === 0 ? 'unlimited' : lifecycle.maxSessions,
+        },
+        'session lifecycle configured',
       );
       resolve(httpServer);
     });

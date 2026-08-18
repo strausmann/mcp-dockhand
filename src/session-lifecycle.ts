@@ -1,3 +1,8 @@
+// log() and not the bare logger: removal is reached both from a DELETE /mcp request
+// (where req/sid/call belong on the line) and from the cleanup interval (where there
+// is no request context and log() falls back to the plain logger unchanged).
+import { log } from './utils/log-context.js';
+
 export interface SessionLifecycleConfig {
   inactivityTimeoutMs: number;
   cleanupIntervalMs: number;
@@ -148,12 +153,12 @@ export async function removeSessionEntry<T extends ManagedSessionEntry>(
   try {
     await entry.server.close();
   } catch (error) {
-    console.error(`[session] Error closing server for ${id}:`, error);
+    log().error({ component: 'session', sid: id, err: error }, 'error closing server');
     try {
       await entry.transport.close?.();
     } catch {
       // Best-effort fallback only.
     }
   }
-  console.error(`[session] Removed session ${id} (${reason}; ${sessions.size} active)`);
+  log().info({ component: 'session', sid: id, reason, active: sessions.size }, 'session removed');
 }

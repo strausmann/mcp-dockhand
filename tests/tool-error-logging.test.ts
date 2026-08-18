@@ -13,6 +13,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { registerTool } from '../src/utils/tool-helper.js';
+// The logger writes via pino.destination({ fd: 2, sync: true }) (SonicBoom), which
+// calls fs.writeSync(fd, ...) directly rather than console.error/process.stderr.write.
+// Default import, not `import * as fs`: the namespace form is a frozen ES module
+// object and vi.spyOn cannot redefine a property on it.
+import fs from 'node:fs';
+
+function captureLoggerOutput(): { written: string[]; restore: () => void } {
+  const written: string[] = [];
+  const spy = vi.spyOn(fs, 'writeSync').mockImplementation((fd: unknown, buffer: unknown) => {
+    if (fd === 2) {
+      const text = String(buffer);
+      written.push(text);
+      return Buffer.byteLength(text);
+    }
+    return 0;
+  });
+  return { written, restore: () => spy.mockRestore() };
+}
 
 interface CapturedTool {
   name: string;
@@ -38,7 +56,7 @@ describe('registerTool error logging', () => {
   });
 
   it('logs the tool name and error message when the callback throws (fail loud)', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { written, restore } = captureLoggerOutput();
     const server = fakeServer();
 
     registerTool(server as never, 'health_check', {}, async () => {
@@ -50,14 +68,44 @@ describe('registerTool error logging', () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Dockhand login failed');
 
-    expect(errorSpy).toHaveBeenCalledTimes(1);
-    const logged = errorSpy.mock.calls[0].join(' ');
-    expect(logged).toContain('health_check');
-    expect(logged).toContain('Dockhand login failed');
+    // Since Task 7 (call correlation, tests/tool-correlation.test.ts) registerTool also
+    // logs a "start" line before the callback runs, so a failure now produces two lines,
+    // not one. The error line is the one that carries the diagnosis.
+    expect(written).toHaveLength(2);
+    const [, errorLine] = written;
+    expect(errorLine).toContain('health_check');
+    expect(errorLine).toContain('Dockhand login failed');
+    restore();
+  });
+
+  // Asserting on the parsed line rather than on the object handed to the logger: the
+  // two were not the same. `err: { type: 'ToolError', message }` reached the log as
+  // "err":{"type":"Object","message":...,"stack":""} — pino's default serializer for
+  // the `err` key treats anything with a `message` as error-like and overwrites `type`
+  // with the constructor name. Every tool-failure line in production said "Object",
+  // and no test noticed, because none of them read a whole emitted line.
+  it('emits the error fields it was given, unmangled by the error serializer', async () => {
+    const { written, restore } = captureLoggerOutput();
+    const server = fakeServer();
+
+    registerTool(server as never, 'list_stacks', {}, async () => {
+      throw new Error('Dockhand login failed (HTTP 401)');
+    });
+
+    await server.tools.get('list_stacks')!.handler({});
+    restore();
+
+    const line = JSON.parse(written.find((l) => l.includes('tool failed'))!) as Record<string, unknown>;
+
+    expect(line.errType).toBe('ToolError');
+    expect(line.errMessage).toBe('Dockhand login failed (HTTP 401)');
+    // The shape that was actually being emitted, named explicitly so a return to it
+    // cannot pass by satisfying the two assertions above through some other route.
+    expect(line.err).toBeUndefined();
   });
 
   it('logs "Unknown error" for a thrown non-Error value without crashing', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { written, restore } = captureLoggerOutput();
     const server = fakeServer();
 
     registerTool(server as never, 'get_system_info', {}, async () => {
@@ -69,13 +117,14 @@ describe('registerTool error logging', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Unknown error');
-    const logged = errorSpy.mock.calls[0].join(' ');
-    expect(logged).toContain('get_system_info');
-    expect(logged).toContain('Unknown error');
+    const [, errorLine] = written;
+    expect(errorLine).toContain('get_system_info');
+    expect(errorLine).toContain('Unknown error');
+    restore();
   });
 
-  it('does not log anything when the callback succeeds (happy path)', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('logs only a start and an ok line when the callback succeeds (happy path)', async () => {
+    const { written, restore } = captureLoggerOutput();
     const server = fakeServer();
 
     registerTool(server as never, 'get_host_info', { id: z.number() }, async ({ id }) => {
@@ -85,11 +134,16 @@ describe('registerTool error logging', () => {
     const result = await server.tools.get('get_host_info')!.handler({ id: 42 });
 
     expect(result.isError).toBeUndefined();
-    expect(errorSpy).not.toHaveBeenCalled();
+    // Task 7 added an unconditional "start"/"ok" pair around every call (see
+    // tests/tool-correlation.test.ts) — a success no longer logs nothing, but it must
+    // never log at error level.
+    expect(written).toHaveLength(2);
+    expect(written.some((line) => line.includes('"level":"error"'))).toBe(false);
+    restore();
   });
 
   it('propagates a network-error message from a rejected client call and still logs it', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { written, restore } = captureLoggerOutput();
     const server = fakeServer();
 
     registerTool(server as never, 'list_containers', {}, async () => {
@@ -100,6 +154,8 @@ describe('registerTool error logging', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('ECONNREFUSED');
-    expect(errorSpy.mock.calls[0].join(' ')).toContain('ECONNREFUSED');
+    const [, errorLine] = written;
+    expect(errorLine).toContain('ECONNREFUSED');
+    restore();
   });
 });

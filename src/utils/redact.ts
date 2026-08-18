@@ -5,7 +5,7 @@
  * query-string redaction) because the un-redacted `Dockhand API error: ${method} ${url}
  * returned …` message built by `DockhandClient` (src/client/dockhand-client.ts) reaches
  * THREE separate surfaces, not just the `get_runtime_stats` sink:
- *   1. `console.error(...)` in `registerTool()` (src/utils/tool-helper.ts) — ships
+ *   1. `log().error(...)` in `registerTool()` (src/utils/tool-helper.ts) — ships
  *      straight into `docker logs`.
  *   2. `errorResponse(message)` (same call site) — returned to the invoking MCP client.
  *   3. `recordError(tool, message)` (src/utils/runtime-stats.ts) — stored and later

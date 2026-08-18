@@ -7,6 +7,24 @@ import {
   selectOldestIdleSession,
   type ManagedSessionEntry,
 } from '../src/session-lifecycle.js';
+// The logger writes via pino.destination({ fd: 2, sync: true }) (SonicBoom), which
+// calls fs.writeSync(fd, ...) directly rather than console.error/process.stderr.write.
+// Default import, not `import * as fs`: the namespace form is a frozen ES module
+// object and vi.spyOn cannot redefine a property on it.
+import fs from 'node:fs';
+
+function captureLoggerOutput(): { written: string[]; restore: () => void } {
+  const written: string[] = [];
+  const spy = vi.spyOn(fs, 'writeSync').mockImplementation((fd: unknown, buffer: unknown) => {
+    if (fd === 2) {
+      const text = String(buffer);
+      written.push(text);
+      return Buffer.byteLength(text);
+    }
+    return 0;
+  });
+  return { written, restore: () => spy.mockRestore() };
+}
 
 describe('session lifecycle configuration', () => {
   it('keeps the existing timeout defaults when no overrides are set', () => {
@@ -117,18 +135,20 @@ describe('removeSessionEntry (bug: DELETE-triggered cleanup never running)', () 
     // returns undefined and the whole cleanup silently no-ops.
     sessions.delete('deleted-by-client');
 
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { written, restore } = captureLoggerOutput();
     await removeSessionEntry(sessions, 'deleted-by-client', entry, 'client delete');
 
-    // Assert before mockRestore(): restoring also clears the recorded call
-    // history (mockRestore implies mockReset/mockClear), so checking after
-    // restoring would always see zero calls regardless of behaviour.
+    // Assert before restore(): restoring also detaches the mock, so checking
+    // after restoring would always see the same recorded calls regardless of
+    // behaviour going forward, but reading `written` first keeps the intent
+    // explicit and matches the original assert-then-restore ordering.
     expect(closeServer).toHaveBeenCalledTimes(1);
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[session] Removed session deleted-by-client (client delete'),
-    );
+    const line = written.join('');
+    expect(line).toMatch(/"sid":"deleted-by-client"/);
+    expect(line).toMatch(/"reason":"client delete"/);
+    expect(line).toMatch(/"msg":"session removed"/);
 
-    errorSpy.mockRestore();
+    restore();
   });
 
   it('still removes/closes correctly on the normal path where the entry is still present in the map', async () => {
@@ -150,9 +170,9 @@ describe('removeSessionEntry (bug: DELETE-triggered cleanup never running)', () 
     const entry = fakeEntry({ server: { close: closeServer }, transport: { close: closeTransport } });
     sessions.set('racing-close', entry);
 
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { restore } = captureLoggerOutput();
     await expect(removeSessionEntry(sessions, 'racing-close', entry, 'client delete')).resolves.toBeUndefined();
-    errorSpy.mockRestore();
+    restore();
 
     expect(closeTransport).toHaveBeenCalledTimes(1);
   });
