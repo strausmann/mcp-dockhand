@@ -55,22 +55,34 @@ function assertBypassesLogger(line: string): void {
 
 describe('src/index.ts fatal-exit paths write to fd 2 before process.exit(1)', () => {
   const originalEnv = { ...process.env };
+  // Snapshot the listeners that exist BEFORE each test re-imports src/index.ts, so
+  // afterEach can strip only the handlers that import added — not Vitest's own
+  // process-level unhandled-error listeners, which removeAllListeners() would also
+  // wipe, silently disarming failure detection for every later test in this worker.
+  let uncaughtBefore = process.listeners('uncaughtException');
+  let rejectionBefore = process.listeners('unhandledRejection');
 
   beforeEach(() => {
     vi.resetModules();
     process.env = { ...originalEnv };
+    uncaughtBefore = process.listeners('uncaughtException');
+    rejectionBefore = process.listeners('unhandledRejection');
   });
 
   afterEach(() => {
     process.env = { ...originalEnv };
     vi.restoreAllMocks();
     vi.doUnmock('../src/server.js');
-    // process.on(...) listeners installed by a freshly re-imported src/index.ts
-    // are NOT scoped to vi.resetModules() — without this they accumulate across
-    // tests in this file (and beyond, since these are real process-level
-    // listeners) and later tests would see writes/exits from earlier ones' handlers.
-    process.removeAllListeners('uncaughtException');
-    process.removeAllListeners('unhandledRejection');
+    // Remove ONLY the process.on(...) listeners a freshly re-imported src/index.ts
+    // added (they are not scoped to vi.resetModules(), so without this they
+    // accumulate and later tests see writes/exits from earlier handlers). Anything
+    // present in the pre-import snapshot — Vitest's own, other modules' — stays.
+    for (const listener of process.listeners('uncaughtException')) {
+      if (!uncaughtBefore.includes(listener)) process.removeListener('uncaughtException', listener);
+    }
+    for (const listener of process.listeners('unhandledRejection')) {
+      if (!rejectionBefore.includes(listener)) process.removeListener('unhandledRejection', listener);
+    }
   });
 
   it('missing-env-var path: writes the fatal line to fd 2, THEN exits(1)', async () => {
@@ -137,6 +149,9 @@ describe('src/index.ts fatal-exit paths write to fd 2 before process.exit(1)', (
 
 describe('src/index.ts top-level uncaughtException/unhandledRejection handlers', () => {
   const originalEnv = { ...process.env };
+  // See the sibling describe block above for why removeAllListeners() is unsafe here.
+  let uncaughtBefore = process.listeners('uncaughtException');
+  let rejectionBefore = process.listeners('unhandledRejection');
 
   beforeEach(() => {
     vi.resetModules();
@@ -144,6 +159,8 @@ describe('src/index.ts top-level uncaughtException/unhandledRejection handlers',
     process.env['DOCKHAND_URL'] = 'https://dockhand.example';
     process.env['DOCKHAND_USERNAME'] = 'admin';
     process.env['DOCKHAND_PASSWORD'] = 'secret';
+    uncaughtBefore = process.listeners('uncaughtException');
+    rejectionBefore = process.listeners('unhandledRejection');
     vi.doMock('../src/server.js', () => ({
       // Resolves (never settles a real server) so this describe block never
       // exercises the fatal-startup .catch() path above — only the two handlers
@@ -156,8 +173,13 @@ describe('src/index.ts top-level uncaughtException/unhandledRejection handlers',
     process.env = { ...originalEnv };
     vi.restoreAllMocks();
     vi.doUnmock('../src/server.js');
-    process.removeAllListeners('uncaughtException');
-    process.removeAllListeners('unhandledRejection');
+    // Strip only import-added handlers; keep Vitest's own (see block above).
+    for (const listener of process.listeners('uncaughtException')) {
+      if (!uncaughtBefore.includes(listener)) process.removeListener('uncaughtException', listener);
+    }
+    for (const listener of process.listeners('unhandledRejection')) {
+      if (!rejectionBefore.includes(listener)) process.removeListener('unhandledRejection', listener);
+    }
   });
 
   it('uncaughtException: writes name/message only to fd 2, calls logFatalSync (not logger.error), then exits(1)', async () => {
@@ -193,6 +215,30 @@ describe('src/index.ts top-level uncaughtException/unhandledRejection handlers',
     // Direct proof this path never went through the async logger, independent of
     // vitest's sync-in-test destination masking the output-shape check above.
     expect(loggerErrorSpy).not.toHaveBeenCalled();
+  });
+
+  it('uncaughtException: a non-Error throw (throw null) is logged and exits(1), not a secondary crash', async () => {
+    // `throw null` is legal and Node hands the raw value to this listener despite the
+    // Error type in its own typings. A handler that read `.name` directly would throw
+    // a TypeError inside itself and Node would exit code 7 with nothing logged — the
+    // original failure buried. This proves the handler normalizes the value instead.
+    const { calls } = captureFatalWritesAndExit();
+
+    await import('../src/index.js');
+
+    // Cast: the emit typings claim Error, which is exactly the lie under test.
+    expect(() => process.emit('uncaughtException', null as unknown as Error)).not.toThrow();
+
+    expect(calls.at(-1)).toBe('exit:1');
+    const fatalCall = calls.at(-2);
+    expect(fatalCall).toMatch(/^write:/);
+    const parsed = JSON.parse(fatalCall!.slice('write:'.length));
+    expect(parsed).toMatchObject({
+      component: 'process',
+      errType: 'object', // typeof null
+      errMessage: 'null', // String(null)
+      msg: 'uncaught exception',
+    });
   });
 
   it('unhandledRejection: writes name/message only to fd 2, calls logFatalSync (not logger.error), then exits(1)', async () => {

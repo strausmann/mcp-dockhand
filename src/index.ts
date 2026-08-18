@@ -19,9 +19,18 @@ import { logger, logFatalSync } from './utils/logger.js';
  * Deliberately narrow: no SIGTERM/SIGINT graceful-shutdown handling here — that is
  * a separate concern, out of scope for #210, and belongs in its own issue.
  */
-process.on('uncaughtException', (error: Error) => {
+process.on('uncaughtException', (error: unknown) => {
+  // Node passes the raw thrown value, and `throw null` / `throw undefined` /
+  // `throw 'oops'` are all legal — the `Error` type Node's own typings claim here
+  // is a lie. Reading `.name` on a non-Error would throw a second TypeError inside
+  // this very handler and Node would exit with code 7 before anything is logged,
+  // burying the original failure. Normalize exactly as the rejection handler below.
   logFatalSync(
-    { component: 'process', errType: error.name, errMessage: error.message },
+    {
+      component: 'process',
+      errType: error instanceof Error ? error.name : typeof error,
+      errMessage: error instanceof Error ? error.message : String(error),
+    },
     'uncaught exception',
   );
   process.exit(1);
