@@ -86,6 +86,28 @@ describe('logFatalSync', () => {
     expect(record).not.toHaveProperty('hostname');
     expect(Object.keys(record).sort()).toEqual(['component', 'level', 'msg', 'time']);
   });
+
+  it('does not throw when a binding value is not JSON-serializable — still writes a line', async () => {
+    const written: string[] = [];
+    vi.spyOn(fs, 'writeSync').mockImplementation((fd: unknown, buffer: unknown) => {
+      if (fd === 2) {
+        const text = String(buffer);
+        written.push(text);
+        return Buffer.byteLength(text);
+      }
+      return 0;
+    });
+
+    const { logFatalSync } = await import('../src/utils/logger.js');
+    // A BigInt binding makes JSON.stringify throw ("Do not know how to serialize a
+    // BigInt"). The one line a fatal handler exists to write must still be written.
+    expect(() => logFatalSync({ component: 'config', weird: 10n }, 'boom')).not.toThrow();
+
+    expect(written).toHaveLength(1);
+    const record = JSON.parse(written[0]!) as Record<string, unknown>;
+    expect(record).toMatchObject({ level: 'error', msg: 'boom', note: 'fatal bindings were not serializable' });
+    expect(typeof record['time']).toBe('string');
+  });
 });
 
 describe('log destination sync-ness by environment', () => {
@@ -160,5 +182,19 @@ describe('describeThrown', () => {
     };
     expect(() => describeThrown(hostile)).not.toThrow();
     expect(describeThrown(hostile)).toEqual({ errType: 'object', errMessage: '<unformattable value>' });
+  });
+
+  it('coerces an Error with a non-string name/message to strings (a bigint would break JSON.stringify)', async () => {
+    const { describeThrown } = await import('../src/utils/logger.js');
+    // Error.name/.message are writable and can be replaced with a non-string. Left
+    // uncoerced, the returned field flows into logFatalSync's JSON.stringify, which
+    // throws on a bigint — reopening the fatal-handler crash from a different angle.
+    const err = new Error('ok');
+    (err as unknown as Record<string, unknown>)['name'] = 10n;
+    (err as unknown as Record<string, unknown>)['message'] = 20n;
+    const result = describeThrown(err);
+    expect(typeof result.errType).toBe('string');
+    expect(typeof result.errMessage).toBe('string');
+    expect(result).toEqual({ errType: '10', errMessage: '20' });
   });
 });

@@ -166,7 +166,11 @@ export function destinationMaxLength(): number {
 export function describeThrown(value: unknown): { errType: string; errMessage: string } {
   try {
     if (value instanceof Error) {
-      return { errType: value.name, errMessage: value.message };
+      // .name/.message are writable and can be replaced with a non-string
+      // (`err.name = 1n` is legal), which would make logFatalSync's JSON.stringify
+      // throw on the bigint downstream. Coerce here so BOTH returned fields are
+      // guaranteed strings — the declared return type must hold at runtime too.
+      return { errType: String(value.name), errMessage: String(value.message) };
     }
     return { errType: typeof value, errMessage: String(value) };
   } catch {
@@ -199,11 +203,17 @@ export function describeThrown(value: unknown): { errType: string; errMessage: s
  * There is no pino redact() here to catch it: this bypasses pino entirely.
  */
 export function logFatalSync(bindings: Record<string, unknown>, msg: string): void {
-  const line = JSON.stringify({
-    level: 'error',
-    time: new Date().toISOString(),
-    ...bindings,
-    msg,
-  });
+  const time = new Date().toISOString();
+  let line: string;
+  try {
+    line = JSON.stringify({ level: 'error', time, ...bindings, msg });
+  } catch {
+    // Last line of defence: a binding value JSON.stringify cannot serialize (a BigInt,
+    // a circular reference) must never stop the one line a fatal handler exists to
+    // write. describeThrown() already coerces the error fields it produces; this guards
+    // against any other caller. The fallback's inputs are all literal strings, so it
+    // cannot itself throw.
+    line = JSON.stringify({ level: 'error', time, msg, note: 'fatal bindings were not serializable' });
+  }
   fs.writeSync(2, line + '\n');
 }
