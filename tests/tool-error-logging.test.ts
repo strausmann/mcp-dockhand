@@ -78,6 +78,32 @@ describe('registerTool error logging', () => {
     restore();
   });
 
+  // Asserting on the parsed line rather than on the object handed to the logger: the
+  // two were not the same. `err: { type: 'ToolError', message }` reached the log as
+  // "err":{"type":"Object","message":...,"stack":""} — pino's default serializer for
+  // the `err` key treats anything with a `message` as error-like and overwrites `type`
+  // with the constructor name. Every tool-failure line in production said "Object",
+  // and no test noticed, because none of them read a whole emitted line.
+  it('emits the error fields it was given, unmangled by the error serializer', async () => {
+    const { written, restore } = captureLoggerOutput();
+    const server = fakeServer();
+
+    registerTool(server as never, 'list_stacks', {}, async () => {
+      throw new Error('Dockhand login failed (HTTP 401)');
+    });
+
+    await server.tools.get('list_stacks')!.handler({});
+    restore();
+
+    const line = JSON.parse(written.find((l) => l.includes('tool failed'))!) as Record<string, unknown>;
+
+    expect(line.errType).toBe('ToolError');
+    expect(line.errMessage).toBe('Dockhand login failed (HTTP 401)');
+    // The shape that was actually being emitted, named explicitly so a return to it
+    // cannot pass by satisfying the two assertions above through some other route.
+    expect(line.err).toBeUndefined();
+  });
+
   it('logs "Unknown error" for a thrown non-Error value without crashing', async () => {
     const { written, restore } = captureLoggerOutput();
     const server = fakeServer();

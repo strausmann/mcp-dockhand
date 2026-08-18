@@ -68,8 +68,21 @@ export function registerTool<T extends ZodShape>(
           // structured MCP tool-error response — never written to
           // stderr/docker logs. Logged unconditionally so every tool failure
           // is diagnosable from container logs alone. See Issue #116.
+          // Siblings, deliberately not nested under `err`. pino applies its default
+          // error serializer to that key, and it treats ANY object carrying a
+          // `message` as error-like: it overwrites `type` with the constructor name
+          // and appends an empty `stack`. This line spent its whole life emitting
+          // "err":{"type":"Object","message":...,"stack":""} — the 'ToolError' label
+          // never once reached a log. (dockhand-client.ts escapes it only by having
+          // no `message` key; adding one there would break it the same way, which is
+          // reason enough not to hand this key a shape that has to stay lucky.)
           log().error(
-            { component: 'tools', ms: Date.now() - started, err: { type: 'ToolError', message } },
+            {
+              component: 'tools',
+              ms: Date.now() - started,
+              errType: 'ToolError',
+              errMessage: message,
+            },
             'tool failed',
           );
           recordError(name, message);
