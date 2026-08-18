@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto';
 import type { Request, RequestHandler, Response } from 'express';
 import { formatAccessLine } from './access-log.js';
 import { resolveClientIp, type TrustedProxies } from './client-ip.js';
-import { runWithLogContext } from './log-context.js';
+import { runWithLogContext, type LogContext } from './log-context.js';
 
 function header(req: Request, name: string): string | undefined {
   const value = req.headers[name];
@@ -23,8 +23,13 @@ export function createAccessLogMiddleware(
   write: (line: string) => void = (line) => process.stdout.write(`${line}\n`),
 ): RequestHandler {
   return (req: Request, res: Response, next) => {
-    const requestId = randomUUID();
-    const sessionId = header(req, 'mcp-session-id');
+    // This object is the log context for the whole request (see runWithLogContext:
+    // it is stored, not copied). The founding request of a session arrives without
+    // an mcp-session-id header — the id does not exist yet — and server.ts backfills
+    // it here via extendLogContext once the handshake produces one. Reading `context`
+    // at emit time rather than a captured local is what puts that id on the access
+    // line of the request that created the session.
+    const context: LogContext = { req: randomUUID(), sid: header(req, 'mcp-session-id') };
     const startedAt = new Date();
 
     const ip = resolveClientIp({
@@ -49,8 +54,8 @@ export function createAccessLogMiddleware(
           bytes: Number(res.getHeader('content-length') ?? 0),
           referer: header(req, 'referer'),
           userAgent: header(req, 'user-agent'),
-          req: requestId,
-          sid: sessionId,
+          req: context.req,
+          sid: context.sid,
         }),
       );
     };
@@ -60,6 +65,6 @@ export function createAccessLogMiddleware(
     res.on('finish', emit);
     res.on('close', emit);
 
-    runWithLogContext({ req: requestId, sid: sessionId }, () => next());
+    runWithLogContext(context, () => next());
   };
 }

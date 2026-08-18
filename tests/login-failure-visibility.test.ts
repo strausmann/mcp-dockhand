@@ -11,6 +11,26 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // import resolves to Node's actual (mutable) CJS module.exports for 'fs'.
 import fs from 'node:fs';
 
+function captureStderr(): string[] {
+  const written: string[] = [];
+  // The logger (src/utils/logger.ts) writes via pino.destination({ fd: 2 }) — SonicBoom,
+  // which calls fs.writeSync(fd, ...) directly rather than going through
+  // process.stderr.write. Mocking process.stderr.write here would leave `written` empty
+  // no matter what the logger does, so the interception has to sit at the fd-write layer
+  // pino actually uses. The byte count in the return value matters: SonicBoom treats it
+  // as the number of bytes released and retries whatever it believes is still unwritten,
+  // so a hardcoded 0 spins forever.
+  vi.spyOn(fs, 'writeSync').mockImplementation((fd: unknown, buffer: unknown) => {
+    if (fd === 2) {
+      const text = String(buffer);
+      written.push(text);
+      return Buffer.byteLength(text);
+    }
+    return 0;
+  });
+  return written;
+}
+
 describe('login failure visibility at the most restrictive level', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -57,5 +77,49 @@ describe('login failure visibility at the most restrictive level', () => {
     expect(line).toMatch(/401/);
     // The password must never be part of the diagnosis.
     expect(line).not.toMatch(/wrong/);
+  });
+
+  // Visible is not the same as usable. This line is the one Issue #116 exists for, and
+  // it was written through the bare logger while a request context existed — so an
+  // operator got 'tool failed' with req/sid/call/tool and 'login failed' with none of
+  // them, and had to join the two by timestamp. At LOG_LEVEL=error, where those are the
+  // only two lines that survive, that is the whole diagnosis.
+  it('carries the request correlation ids, so the failure can be joined to the call', async () => {
+    const written = captureStderr();
+
+    const { SessionManager } = await import('../src/auth/session.js');
+    const { runWithLogContext } = await import('../src/utils/log-context.js');
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('Invalid credentials', { status: 401, statusText: 'Unauthorized' }),
+    );
+
+    const manager = new SessionManager({
+      url: 'https://dockhand.example',
+      username: 'svc',
+      password: 'wrong',
+    });
+
+    await runWithLogContext(
+      { req: 'req-1', sid: 'sid-1', call: 'call-1', tool: 'list_stacks' },
+      async () => {
+        await expect(manager.getCookie()).rejects.toThrow();
+      },
+    );
+
+    const entry = JSON.parse(
+      written
+        .join('')
+        .trim()
+        .split('\n')
+        .find((l) => l.includes('login failed'))!,
+    ) as Record<string, unknown>;
+
+    expect(entry).toMatchObject({
+      level: 'error',
+      req: 'req-1',
+      sid: 'sid-1',
+      call: 'call-1',
+      tool: 'list_stacks',
+    });
   });
 });

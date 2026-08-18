@@ -53,6 +53,22 @@ describe('log context', () => {
     expect(seen.sort()).toEqual(['r1/c1', 'r2/c2']);
   });
 
+  // The access-log middleware holds the object it opened the context with and reads it
+  // back when the response finishes, because that is the only deterministic way for it
+  // to learn a session id that did not exist when the request arrived. That works only
+  // if the store IS the given object rather than a copy of it — with a copy the
+  // backfill lands somewhere the caller can never see, and the access line silently
+  // keeps saying sid=-.
+  it('makes a backfill visible to whoever opened the context', () => {
+    const context = { req: 'r1' };
+
+    runWithLogContext(context, () => {
+      extendLogContext({ sid: 's-created-later' });
+    });
+
+    expect(context).toEqual({ req: 'r1', sid: 's-created-later' });
+  });
+
   it('does not leak a nested extension back into the outer context', () => {
     runWithLogContext({ req: 'outer' }, () => {
       runWithLogContext({ req: 'inner' }, () => {

@@ -30,8 +30,20 @@ export interface LogContext {
 
 const storage = new AsyncLocalStorage<LogContext>();
 
+/**
+ * The given object BECOMES the store — it is not copied. That is what makes a later
+ * extendLogContext() visible to whoever opened the context, which the access-log
+ * middleware depends on: it learns the session id only after the MCP handshake has
+ * run, and writes its line later still, from a res.on('finish') listener that has no
+ * reliable context of its own. Holding the object is deterministic; reaching back
+ * into AsyncLocalStorage from an event listener would work by accident at best.
+ *
+ * The invariant that keeps runs isolated is therefore at the call sites: each one
+ * passes a fresh object per run (a literal or a spread), never a shared or reused
+ * one. Both callers in src/ do; tests/log-context.test.ts pins both halves.
+ */
 export function runWithLogContext<T>(context: LogContext, fn: () => T): T {
-  return storage.run({ ...context }, fn);
+  return storage.run(context, fn);
 }
 
 export function extendLogContext(patch: Partial<LogContext>): void {

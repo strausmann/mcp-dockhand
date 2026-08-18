@@ -29,6 +29,7 @@ import {
 } from './session-lifecycle.js';
 import type { DockhandConfig } from './types/dockhand.js';
 import { logger } from './utils/logger.js';
+import { extendLogContext, log } from './utils/log-context.js';
 import { createAccessLogMiddleware } from './utils/access-log-middleware.js';
 import { parseTrustedProxies } from './utils/client-ip.js';
 
@@ -143,7 +144,7 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
       if (lifecycle.maxSessions !== 0 && sessions.size + pendingSessions >= lifecycle.maxSessions) {
         const candidate = selectOldestIdleSession(sessions);
         if (!candidate) return false;
-        logger.warn(
+        log().warn(
           { component: 'session', sid: candidate, maxSessions: lifecycle.maxSessions },
           'capacity reached; evicting idle session',
         );
@@ -239,7 +240,12 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
             // session must not be a candidate for capacity eviction (see
             // selectOldestIdleSession / reserveSessionSlot).
             beginFoundingSession(sessions, id, { server: server!, transport: transport! });
-            logger.info({ component: 'session', sid: id, active: sessions.size }, 'session created');
+            // The founding request arrives without an mcp-session-id header, so its
+            // access line and every line it logs would read sid=- while being the
+            // request that created the session. Backfilling it here ties the two
+            // together: the access line is written on 'finish', long after this runs.
+            extendLogContext({ sid: id });
+            log().info({ component: 'session', sid: id, active: sessions.size }, 'session created');
           },
         });
 
@@ -247,7 +253,7 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
           const sid = [...sessions.entries()].find(([, entry]) => entry.transport === transport)?.[0];
           if (sid) {
             sessions.delete(sid);
-            logger.info({ component: 'session', sid, active: sessions.size }, 'session transport closed');
+            log().info({ component: 'session', sid, active: sessions.size }, 'session transport closed');
           }
         };
 
@@ -276,7 +282,7 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
         releasePendingSessionSlot();
       }
     } catch (error) {
-      logger.error({ component: 'server', err: error }, 'error handling MCP request');
+      log().error({ component: 'server', err: error }, 'error handling MCP request');
       if (!res.headersSent) {
         res.status(500).json({ error: 'Internal server error' });
       }

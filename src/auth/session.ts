@@ -5,7 +5,7 @@
 
 import type { DockhandConfig, SessionInfo } from '../types/dockhand.js';
 import { describeLoginFailure, normalizeBaseUrl } from '../utils/url.js';
-import { logger } from '../utils/logger.js';
+import { log } from '../utils/log-context.js';
 
 const SESSION_TIMEOUT_MS = 23 * 60 * 60 * 1000; // 23h (conservative, actual is 24h)
 
@@ -59,7 +59,13 @@ export class SessionManager {
       // written to stderr/docker logs on its own. Logged here at 'error' —
       // the most restrictive level — so a failed login is always diagnosable
       // from `docker logs` no matter what LOG_LEVEL is set to. See Issue #116.
-      logger.error(
+      //
+      // Through log() rather than the bare logger so it carries req/sid/call/tool
+      // when a request is what triggered it. This is the line Issue #116 is about:
+      // without them an operator sees 'tool failed' with a call id and 'login
+      // failed' with nothing to join it to, and has to match the two up by
+      // timestamp.
+      log().error(
         { component: 'session', user: this.config.username, status: response.status, detail },
         'login failed',
       );
@@ -103,7 +109,7 @@ export class SessionManager {
       expiresAt: Date.now() + SESSION_TIMEOUT_MS,
     };
 
-    logger.info({ component: 'session', user: this.config.username }, 'logged in to Dockhand');
+    log().info({ component: 'session', user: this.config.username }, 'logged in to Dockhand');
   }
 
   /**
@@ -121,7 +127,7 @@ export class SessionManager {
    */
   invalidate(): void {
     this.session = null;
-    logger.info({ component: 'session' }, 'session invalidated, will re-login on next request');
+    log().info({ component: 'session' }, 'session invalidated, will re-login on next request');
   }
 
   /**
