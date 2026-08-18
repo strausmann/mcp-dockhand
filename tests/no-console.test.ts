@@ -39,11 +39,19 @@ const RULES: Rule[] = [
     // Nothing else enforced it. A `log().debug({ args: JSON.stringify(args) })` added
     // to any tool file ships every tool argument to `docker logs` at LOG_LEVEL=debug,
     // and the whole suite stays green — the same silent-regression shape as the
-    // console rule above, one level deeper. So the allowlist is the call site itself:
-    // a second one is a decision, not an accident, and has to be made here first.
-    what: '.debug() call outside the Dockhand client',
+    // console rule above, one level deeper. So the allowlist is the call sites
+    // themselves: a further one is a decision, not an accident, and has to be made
+    // here first.
+    //
+    // auth/session.ts is the second and was added that way: the login is the one
+    // request that cannot go through the client (the client is built on it), so it was
+    // the one request with no debug line — see the comment on loggedLoginFetch. It
+    // qualifies on the same terms as the first: every field it logs is a constant, a
+    // status code, a duration or an exception name. Nothing derived from a URL, a
+    // body or a credential is passed to the logger there.
+    what: '.debug() call outside the two audited call sites',
     pattern: /\.debug\s*\(/,
-    allowed: new Set(['client/dockhand-client.ts']),
+    allowed: new Set(['client/dockhand-client.ts', 'auth/session.ts']),
   },
   {
     // With console.* gone, this is the realistic way a direct write comes back: it is
