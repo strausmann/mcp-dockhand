@@ -4,7 +4,7 @@
  * the token, 403 means a DNS-rebinding attempt — and a middleware registered after
  * the guards would never run for either.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { createAccessLogMiddleware } from '../src/utils/access-log-middleware.js';
 import { parseTrustedProxies } from '../src/utils/client-ip.js';
@@ -101,6 +101,28 @@ describe('access log middleware', () => {
     res.emit('finish');
 
     expect(lines[0].startsWith('203.0.113.9 ')).toBe(true);
+  });
+
+  it('stamps the line with the emit time, not the request start time', () => {
+    // A long-lived SSE stream is written on close, minutes after it began. CrowdSec
+    // reads this timestamp for its time-windowed scenarios, so it must be the emit
+    // time. Codex #209.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-08-18T05:00:00Z'));
+      const lines: string[] = [];
+      const middleware = createAccessLogMiddleware(parseTrustedProxies(undefined), (l) => lines.push(l));
+      const res = fakeRes();
+
+      middleware(fakeReq(), res as never, () => {});
+      vi.setSystemTime(new Date('2026-08-18T05:07:00Z')); // seven minutes later
+      res.emit('finish');
+
+      expect(lines[0]).toContain('[18/Aug/2026:05:07:00 +0000]');
+      expect(lines[0]).not.toContain('05:00:00');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('logs an aborted mid-stream close as 499, not as the default 200', () => {

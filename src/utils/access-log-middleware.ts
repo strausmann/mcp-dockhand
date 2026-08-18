@@ -30,7 +30,6 @@ export function createAccessLogMiddleware(
     // at emit time rather than a captured local is what puts that id on the access
     // line of the request that created the session.
     const context: LogContext = { req: randomUUID(), sid: header(req, 'mcp-session-id') };
-    const startedAt = new Date();
 
     const ip = resolveClientIp({
       peer: req.socket?.remoteAddress,
@@ -50,10 +49,14 @@ export function createAccessLogMiddleware(
       // CrowdSec. Report nginx's 499 (client closed connection) instead, which the nginx
       // parser understands.
       const status = res.writableFinished ? res.statusCode : 499;
+      // Timestamp at emit, not at request start: the line is written on finish/close,
+      // and for a long-lived SSE stream that can be minutes later. CrowdSec's nginx
+      // parser consumes this timestamp for its time-windowed scenarios, so it must
+      // reflect when the event reaches the log, not when the request began. Codex #209.
       write(
         formatAccessLine({
           ip,
-          time: startedAt,
+          time: new Date(),
           method: req.method,
           path: req.originalUrl ?? req.url,
           httpVersion: req.httpVersion,
