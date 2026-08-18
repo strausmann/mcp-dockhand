@@ -4,18 +4,18 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-08-17T20:01:13.676Z
-**Dockhand-Upstream-Commit:** `19548772df38f37ed5272575561d28911476c083`
-**Schema-Endpunkte gesamt:** 242
+**Erzeugt:** 2026-08-18T05:09:04.615Z
+**Dockhand-Upstream-Commit:** `5c0fa6aa912e66ea4c2a55c9047aab61a5fe3720`
+**Schema-Endpunkte gesamt:** 244
 
 ## Coverage
 
-**90.5%** (295/326 in-Scope-Endpunkte haben ein MCP-Tool)
+**89.9%** (295/328 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
 | COVERED | 295 |
-| MISSING_TOOL | 31 |
+| MISSING_TOOL | 33 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -59,6 +59,18 @@ ersten Pfad-Segment nach `/api/`:
 | GET | `/api/backup/snapshots/diff` | - |
 | GET | `/api/backup/stack-dir-listing` | - |
 | GET | `/api/backup/stack-path` | - |
+
+### containers (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/containers/{id}/version-notes` | id |
+
+### docs (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/docs` | - |
 
 ### images (1)
 
