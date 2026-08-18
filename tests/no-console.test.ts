@@ -19,15 +19,35 @@ interface Rule {
   pattern: RegExp;
   /** Paths relative to src/. Keep each list as short as its comment claims. */
   allowed: Set<string>;
+  /**
+   * Set only for a rule whose pattern has no legitimate call site left anywhere in
+   * src/ (its `allowed` entry is a reserved permission, not a live usage) -- see the
+   * comment on the console.* rule below for why this one case can't be covered by
+   * the "pattern is live" guard.
+   */
+  noLiveSite?: boolean;
 }
 
 const RULES: Rule[] = [
   {
     // logger.ts may not use itself before it exists, so its own bootstrap is the one
     // place a direct console call is legitimate. Keep this list at one entry.
+    //
+    // There is currently no live console.* call anywhere in src/, including in
+    // logger.ts itself -- the allowlist entry is a reserved permission for the one
+    // place a bootstrap call would be legitimate if logger.ts ever needed one before
+    // the logger exists, not a call site that exists today. That means this rule's
+    // pattern can never be asserted "live" the way the two rules below can: there is
+    // nothing to point the "pattern is live" guard at without writing a fake
+    // console.error() into src/ just to satisfy a test, which would defeat the rule
+    // it is decorating. So this one rule is deliberately excluded from that guard
+    // (`noLiveSite: true`) rather than faked -- a dead regex here still gets caught
+    // the moment someone deliberately adds a legitimate bootstrap call and the
+    // allowlist grows to match it, at which point this rule stops being exempt.
     what: 'console.* call outside the logger bootstrap',
     pattern: /\bconsole\.\w+\s*\(/,
     allowed: new Set(['utils/logger.ts']),
+    noLiveSite: true,
   },
   {
     // The debug level is the one that carries detail, and this server's guarantee is
@@ -105,6 +125,29 @@ function offendersFor(files: string[], rule: Rule): string[] {
   return offenders;
 }
 
+/**
+ * A regex typo (e.g. a stray character in `.debug(` turning it into something that
+ * matches nothing) would leave `offendersFor()` returning `[]` forever -- the rule
+ * reads as satisfied when it is actually just never checking anything. This asserts
+ * the pattern matches at least one line SOMEWHERE in src/, including the allowlisted
+ * files -- that is precisely where the one legitimate call site lives, so a live
+ * pattern must match there if nowhere else. Unlike offendersFor(), this does not
+ * filter by allowlist; it deliberately does still skip comment lines (same rule as
+ * offendersFor) so that a pattern is only "live" against real code, not a doc comment
+ * that happens to mention it in prose.
+ */
+function patternIsLive(files: string[], pattern: RegExp): boolean {
+  return files.some((file) =>
+    readFileSync(file, 'utf-8')
+      .split('\n')
+      .some((line) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('*') || trimmed.startsWith('//')) return false;
+        return pattern.test(line);
+      }),
+  );
+}
+
 describe('logging discipline', () => {
   const files = tsFiles(SRC);
 
@@ -116,5 +159,11 @@ describe('logging discipline', () => {
     it(`has no ${rule.what}`, () => {
       expect(offendersFor(files, rule)).toEqual([]);
     });
+
+    if (!rule.noLiveSite) {
+      it(`pattern for "${rule.what}" still matches its legitimate call site (guards against a dead regex)`, () => {
+        expect(patternIsLive(files, rule.pattern)).toBe(true);
+      });
+    }
   }
 });

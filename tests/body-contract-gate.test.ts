@@ -136,6 +136,9 @@ describe('generateReport — BODY_PARAM_MISSING_REQUIRED gets its own Kritisch s
       ],
     });
 
+    // Non-empty/real first: "has no Kritisch section" is trivially true of a report
+    // that was never generated at all.
+    expect(report).toContain('deadbeef');
     expect(report).not.toContain('## BODY_PARAM_MISSING_REQUIRED (Kritisch)');
   });
 
