@@ -225,12 +225,14 @@ export class DockhandClient {
       );
       return response;
     } catch (error) {
-      // No `message` field: it is free text from an exception this code did not
-      // construct, and the one field in this file that would not be structurally
-      // value-free. `error.name` is bounded to the DOM/Node exception vocabulary
-      // (TypeError, TimeoutError, AbortError, ...) and — unlike the previous
-      // hardcoded 'NetworkError' — actually reflects what AbortSignal.timeout()
-      // throws when the SSE timeout fires.
+      // Flat `errType`, not nested under `err`: pino's default error serializer
+      // treats ANY object carrying a `message` key as error-like and overwrites
+      // `type` with the constructor name — a nested `err: { type }` here would be
+      // one added `message` field away from silently logging "type":"Object"
+      // instead of the exception name. `error.name` is bounded to the DOM/Node
+      // exception vocabulary (TypeError, TimeoutError, AbortError, ...) and —
+      // unlike the previous hardcoded 'NetworkError' — actually reflects what
+      // AbortSignal.timeout() throws when the SSE timeout fires.
       log().warn(
         {
           component: 'client',
@@ -238,7 +240,7 @@ export class DockhandClient {
           route,
           ...(query.length ? { query } : {}),
           ms: Date.now() - started,
-          err: { type: error instanceof Error ? error.name : 'UnknownError' },
+          errType: error instanceof Error ? error.name : 'UnknownError',
         },
         'dockhand request failed',
       );

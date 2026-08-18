@@ -618,7 +618,9 @@ Start with `LOG_LEVEL=debug`. Every Dockhand request then appears with its endpo
 status code and duration, and every line of a single call shares one `call`
 identifier — `grep` for it to get the whole sequence. The `req` identifier ties those
 lines back to the access line that started them, and `sid` covers everything one
-client did across its whole session.
+client did across its whole session. A failed Dockhand request additionally logs a
+`warn` line carrying `errType` — the exception name (e.g. `TimeoutError`, `TypeError`),
+a bounded vocabulary rather than free text — so you can filter failures by error type.
 
 ## Development
 
