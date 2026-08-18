@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-15T05:06:25.235Z",
+  "generatedAt": "2026-08-18T05:08:59.828Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "19548772df38f37ed5272575561d28911476c083",
-  "endpointCount": 242,
+  "sourceCommit": "5c0fa6aa912e66ea4c2a55c9047aab61a5fe3720",
+  "endpointCount": 244,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -998,6 +998,23 @@
       ]
     },
     {
+      "path": "/api/containers/{id}/version-notes",
+      "methods": [
+        "GET"
+      ],
+      "pathParams": [
+        "id"
+      ],
+      "queryParamsByMethod": {
+        "GET": [
+          {
+            "name": "versions",
+            "required": false
+          }
+        ]
+      }
+    },
+    {
       "path": "/api/containers/batch-update",
       "methods": [
         "POST"
@@ -1092,6 +1109,12 @@
     },
     {
       "path": "/api/dependencies",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/docs",
       "methods": [
         "GET"
       ]
