@@ -42,7 +42,16 @@ export function parseTrustedProxies(raw: string | undefined): TrustedProxies {
   let count = 0;
 
   for (const entry of (raw ?? '').split(',').map((e) => e.trim()).filter(Boolean)) {
-    const [address, prefix] = entry.split('/');
+    // Exactly one or zero slashes. `10.0.0.0/8/garbage` would otherwise destructure to
+    // `10.0.0.0` + `8` and silently drop the rest, trusting a /8 the operator never wrote.
+    // This setting decides which peers may set client-IP headers, so a malformed entry
+    // must fail closed with the warning, not resolve to a parsed subnet.
+    const parts = entry.split('/');
+    if (parts.length > 2) {
+      warnings.push(`TRUSTED_PROXIES entry "${entry}" is not a valid address or subnet — ignored.`);
+      continue;
+    }
+    const [address, prefix] = parts;
     const normalized = normalizeAddress(address);
     const family = isIPv4(normalized) ? 'ipv4' : isIPv6(normalized) ? 'ipv6' : undefined;
 

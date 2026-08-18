@@ -56,6 +56,16 @@ describe('parseTrustedProxies', () => {
     expect(trusted.warnings).toHaveLength(1);
   });
 
+  it('rejects an entry with extra slash components instead of trusting the parsed subnet', () => {
+    // 10.0.0.0/8/garbage must not resolve to /8 — a dropped third component would trust a
+    // 16.7M-address subnet the operator never wrote. Codex #209.
+    const trusted = parseTrustedProxies('10.0.0.0/8/garbage');
+    expect(trusted.isEmpty).toBe(true);
+    expect(trusted.contains('10.1.2.3')).toBe(false);
+    expect(trusted.warnings).toHaveLength(1);
+    expect(trusted.warnings[0]).toMatch(/10\.0\.0\.0\/8\/garbage/);
+  });
+
   it('accepts an explicit /0 as a deliberate trust-everything subnet', () => {
     // /0 is a legitimate, deliberate choice — only the malformed spelling (a missing
     // or non-digit prefix) is rejected, not the value zero itself.
