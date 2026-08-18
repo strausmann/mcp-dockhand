@@ -108,7 +108,7 @@ describe('diagnostic probes emit a debug line', () => {
       const lines = clientLines(written);
       expect(lines).toHaveLength(1);
       expect(lines[0]).toMatchObject({ component: 'client', method: 'GET', route: '/api/health' });
-      expect((lines[0] as { err?: unknown }).err).toBeDefined(); // logged as a failure, not a success
+      expect((lines[0] as { errType?: unknown }).errType).toBeDefined(); // logged as a failure, not a success
       expect(lines[0].msg).toBe('dockhand request failed');
 
       // Advance past when the fetch would resolve: still no late success line.
@@ -128,7 +128,7 @@ describe('diagnostic probes emit a debug line', () => {
 
     const [line] = clientLines(written);
     expect(line).toMatchObject({ component: 'client', method: 'GET', route: '/api/health' });
-    expect(line.err).toEqual({ type: 'TypeError' });
+    expect(line.errType).toBe('TypeError');
     // The exception message carries an address; only the name may be logged.
     expect(JSON.stringify(line)).not.toContain('10.0.0.9');
   });

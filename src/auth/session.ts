@@ -139,16 +139,20 @@ export class SessionManager {
         redirect: 'manual',
       });
     } catch (error) {
-      // `err: { type }` and no message, mirroring the client: an exception name is
-      // bounded to the DOM/Node vocabulary (TypeError, TimeoutError, ...), the message
-      // is free text from an exception this code did not construct.
+      // Flat `errType`, mirroring the client: pino's default error serializer
+      // treats ANY object carrying a `message` key as error-like and overwrites
+      // `type` with the constructor name — a nested `err: { type }` here would be
+      // one added `message` field away from silently logging "type":"Object"
+      // instead of the exception name. `error.name` is bounded to the DOM/Node
+      // exception vocabulary (TypeError, TimeoutError, ...); the message is free
+      // text from an exception this code did not construct.
       log().warn(
         {
           component: 'client',
           method: 'POST',
           route,
           ms: Date.now() - started,
-          err: { type: error instanceof Error ? error.name : 'UnknownError' },
+          errType: error instanceof Error ? error.name : 'UnknownError',
         },
         'dockhand request failed',
       );

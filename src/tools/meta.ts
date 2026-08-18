@@ -742,8 +742,13 @@ async function loggedProbe(
     log().debug({ component: 'client', method, route, status: response.status, ms: Date.now() - started }, 'dockhand request');
     return response;
   } catch (error) {
+    // Flat `errType`, not nested under `err`: pino's default error serializer treats
+    // ANY object carrying a `message` key as error-like and overwrites `type` with the
+    // constructor name — a nested `err: { type }` here would be one added `message`
+    // field away from silently logging "type":"Object" instead of the exception name
+    // (see Issue #212, and the identical fix in DockhandClient/SessionManager).
     log().warn(
-      { component: 'client', method, route, ms: Date.now() - started, err: { type: error instanceof Error ? error.name : 'UnknownError' } },
+      { component: 'client', method, route, ms: Date.now() - started, errType: error instanceof Error ? error.name : 'UnknownError' },
       'dockhand request failed',
     );
     throw error;

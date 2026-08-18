@@ -86,9 +86,11 @@ describe('login request logging', () => {
       component: 'client',
       method: 'POST',
       route: '/api/auth',
-      // Same shape as the client's own failure line: the exception NAME, which is
-      // bounded, never its free-text message.
-      err: { type: 'TypeError' },
+      // Same flat shape as the client's own failure line: the exception NAME, which
+      // is bounded, never its free-text message. Flat, not nested under `err` — pino's
+      // default error serializer treats any object with a `message` key as error-like
+      // and overwrites `type` with the constructor name (see Issue #212).
+      errType: 'TypeError',
       msg: 'dockhand request failed',
     });
   });

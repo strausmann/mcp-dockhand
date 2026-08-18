@@ -129,7 +129,7 @@ describe('client debug logging', () => {
     const [line] = debugLines();
     expect(line.level).toBe('warn');
     expect(line.route).toBe('/api/stacks');
-    expect(line.err.type).toBe('TypeError');
+    expect(line.errType).toBe('TypeError');
     expect(JSON.stringify(line)).not.toContain('paperless');
   });
 
