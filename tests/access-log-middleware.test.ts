@@ -24,9 +24,19 @@ function fakeReq(overrides: Record<string, unknown> = {}) {
 function fakeRes() {
   const res = new EventEmitter() as EventEmitter & {
     statusCode: number;
+    writableFinished: boolean;
     getHeader: (name: string) => unknown;
   };
   res.statusCode = 200;
+  // Node sets writableFinished true before it emits 'finish'; mirror that so a plain
+  // res.emit('finish') in a test reflects a completed response, while a 'close' without
+  // a prior 'finish' leaves it false — the aborted case.
+  res.writableFinished = false;
+  const rawEmit = res.emit.bind(res);
+  res.emit = ((event: string | symbol, ...args: unknown[]) => {
+    if (event === 'finish') res.writableFinished = true;
+    return rawEmit(event, ...args);
+  }) as typeof res.emit;
   res.getHeader = () => undefined;
   return res;
 }
@@ -91,6 +101,36 @@ describe('access log middleware', () => {
     res.emit('finish');
 
     expect(lines[0].startsWith('203.0.113.9 ')).toBe(true);
+  });
+
+  it('logs an aborted mid-stream close as 499, not as the default 200', () => {
+    // A client hanging up before the response finishes fires 'close' without 'finish',
+    // and res.statusCode is still 200. Logging that as success would let a disconnect
+    // flood look like normal traffic to CrowdSec. Codex #209.
+    const lines: string[] = [];
+    const middleware = createAccessLogMiddleware(parseTrustedProxies(undefined), (l) => lines.push(l));
+    const res = fakeRes();
+
+    middleware(fakeReq(), res as never, () => {});
+    res.emit('close'); // no prior 'finish' -> aborted
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('"POST /mcp HTTP/1.1" 499');
+  });
+
+  it('keeps the real status when the response finished, even if close follows', () => {
+    const lines: string[] = [];
+    const middleware = createAccessLogMiddleware(parseTrustedProxies(undefined), (l) => lines.push(l));
+    const res = fakeRes();
+
+    middleware(fakeReq(), res as never, () => {});
+    res.statusCode = 200;
+    res.emit('finish');
+    res.emit('close');
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('"POST /mcp HTTP/1.1" 200');
+    expect(lines[0]).not.toContain(' 499');
   });
 
   it('writes exactly one line even if the socket also closes', () => {

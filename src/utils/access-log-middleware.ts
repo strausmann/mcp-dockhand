@@ -43,6 +43,13 @@ export function createAccessLogMiddleware(
     const emit = (): void => {
       if (written) return;
       written = true;
+      // res.writableFinished is the authoritative "the response completed" signal: true
+      // only after 'finish'. A 'close' that fires without it is a client that hung up
+      // mid-stream (routine for SSE), where res.statusCode is still its default 200 —
+      // logging that as success would let a disconnect flood look like normal traffic to
+      // CrowdSec. Report nginx's 499 (client closed connection) instead, which the nginx
+      // parser understands.
+      const status = res.writableFinished ? res.statusCode : 499;
       write(
         formatAccessLine({
           ip,
@@ -50,7 +57,7 @@ export function createAccessLogMiddleware(
           method: req.method,
           path: req.originalUrl ?? req.url,
           httpVersion: req.httpVersion,
-          status: res.statusCode,
+          status,
           bytes: Number(res.getHeader('content-length') ?? 0),
           referer: header(req, 'referer'),
           userAgent: header(req, 'user-agent'),
