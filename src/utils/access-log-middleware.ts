@@ -23,13 +23,18 @@ export function createAccessLogMiddleware(
   write: (line: string) => void = (line) => process.stdout.write(`${line}\n`),
 ): RequestHandler {
   return (req: Request, res: Response, next) => {
-    // This object is the log context for the whole request (see runWithLogContext:
-    // it is stored, not copied). The founding request of a session arrives without
-    // an mcp-session-id header — the id does not exist yet — and server.ts backfills
-    // it here via extendLogContext once the handshake produces one. Reading `context`
-    // at emit time rather than a captured local is what puts that id on the access
-    // line of the request that created the session.
+    // This is the seed for the log context of the whole request. runWithLogContext
+    // copies it into a private store and hands that copy to the callback below as
+    // `store` — `held` captures THAT object, not this literal, because the founding
+    // request of a session arrives without an mcp-session-id header (the id does not
+    // exist yet) and server.ts backfills it via extendLogContext() once the handshake
+    // produces one. Reading `held` at emit time is what puts that id on the access
+    // line of the request that created the session; reading `context` would only ever
+    // show the value it had before the run started.
     const context: LogContext = { req: randomUUID(), sid: header(req, 'mcp-session-id') };
+    // Fallback only: replaced synchronously by the runWithLogContext callback below,
+    // before `next()` runs. res.on('finish')/'close' can only fire after that.
+    let held: LogContext = context;
 
     const ip = resolveClientIp({
       peer: req.socket?.remoteAddress,
@@ -64,8 +69,8 @@ export function createAccessLogMiddleware(
           bytes: Number(res.getHeader('content-length') ?? 0),
           referer: header(req, 'referer'),
           userAgent: header(req, 'user-agent'),
-          req: context.req,
-          sid: context.sid,
+          req: held.req,
+          sid: held.sid,
         }),
       );
     };
@@ -75,6 +80,9 @@ export function createAccessLogMiddleware(
     res.on('finish', emit);
     res.on('close', emit);
 
-    runWithLogContext(context, () => next());
+    runWithLogContext(context, (store) => {
+      held = store;
+      next();
+    });
   };
 }
