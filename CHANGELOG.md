@@ -5,6 +5,30 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0](https://github.com/strausmann/mcp-dockhand/compare/v1.13.2...v1.14.0) (2026-08-18)
+
+### Features
+
+* **api:** align with Dockhand 1.0.42 ([d170dbf](https://github.com/strausmann/mcp-dockhand/commit/d170dbff4f0889327feeecac23541b8e74f5e946)), references [#1399](https://github.com/strausmann/mcp-dockhand/issues/1399) [#196](https://github.com/strausmann/mcp-dockhand/issues/196)
+* **tools:** full secret-provider coverage for Dockhand 1.0.42 ([d9e19c0](https://github.com/strausmann/mcp-dockhand/commit/d9e19c0f38c64478b74ccac2d996e00b68e8bac9)), references [#196](https://github.com/strausmann/mcp-dockhand/issues/196)
+
+### Bug Fixes
+
+* **api:** fail closed when the body-shape collector dies ([c636aeb](https://github.com/strausmann/mcp-dockhand/commit/c636aeb0f986e237661e278396feceb36ec761a6)), closes [#173](https://github.com/strausmann/mcp-dockhand/issues/173), references [#205](https://github.com/strausmann/mcp-dockhand/issues/205) [#205](https://github.com/strausmann/mcp-dockhand/issues/205) [#196](https://github.com/strausmann/mcp-dockhand/issues/196) [#196](https://github.com/strausmann/mcp-dockhand/issues/196)
+* **api:** point the coverage generator at the current backup issue ([6496b76](https://github.com/strausmann/mcp-dockhand/commit/6496b761e90487b931bc22d1e1648281aa248690)), references [#164](https://github.com/strausmann/mcp-dockhand/issues/164) [#202](https://github.com/strausmann/mcp-dockhand/issues/202) [#164](https://github.com/strausmann/mcp-dockhand/issues/164) [#202](https://github.com/strausmann/mcp-dockhand/issues/202) [#164](https://github.com/strausmann/mcp-dockhand/issues/164) [#196](https://github.com/strausmann/mcp-dockhand/issues/196) [#202](https://github.com/strausmann/mcp-dockhand/issues/202)
+* **stacks:** drop the type argument that hid the endpoint from the extractor ([abced69](https://github.com/strausmann/mcp-dockhand/commit/abced6999c8b4661fc9ad5a11d299b43fb76294b)), references [#198](https://github.com/strausmann/mcp-dockhand/issues/198)
+* **stacks:** return the .env content from get_stack_env_raw, not the envelope ([23b2240](https://github.com/strausmann/mcp-dockhand/commit/23b2240f17cdf5fcb6af53636d7de069e0e3c3a2)), closes [#198](https://github.com/strausmann/mcp-dockhand/issues/198), references [#196](https://github.com/strausmann/mcp-dockhand/issues/196)
+
+### Documentation
+
+* **tools:** state outright that exec_container returns no output ([10673d6](https://github.com/strausmann/mcp-dockhand/commit/10673d6e03be114962053cfa1fd80c8118b07697)), references [#195](https://github.com/strausmann/mcp-dockhand/issues/195) [#195](https://github.com/strausmann/mcp-dockhand/issues/195)
+
+### CI/CD
+
+* **api:** gate the body-contract report too, and say why the schema is not gated ([f22cc33](https://github.com/strausmann/mcp-dockhand/commit/f22cc333732275b57e5825bdb03069aea761397e)), references [#201](https://github.com/strausmann/mcp-dockhand/issues/201) [#196](https://github.com/strausmann/mcp-dockhand/issues/196)
+* **api:** regenerate coverage doc and gate the derived documents ([e70cd09](https://github.com/strausmann/mcp-dockhand/commit/e70cd09982e8e7408eb2cdf9de09152cb4b32526)), references [#196](https://github.com/strausmann/mcp-dockhand/issues/196)
+* **release:** semantic-release-Ausgabe sichtbar machen und Zwangs-Build ermoeglichen ([2dee811](https://github.com/strausmann/mcp-dockhand/commit/2dee811e3de35549cbc4f58158315dd88cf7f175)), references [#196](https://github.com/strausmann/mcp-dockhand/issues/196)
+
 ## [1.13.2](https://github.com/strausmann/mcp-dockhand/compare/v1.13.1...v1.13.2) (2026-08-17)
 
 ### Bug Fixes
