@@ -3,6 +3,10 @@
  * row for it while nothing in the code ever read the variable.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
+// Default import, not `import * as fs`: matches src/utils/logger.ts and
+// tests/login-failure-visibility.test.ts — the namespace form is a frozen ES
+// module object in Node/vitest and vi.spyOn cannot redefine a property on it.
+import fs from 'node:fs';
 import { resolveLogLevel } from '../src/utils/logger.js';
 
 describe('resolveLogLevel', () => {
@@ -37,10 +41,50 @@ describe('resolveLogLevel', () => {
   });
 });
 
-describe('flushLogsSync', () => {
-  it('is exported and calling it does not throw', async () => {
-    const { flushLogsSync } = await import('../src/utils/logger.js');
-    expect(() => flushLogsSync()).not.toThrow();
+describe('logFatalSync', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('writes a single, pino-shaped JSON line directly and synchronously to fd 2', async () => {
+    const written: string[] = [];
+    // The real fs.writeSync, not a mock of logFatalSync itself — Fix round 1's
+    // flushLogsSync() looked correct through a mocked spy but was a deterministic
+    // no-op against the REAL SonicBoom destination (see src/utils/logger.ts's
+    // module comment). This test exists specifically so that class of regression
+    // shows up here.
+    vi.spyOn(fs, 'writeSync').mockImplementation((fd: unknown, buffer: unknown) => {
+      if (fd === 2) {
+        const text = String(buffer);
+        written.push(text);
+        return Buffer.byteLength(text);
+      }
+      return 0;
+    });
+
+    const { logFatalSync } = await import('../src/utils/logger.js');
+    logFatalSync({ component: 'config' }, 'boom');
+
+    expect(written).toHaveLength(1);
+    expect(written[0]).toContain('"level":"error"');
+    expect(written[0]).toContain('boom');
+
+    const parsed: unknown = JSON.parse(written[0]!);
+    expect(parsed).toMatchObject({ level: 'error', component: 'config', msg: 'boom' });
+    const record = parsed as Record<string, unknown>;
+    expect(typeof record['time']).toBe('string');
+    expect(() => new Date(record['time'] as string).toISOString()).not.toThrow();
+    // logFatalSync deliberately bypasses pino entirely (see its doc comment). pino
+    // always adds `pid`/`hostname` via its default base bindings, so their absence
+    // is a shape-level differentiator that catches a regression routing this back
+    // through the logger — one that a plain "did fd 2 receive a write" check would
+    // NOT catch, because under vitest the destination happens to be synchronous
+    // too (see the sync-in-test / async-in-production split below) and would
+    // still reach fd 2 either way, just via a different, unreliable-in-production
+    // path.
+    expect(record).not.toHaveProperty('pid');
+    expect(record).not.toHaveProperty('hostname');
+    expect(Object.keys(record).sort()).toEqual(['component', 'level', 'msg', 'time']);
   });
 });
 

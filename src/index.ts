@@ -6,16 +6,46 @@
  */
 
 import { createServer } from './server.js';
-import { logger, flushLogsSync } from './utils/logger.js';
+import { logger, logFatalSync } from './utils/logger.js';
+
+/**
+ * Issue #210, fix round 2: moving normal logging off a blocking destination (see
+ * src/utils/logger.ts) means a line written shortly before an *uncaught*
+ * termination — as opposed to one of the two deliberate process.exit(1) calls
+ * below, which already go through logFatalSync() — is no longer guaranteed to have
+ * landed the way it always did under the old fully-synchronous logger. These two
+ * handlers close that gap with the same synchronous, destination-bypassing write.
+ *
+ * Deliberately narrow: no SIGTERM/SIGINT graceful-shutdown handling here — that is
+ * a separate concern, out of scope for #210, and belongs in its own issue.
+ */
+process.on('uncaughtException', (error: Error) => {
+  logFatalSync(
+    { component: 'process', errType: error.name, errMessage: error.message },
+    'uncaught exception',
+  );
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason: unknown) => {
+  logFatalSync(
+    {
+      component: 'process',
+      errType: reason instanceof Error ? reason.name : typeof reason,
+      errMessage: reason instanceof Error ? reason.message : String(reason),
+    },
+    'unhandled rejection',
+  );
+  process.exit(1);
+});
 
 function getEnvOrThrow(name: string): string {
   const value = process.env[name];
   if (!value) {
-    logger.error(
+    logFatalSync(
       { component: 'config', variable: name },
       'required environment variable is not set — copy .env.example to .env and fill in your Dockhand credentials',
     );
-    flushLogsSync();
     process.exit(1);
   }
   return value;
@@ -42,7 +72,13 @@ logger.info(
 );
 
 createServer(config).catch((error: unknown) => {
-  logger.error({ component: 'server', err: error }, 'failed to start server');
-  flushLogsSync();
+  logFatalSync(
+    {
+      component: 'server',
+      errType: error instanceof Error ? error.name : typeof error,
+      errMessage: error instanceof Error ? error.message : String(error),
+    },
+    'failed to start server',
+  );
   process.exit(1);
 });
