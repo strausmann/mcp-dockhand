@@ -71,7 +71,6 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
     );
   }
   const app = express();
-  app.use(express.json());
 
   const trustedProxies = parseTrustedProxies(process.env['TRUSTED_PROXIES']);
   for (const warning of trustedProxies.warnings) {
@@ -82,6 +81,14 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
   // an access line: a 401 on /mcp means someone is guessing the token, a 403
   // means a DNS-rebinding attempt, and both are the lines an operator most wants.
   app.use(createAccessLogMiddleware(trustedProxies));
+
+  // And ahead of express.json() for the same reason, which is less obvious: a body
+  // parser rejects a malformed or oversized payload by calling next(err), and that
+  // skips every remaining non-error middleware. Registered the other way round, this
+  // middleware never runs for such a request at all — so it never attaches its
+  // res.on('finish') handler, and a 400 or a 413 produces no access line whatsoever.
+  // Malformed-payload probing is exactly what CrowdSec is here to see.
+  app.use(express.json());
 
   const sessions = new Map<string, SessionEntry>();
   let pendingSessions = 0;

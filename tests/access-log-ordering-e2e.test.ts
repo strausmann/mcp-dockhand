@@ -26,7 +26,7 @@ const DUMMY_DOCKHAND: ServerConfig['dockhand'] = {
 
 let httpServer: HttpServer | undefined;
 
-function postToMcp(port: number): Promise<{ statusCode: number }> {
+function postToMcp(port: number, body = '{}'): Promise<{ statusCode: number }> {
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
@@ -43,7 +43,7 @@ function postToMcp(port: number): Promise<{ statusCode: number }> {
       },
     );
     req.on('error', reject);
-    req.end('{}');
+    req.end(body);
   });
 }
 
@@ -72,6 +72,31 @@ describe('access-log middleware ordering (regression)', () => {
 
     expect(res.statusCode).toBe(401);
     const accessLines = written.filter((line) => line.includes('"POST /mcp HTTP/1.1" 401'));
+    expect(accessLines.length).toBeGreaterThan(0);
+  });
+
+  // The bearer-guard case above only pins the access log against the two guards. It
+  // says nothing about express.json(), which sits earlier in the chain and rejects a
+  // malformed body by calling next(err) -- that skips every non-error middleware, so
+  // an access-log middleware registered after the body parser never even gets to
+  // attach its res.on('finish') handler and writes NOTHING for the request. The 400
+  // still goes out, so this fails silently in exactly the way the test above was
+  // written to prevent, and the suite is green with the body parser on either side
+  // of the access log until this test exists.
+  it('writes an access line for a body-parser 400 rejection', async () => {
+    const written: string[] = [];
+    const spy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      written.push(String(chunk));
+      return true;
+    });
+
+    httpServer = await createServer({ dockhand: DUMMY_DOCKHAND, port: TEST_PORT, host: '127.0.0.1' });
+
+    const res = await postToMcp(TEST_PORT, '{bad:1}');
+    spy.mockRestore();
+
+    expect(res.statusCode).toBe(400);
+    const accessLines = written.filter((line) => line.includes('"POST /mcp HTTP/1.1" 400'));
     expect(accessLines.length).toBeGreaterThan(0);
   });
 });
