@@ -86,7 +86,25 @@ const resolved = resolveLogLevel(process.env['LOG_LEVEL']);
 // is unset — gets the non-blocking async destination.
 const useSyncDestination = process.env['VITEST'] === 'true' || process.env['NODE_ENV'] === 'test';
 
-const destination = pino.destination({ fd: 2, sync: useSyncDestination });
+/**
+ * Bound the async destination's pending buffer. The async destination (production)
+ * is exactly what makes an unbounded buffer possible: if the fd-2 consumer stalls
+ * (a full container log pipe — the scenario #210 targets), SonicBoom keeps the write
+ * pending and queues every following record. Normal traffic keeps producing at least
+ * the per-tool start/ok lines, so without a cap the heap grows until the OOM killer
+ * fires — trading the old event-loop stall for a crash. SonicBoom's default maxLength
+ * is 0 (unbounded); a finite cap makes it emit 'drop' and discard once the buffer is
+ * full instead. Drops are silent by necessity: the sink is stalled, so anything we
+ * tried to write about the drop would stall too. Sync mode never buffers, so the cap
+ * is inert there. 8 MiB ≈ tens of thousands of ~200-byte lines of burst tolerance.
+ */
+export const ASYNC_LOG_MAX_BUFFER_BYTES = 8 * 1024 * 1024;
+
+const destination = pino.destination({
+  fd: 2,
+  sync: useSyncDestination,
+  maxLength: ASYNC_LOG_MAX_BUFFER_BYTES,
+});
 
 export const logger = pino(
   {
@@ -124,6 +142,37 @@ if (resolved.warning) {
  */
 export function isDestinationSync(): boolean {
   return (destination as unknown as { sync: boolean }).sync;
+}
+
+/**
+ * Test seam: the live SonicBoom instance's buffer cap. Read from the instance (not
+ * the constant) for the same reason as isDestinationSync — a regression that drops
+ * the maxLength option would leave this at SonicBoom's default of 0 (unbounded) and
+ * fail the pinning test, rather than the test echoing the constant back.
+ */
+export function destinationMaxLength(): number {
+  return (destination as unknown as { maxLength: number }).maxLength;
+}
+
+/**
+ * Format an arbitrary thrown/rejected value into bounded log fields WITHOUT ever
+ * throwing. A fatal handler is the last code to run before the process dies, so any
+ * exception raised while formatting the value would crash the handler and lose the
+ * original diagnostic entirely. `String(value)` is the trap: `String(Object.create(null))`
+ * throws "Cannot convert object to primitive value" (no Object.prototype.toString),
+ * and an object with a throwing Symbol.toPrimitive/toString behaves the same. Every
+ * path here is guarded; the one guarantee kept is that this function does not throw.
+ */
+export function describeThrown(value: unknown): { errType: string; errMessage: string } {
+  try {
+    if (value instanceof Error) {
+      return { errType: value.name, errMessage: value.message };
+    }
+    return { errType: typeof value, errMessage: String(value) };
+  } catch {
+    // typeof is total and never throws, so this fallback is itself safe.
+    return { errType: typeof value, errMessage: '<unformattable value>' };
+  }
 }
 
 /**

@@ -241,6 +241,29 @@ describe('src/index.ts top-level uncaughtException/unhandledRejection handlers',
     });
   });
 
+  it('uncaughtException: a value whose String() throws (Object.create(null)) is logged, not a secondary crash', async () => {
+    // `throw Object.create(null)` is legal; String() on a null-prototype object throws
+    // "Cannot convert object to primitive value". A handler that formatted the value
+    // inline with String() would crash HERE, before logFatalSync/exit — the original
+    // failure lost and Node exiting with a conversion TypeError. describeThrown() guards
+    // it. Codex #216 P2 (second round). Verified red against the inline-String() handler.
+    const { calls } = captureFatalWritesAndExit();
+
+    await import('../src/index.js');
+
+    const nullProto = Object.create(null) as unknown;
+    expect(() => process.emit('uncaughtException', nullProto as Error)).not.toThrow();
+
+    expect(calls.at(-1)).toBe('exit:1');
+    const parsed = JSON.parse(calls.at(-2)!.slice('write:'.length));
+    expect(parsed).toMatchObject({
+      component: 'process',
+      errType: 'object',
+      errMessage: '<unformattable value>',
+      msg: 'uncaught exception',
+    });
+  });
+
   it('unhandledRejection: writes name/message only to fd 2, calls logFatalSync (not logger.error), then exits(1)', async () => {
     const { logger } = await import('../src/utils/logger.js');
     const loggerErrorSpy = vi.spyOn(logger, 'error');

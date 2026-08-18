@@ -115,4 +115,50 @@ describe('log destination sync-ness by environment', () => {
     const { isDestinationSync } = await import('../src/utils/logger.js');
     expect(isDestinationSync()).toBe(false);
   });
+
+  it('caps the destination buffer to a finite maxLength (not SonicBoom default 0/unbounded)', async () => {
+    vi.resetModules();
+    // Read from the live instance. If someone drops the maxLength option, SonicBoom
+    // falls back to its default of 0 (unbounded) and this fails — the whole point of
+    // the Codex #216 P2: an async destination with an unbounded buffer OOM-kills the
+    // process when the log consumer stalls.
+    const { destinationMaxLength, ASYNC_LOG_MAX_BUFFER_BYTES } = await import('../src/utils/logger.js');
+    expect(destinationMaxLength()).toBe(ASYNC_LOG_MAX_BUFFER_BYTES);
+    expect(Number.isFinite(destinationMaxLength())).toBe(true);
+    expect(destinationMaxLength()).toBeGreaterThan(0);
+  });
+});
+
+describe('describeThrown', () => {
+  it('reads name/message from an Error', async () => {
+    const { describeThrown } = await import('../src/utils/logger.js');
+    expect(describeThrown(new TypeError('boom'))).toEqual({ errType: 'TypeError', errMessage: 'boom' });
+  });
+
+  it('normalizes primitive non-Error throws by typeof + String()', async () => {
+    const { describeThrown } = await import('../src/utils/logger.js');
+    expect(describeThrown(null)).toEqual({ errType: 'object', errMessage: 'null' });
+    expect(describeThrown(undefined)).toEqual({ errType: 'undefined', errMessage: 'undefined' });
+    expect(describeThrown('plain')).toEqual({ errType: 'string', errMessage: 'plain' });
+    expect(describeThrown(42)).toEqual({ errType: 'number', errMessage: '42' });
+  });
+
+  it('does not throw on values whose String() throws — the fatal-handler guarantee', async () => {
+    const { describeThrown } = await import('../src/utils/logger.js');
+    // Object.create(null) has no Object.prototype.toString: String() on it throws
+    // "Cannot convert object to primitive value". This is the exact case that would
+    // crash a fatal handler mid-formatting (Codex #216 P2). It must fall back, not throw.
+    const nullProto = Object.create(null) as unknown;
+    expect(() => describeThrown(nullProto)).not.toThrow();
+    expect(describeThrown(nullProto)).toEqual({ errType: 'object', errMessage: '<unformattable value>' });
+
+    // An object with a throwing Symbol.toPrimitive behaves the same way.
+    const hostile = {
+      [Symbol.toPrimitive]() {
+        throw new Error('conversion hook exploded');
+      },
+    };
+    expect(() => describeThrown(hostile)).not.toThrow();
+    expect(describeThrown(hostile)).toEqual({ errType: 'object', errMessage: '<unformattable value>' });
+  });
 });

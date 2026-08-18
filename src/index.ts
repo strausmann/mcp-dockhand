@@ -6,7 +6,7 @@
  */
 
 import { createServer } from './server.js';
-import { logger, logFatalSync } from './utils/logger.js';
+import { logger, logFatalSync, describeThrown } from './utils/logger.js';
 
 /**
  * Issue #210, fix round 2: moving normal logging off a blocking destination (see
@@ -21,30 +21,16 @@ import { logger, logFatalSync } from './utils/logger.js';
  */
 process.on('uncaughtException', (error: unknown) => {
   // Node passes the raw thrown value, and `throw null` / `throw undefined` /
-  // `throw 'oops'` are all legal — the `Error` type Node's own typings claim here
-  // is a lie. Reading `.name` on a non-Error would throw a second TypeError inside
-  // this very handler and Node would exit with code 7 before anything is logged,
-  // burying the original failure. Normalize exactly as the rejection handler below.
-  logFatalSync(
-    {
-      component: 'process',
-      errType: error instanceof Error ? error.name : typeof error,
-      errMessage: error instanceof Error ? error.message : String(error),
-    },
-    'uncaught exception',
-  );
+  // `throw Object.create(null)` are all legal — the `Error` type Node's own typings
+  // claim here is a lie. describeThrown() formats any value without throwing (reading
+  // `.name` on null, or String() on a null-prototype object, would otherwise crash
+  // this handler and Node would exit code 7 with nothing logged, burying the failure).
+  logFatalSync({ component: 'process', ...describeThrown(error) }, 'uncaught exception');
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
-  logFatalSync(
-    {
-      component: 'process',
-      errType: reason instanceof Error ? reason.name : typeof reason,
-      errMessage: reason instanceof Error ? reason.message : String(reason),
-    },
-    'unhandled rejection',
-  );
+  logFatalSync({ component: 'process', ...describeThrown(reason) }, 'unhandled rejection');
   process.exit(1);
 });
 
@@ -82,11 +68,7 @@ logger.info(
 
 createServer(config).catch((error: unknown) => {
   logFatalSync(
-    {
-      component: 'server',
-      errType: error instanceof Error ? error.name : typeof error,
-      errMessage: error instanceof Error ? error.message : String(error),
-    },
+    { component: 'server', ...describeThrown(error) },
     'failed to start server',
   );
   process.exit(1);
