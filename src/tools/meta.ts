@@ -12,6 +12,7 @@ import { TOOL_ENDPOINT_MAP, type ToolEndpointEntry } from '../openapi/tool-endpo
 import { PINNED_DOCKHAND_OPENAPI_COMMIT } from '../openapi/pinned.js';
 import { specInfoVersion } from '../openapi/spec-loader.js';
 import { getStatsSnapshot } from '../utils/runtime-stats.js';
+import { log } from '../utils/log-context.js';
 import { encodePath } from '../utils/encode-path.js';
 
 export interface ServerInfo {
@@ -646,16 +647,18 @@ function hasNamedCookie(setCookieHeaders: readonly string[], name: string): bool
 }
 
 export async function attemptRawLogin(baseUrl: string): Promise<LoginProbeResult> {
-  const response = await fetch(`${baseUrl}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      username: process.env['DOCKHAND_USERNAME'],
-      password: process.env['DOCKHAND_PASSWORD'],
-      provider: 'local',
+  const response = await loggedProbe('POST', '/api/auth', () =>
+    fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: process.env['DOCKHAND_USERNAME'],
+        password: process.env['DOCKHAND_PASSWORD'],
+        provider: 'local',
+      }),
+      redirect: 'manual',
     }),
-    redirect: 'manual',
-  });
+  );
 
   const statusCode = response.status;
   if (statusCode !== 200) {
@@ -716,8 +719,42 @@ const HEALTH_CHECK_TIMEOUT_MS = 5_000;
  * timeout — matching `runSelfCheck()`'s `probeHealth` contract, where any throw means
  * `dockhandReachable: false`.
  */
+/**
+ * Wrap a raw diagnostic fetch in the same one-line-per-request debug log that
+ * DockhandClient.loggedFetch and SessionManager.performLogin emit — self_check and
+ * validate_config bypass the client, so without this their health and credential
+ * probes (the very exchanges that matter when a diagnostic reports a failure) would
+ * be the only Dockhand requests LOG_LEVEL=debug never shows.
+ *
+ * `route` is a caller-supplied constant, never derived from the URL: the two call
+ * sites are fixed (/api/health, /api/auth), so no value can reach the line. On a
+ * throw (unreachable host, timeout) it logs a warn carrying only the exception NAME,
+ * never the URL, body or credentials.
+ */
+async function loggedProbe(
+  method: string,
+  route: string,
+  run: () => Promise<Response>,
+): Promise<Response> {
+  const started = Date.now();
+  try {
+    const response = await run();
+    log().debug({ component: 'client', method, route, status: response.status, ms: Date.now() - started }, 'dockhand request');
+    return response;
+  } catch (error) {
+    log().warn(
+      { component: 'client', method, route, ms: Date.now() - started, err: { type: error instanceof Error ? error.name : 'UnknownError' } },
+      'dockhand request failed',
+    );
+    throw error;
+  }
+}
+
 export async function probeRawHealth(baseUrl: string): Promise<void> {
-  const response = await withTimeout(fetch(`${baseUrl}/api/health`), HEALTH_CHECK_TIMEOUT_MS);
+  const response = await withTimeout(
+    loggedProbe('GET', '/api/health', () => fetch(`${baseUrl}/api/health`)),
+    HEALTH_CHECK_TIMEOUT_MS,
+  );
   if (!response.ok) {
     throw new Error(`Dockhand health check failed: GET ${baseUrl}/api/health returned ${response.status}`);
   }
