@@ -84,6 +84,41 @@ describe('diagnostic probes emit a debug line', () => {
     delete process.env['DOCKHAND_PASSWORD'];
   });
 
+  it('logs the health-probe TIMEOUT as a failure, and never a late success line', async () => {
+    // withTimeout must reject inside loggedProbe, not around it. Codex #209: wrapping it
+    // outside let a timeout escape unlogged, and a fetch resolving after the timeout
+    // emitted a success line once self_check had already reported Dockhand down.
+    vi.useFakeTimers();
+    try {
+      const written = captureStderr();
+      const { probeRawHealth } = await import('../../src/tools/meta.js');
+      // A fetch that resolves only long after the 5s health timeout.
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockImplementation(
+          () => new Promise((resolve) => setTimeout(() => resolve({ ok: true, status: 200 }), 60_000)),
+        ),
+      );
+
+      const probe = probeRawHealth('https://dockhand.example');
+      const settled = probe.then(() => 'resolved', () => 'rejected');
+      await vi.advanceTimersByTimeAsync(5_001); // past the health timeout
+      expect(await settled).toBe('rejected');
+
+      const lines = clientLines(written);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toMatchObject({ component: 'client', method: 'GET', route: '/api/health' });
+      expect((lines[0] as { err?: unknown }).err).toBeDefined(); // logged as a failure, not a success
+      expect(lines[0].msg).toBe('dockhand request failed');
+
+      // Advance past when the fetch would resolve: still no late success line.
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(clientLines(written).filter((l) => l.msg === 'dockhand request')).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('logs a warn with only the error name when the probe throws', async () => {
     const written = captureStderr();
     const { probeRawHealth } = await import('../../src/tools/meta.js');

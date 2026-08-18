@@ -751,9 +751,12 @@ async function loggedProbe(
 }
 
 export async function probeRawHealth(baseUrl: string): Promise<void> {
-  const response = await withTimeout(
-    loggedProbe('GET', '/api/health', () => fetch(`${baseUrl}/api/health`)),
-    HEALTH_CHECK_TIMEOUT_MS,
+  // withTimeout INSIDE loggedProbe, not around it: a timeout must reject within
+  // loggedProbe's try/catch so it is logged as the request's failure. Wrapping the
+  // other way round let a timeout escape unlogged, and a late-resolving fetch then
+  // emitted a success line after self_check had already reported Dockhand down.
+  const response = await loggedProbe('GET', '/api/health', () =>
+    withTimeout(fetch(`${baseUrl}/api/health`), HEALTH_CHECK_TIMEOUT_MS),
   );
   if (!response.ok) {
     throw new Error(`Dockhand health check failed: GET ${baseUrl}/api/health returned ${response.status}`);
