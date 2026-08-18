@@ -49,9 +49,16 @@ const RULES: Rule[] = [
     // qualifies on the same terms as the first: every field it logs is a constant, a
     // status code, a duration or an exception name. Nothing derived from a URL, a
     // body or a credential is passed to the logger there.
-    what: '.debug() call outside the two audited call sites',
+    //
+    // tools/meta.ts is the third, on the same terms: self_check and validate_config
+    // probe /api/health and /api/auth with a bare fetch that cannot go through the
+    // client either, so those diagnostic exchanges had no debug line. loggedProbe()
+    // there logs only a constant route, method, status, duration and exception name —
+    // never the URL, the login body or the credentials (asserted in
+    // tests/tools/meta.probe-debug-logging.test.ts).
+    what: '.debug() call outside the three audited call sites',
     pattern: /\.debug\s*\(/,
-    allowed: new Set(['client/dockhand-client.ts', 'auth/session.ts']),
+    allowed: new Set(['client/dockhand-client.ts', 'auth/session.ts', 'tools/meta.ts']),
   },
   {
     // With console.* gone, this is the realistic way a direct write comes back: it is
