@@ -157,6 +157,18 @@ A `403` is worth watching too: it means a request failed the `MCP_ALLOWED_HOSTS`
 `MCP_ALLOWED_ORIGINS` check, which is what a DNS-rebinding attempt looks like from
 here.
 
+> **The stock 401 scenario only counts `POST`.** Its filter is
+> `evt.Parsed.verb == 'POST'` — one literal, not a list. This server serves `POST`, `GET`
+> and `DELETE` on `/mcp`, and the bearer check runs ahead of all three, so a wrong token
+> on `GET /mcp` or `DELETE /mcp` returns `401` exactly like `POST` does — and
+> `LePresidente/http-generic-401-bf` never counts those. Someone guessing
+> `MCP_AUTH_TOKEN` over `GET /mcp` is invisible to it.
+>
+> This is a property of the upstream scenario, shared with every nginx deployment that
+> uses it — not something this server's log format can fix. To close it, add a local
+> scenario that drops the `verb` filter, or matches the three methods this server
+> answers on. Until then, treat the row above as "repeated `401` on **`POST`** `/mcp`".
+
 > **Set `TRUSTED_PROXIES` before you enable this.**
 > Behind a reverse proxy every request arrives from the proxy's address. Without
 > `TRUSTED_PROXIES` that address is what gets logged — so the first ban CrowdSec

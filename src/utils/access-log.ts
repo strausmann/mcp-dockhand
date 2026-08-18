@@ -113,13 +113,20 @@ function quoted(value: string | undefined): string {
 }
 
 /**
- * The verb reaches `%{WORD}` in the grok, which is `\b\w+\b` and cannot match a
- * hyphen. `M-SEARCH` is the one method in Node's `http.METHODS` that contains one, and
- * llhttp rejects arbitrary custom verbs, so that single method is the whole exposure —
- * but it is enough: verified against the live LAPI, such a line still parses, yet
- * `LePresidente/http-generic-401-bf` does not fire for it. Repeated 401s on that verb
- * are then invisible to the bruteforce scenario while `401` versus `404` still answers
- * whether a token was right.
+ * The verb reaches `%{WORD}` in the grok, which is `\b\w+\b` and cannot match a hyphen.
+ * `M-SEARCH` is the one method in Node's `http.METHODS` that contains one, and llhttp
+ * rejects arbitrary custom verbs, so that single method is the whole exposure.
+ *
+ * What it is worth depends on the hub version, which is exactly why it is done here.
+ * A compiled grok harness failed to parse an `M-SEARCH` line at all — the whole line,
+ * every field lost. The hub installed on our own LAPI parses it fine. Mapping the verb
+ * into `[A-Za-z0-9_]` keeps the line parseable either way, instead of depending on the
+ * consumer's version being the lenient one.
+ *
+ * It does NOT affect scenario matching, and an earlier version of this comment claimed
+ * it did. The stock scenario filters on `evt.Parsed.verb == 'POST'` — a single literal,
+ * not a verb list — so every non-POST method escapes it regardless of how the line is
+ * written. No log encoding can change that; see the README for what does.
  *
  * Replaced rather than encoded, deliberately: `M\x2DSEARCH` fails just the same,
  * because `%{WORD}` still cannot reach the space that follows.

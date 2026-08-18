@@ -213,11 +213,14 @@ describe('formatAccessLine', () => {
 
   it('makes the request method match %{WORD}, which cannot reach past a hyphen', () => {
     // M-SEARCH is the only method in Node's http.METHODS containing a character that
-    // `\b\w+\b` cannot match. Verified against the live LAPI: such a line still parses,
-    // but LePresidente/http-generic-401-bf never fires for it — so repeated 401s on
-    // this verb would be invisible to the bruteforce scenario while still answering
-    // whether a guessed token was right. Replaced rather than encoded: `M\x2DSEARCH`
+    // `\b\w+\b` cannot match. Whether that costs anything depends on the hub version: a
+    // compiled grok harness failed to parse such a line at all, while the hub on our own
+    // LAPI parses it. This keeps the line parseable either way rather than relying on
+    // the consumer being the lenient one. Replaced rather than encoded: `M\x2DSEARCH`
     // fails just the same, because %{WORD} still cannot reach the space that follows.
+    //
+    // It does NOT make the 401 bruteforce scenario fire — that filters on
+    // `evt.Parsed.verb == 'POST'`, so every non-POST verb escapes it whatever we write.
     const line = lineWith({ method: 'M-SEARCH', path: '/mcp', status: 401 });
 
     expect(quotedFields(line).request).toBe('M_SEARCH /mcp HTTP/1.1');
