@@ -97,14 +97,26 @@ describe('client debug logging', () => {
     expect(serialised).not.toContain('paperless');
   });
 
-  it('falls back to a coarse template outside a tool context', async () => {
-    // Login and self-check calls run without a tool context, so there is no entry in
-    // TOOL_ENDPOINT_MAP to consult. Two segments is enough to tell auth from stacks
-    // and cannot contain an identifier.
+  it('matches a request to its own template regardless of tool context', async () => {
+    // The route now comes from matchRoute() reverse-matching THIS request's own
+    // pathname against the spec (src/openapi/match-route.ts) — not from a tool-scope
+    // context — so a request outside a tool context (login, self-check; here simulated
+    // by calling the client directly, with no runWithLogContext() wrapping it) still
+    // gets its own exact template, the same as a request made through a tool.
     const instance = await client();
     await instance.get('/api/stacks/paperless/env/raw');
 
-    expect(debugLines()[0].route).toBe('/api/stacks');
+    expect(debugLines()[0].route).toBe('/api/stacks/{name}/env/raw');
+  });
+
+  it('falls back to a coarse template for a pathname matching no known template', async () => {
+    // Two segments is enough to tell one area of the API from another and cannot
+    // contain an identifier — the fallback for a path the spec has no template for
+    // (a stale TOOL_ENDPOINT_MAP entry, or the spec being unavailable at runtime).
+    const instance = await client();
+    await instance.get('/api/does-not-exist/foo/bar');
+
+    expect(debugLines()[0].route).toBe('/api/does-not-exist');
   });
 
   it('says nothing at all at info level', async () => {
@@ -128,7 +140,7 @@ describe('client debug logging', () => {
 
     const [line] = debugLines();
     expect(line.level).toBe('warn');
-    expect(line.route).toBe('/api/stacks');
+    expect(line.route).toBe('/api/stacks/{name}/env/raw');
     expect(line.errType).toBe('TypeError');
     expect(JSON.stringify(line)).not.toContain('paperless');
   });
@@ -150,5 +162,28 @@ describe('client debug logging', () => {
     expect(lines).toHaveLength(2);
     expect(lines.map((l) => l.status)).toEqual([401, 200]);
     expect(lines[0].route).toBe(lines[1].route);
+  });
+
+  it('gives two calls to different endpoints two distinct, correct routes (Issue #214)', async () => {
+    // The bug this fixes: a tool that fans out to several endpoints (e.g.
+    // remove_stack_env_vars hitting both /env and /env/raw) used to log the SAME
+    // route — the tool's single TOOL_ENDPOINT_MAP entry — for every request it made,
+    // regardless of which endpoint actually got hit. Each request now derives its own
+    // route from its own pathname, so two calls to two different endpoints on the same
+    // client produce two distinct, individually-correct route values.
+    const instance = await client();
+    // The shared `beforeEach` mock resolves to a single Response instance; a second
+    // read of its already-consumed body throws, so each call needs its own instance.
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
+    );
+    await instance.get('/api/stacks/paperless/env');
+    await instance.get('/api/stacks/paperless/env/raw');
+
+    const lines = debugLines();
+    expect(lines).toHaveLength(2);
+    expect(lines[0]?.route).toBe('/api/stacks/{name}/env');
+    expect(lines[1]?.route).toBe('/api/stacks/{name}/env/raw');
+    expect(lines[0]?.route).not.toBe(lines[1]?.route);
   });
 });

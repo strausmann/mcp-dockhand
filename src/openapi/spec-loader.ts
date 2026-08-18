@@ -88,3 +88,16 @@ export function specInfoVersion(): string | undefined {
   const spec = loadSpec();
   return spec?.info?.version;
 }
+
+/**
+ * Returns every path template key from the pinned OpenAPI spec (e.g.
+ * `/api/stacks/{name}/env/raw`), or `[]` when the spec is unavailable (see `loadSpec()`).
+ * Used by `matchRoute()` (src/openapi/match-route.ts) to reverse-match a concrete request
+ * pathname back to its template — the set this function returns is the ONLY thing a debug
+ * log line is ever allowed to contain instead of the caller's real path, so an empty
+ * result must make every match fail closed, not throw.
+ */
+export function specPathTemplates(): string[] {
+  const spec = loadSpec();
+  return spec?.paths ? Object.keys(spec.paths) : [];
+}
