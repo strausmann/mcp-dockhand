@@ -76,6 +76,52 @@ describe('formatAccessLine', () => {
     expect(line).toContain('req=r-1 sid=-');
   });
 
+  // `sid` is the one field an outsider controls in full (the mcp-session-id header)
+  // and the one written without quotes. Nothing bounds it but this rule, so each of
+  // these was a way to write chosen text into the tail of a line CrowdSec reads.
+  describe('rejects a session identifier that is not one', () => {
+    function sessionField(sid: string): string {
+      const line = formatAccessLine({
+        ip: '203.0.113.9', time: AT, method: 'POST', path: '/mcp', httpVersion: '1.1',
+        status: 200, bytes: 1, req: '7c1e94a2-3f8b-4d21-9e5c-1a2b3c4d5e6f', sid,
+      });
+      return line.slice(line.indexOf(' sid=') + ' sid='.length);
+    }
+
+    it('rejects a quote, which would otherwise unbalance the quoted fields before it', () => {
+      expect(sessionField('a"b')).toBe('-');
+    });
+
+    it('rejects a space, the separator every field in the line is delimited by', () => {
+      expect(sessionField('a b')).toBe('-');
+    });
+
+    it('rejects a value longer than any identifier, so a large header cannot inflate the line', () => {
+      expect(sessionField('a'.repeat(65))).toBe('-');
+      // The boundary itself stays usable -- this is a cap, not a UUID-only rule.
+      expect(sessionField('a'.repeat(64))).toBe('a'.repeat(64));
+    });
+
+    it('rejects the full forged suffix, which is what the three rules above are for', () => {
+      // Exactly the header value that was demonstrated to append a plausible second
+      // req=/sid= pair to the end of an otherwise well-formed line.
+      const line = formatAccessLine({
+        ip: '203.0.113.9', time: AT, method: 'POST', path: '/mcp', httpVersion: '1.1',
+        status: 200, bytes: 0, req: '7c1e94a2-3f8b-4d21-9e5c-1a2b3c4d5e6f',
+        sid: 'x" 200 0 "-" "-" req=FORGED sid=deadbeef',
+      });
+
+      expect(line).not.toContain('FORGED');
+      expect(line.endsWith(' req=7c1e94a2-3f8b-4d21-9e5c-1a2b3c4d5e6f sid=-')).toBe(true);
+    });
+
+    it('keeps a real session identifier untouched', () => {
+      expect(sessionField('b3f0a1de-77c4-4f0a-8b9d-2e1f0a9c8b77')).toBe(
+        'b3f0a1de-77c4-4f0a-8b9d-2e1f0a9c8b77',
+      );
+    });
+  });
+
   it('never carries a query string', () => {
     // A logged query is a logged value. Our own endpoints take no parameters, so
     // dropping it costs nothing and removes a leak path that would otherwise be one

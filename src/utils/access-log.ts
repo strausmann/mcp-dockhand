@@ -67,6 +67,30 @@ function quoted(value: string | undefined): string {
 }
 
 /**
+ * Both correlation fields are UUIDs by contract, so anything else is not a value to
+ * be cleaned up — it is a value that was never ours.
+ *
+ * `sid` comes straight from the caller-supplied `mcp-session-id` header, and unlike
+ * referer and user-agent it is written BARE: no quotes to escape into, nothing to
+ * bound it. Without this it can put arbitrary printable text, unbalanced quotes and a
+ * plausible-looking second `req=`/`sid=` pair into the tail of a line CrowdSec reads,
+ * and an ~8 KB header makes an ~8 KB line. A whole forged LINE stays out of reach for
+ * a different reason — Node's HTTP parser rejects CR and LF in a header value — but
+ * that is the parser's guarantee, not this function's.
+ *
+ * Rejected rather than stripped, deliberately. A mangled value still LOOKS like an
+ * identifier, so it would send whoever greps for it after a session that never
+ * existed; `-` says plainly that nothing usable arrived. The cap is on top of the
+ * character rule because 64 valid characters in a row are just as unhelpful.
+ */
+const IDENTIFIER = new RegExp('^[A-Za-z0-9-]{1,64}$');
+
+function identifierOrDash(value: string | undefined): string {
+  if (value === undefined) return '-';
+  return IDENTIFIER.test(value) ? value : '-';
+}
+
+/**
  * `status`/`bytes` reach a `%{NUMBER}` grok field. A non-finite value (the realistic
  * path: a multi-value header collapsing to an array before it's coerced) would print
  * the literal text "NaN" there and break parsing for that line.
@@ -90,7 +114,7 @@ export function formatAccessLine(fields: AccessLogFields): string {
     `${quoted(fields.referer)} ${quoted(fields.userAgent)}`;
 
   if (fields.req !== undefined || fields.sid !== undefined) {
-    line += ` req=${fields.req ?? '-'} sid=${fields.sid ?? '-'}`;
+    line += ` req=${identifierOrDash(fields.req)} sid=${identifierOrDash(fields.sid)}`;
   }
 
   return line;
