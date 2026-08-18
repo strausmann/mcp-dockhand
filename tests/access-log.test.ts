@@ -11,27 +11,32 @@ import { formatAccessLine } from '../src/utils/access-log.js';
 const AT = new Date(Date.UTC(2026, 7, 17, 20, 44, 1));
 
 /**
- * Mirrors the grok QUOTEDSTRING rule `"(?:\\.|[^"\\])*"`: the only escape the parser
- * understands is "backslash followed by any one character", consumed as a pair. This
- * decodes a quoted field starting at `start` (the opening quote) exactly the way
- * nginx-logs would, so a test can assert that what comes out the other end of
- * CrowdSec's parser is the original, unmangled value — not just that our own escaping
- * looks plausible.
+ * Splits a line the way the consumer does.
+ *
+ * The expectations in this file are derived from crowdsecurity/nginx-logs, NOT from
+ * grok's `QUOTEDSTRING`. nginx-logs reads each quoted field with `%{NOTDQUOTE}`,
+ * defined as `[^"]*` — it has no escape sequence of any kind, so a `"` character is a
+ * field boundary and nothing else, and a `\"` is a backslash followed by the end of
+ * the field. An earlier version of this file asserted against `QUOTEDSTRING` and its
+ * `\\.`-style escapes; that parser is not the one reading these lines, and a value
+ * written for it makes the line fail to parse entirely (confirmed against the live
+ * LAPI). What we emit instead is nginx's own convention: `"` -> `\x22`, `\` -> `\x5C`,
+ * and each C0 control character, DEL and byte >= 0x80 -> `\xNN`, uppercase hex.
+ *
+ * Because no field content may contain a raw quote, splitting on `"` is exactly how
+ * the parser sees the line: an extra piece means we emitted a boundary we did not mean.
  */
-function decodeQuotedField(text: string, start: number): string {
-  let i = start + 1;
-  let out = '';
-  while (i < text.length) {
-    if (text[i] === '\\' && i + 1 < text.length) {
-      out += text[i + 1];
-      i += 2;
-      continue;
-    }
-    if (text[i] === '"') return out;
-    out += text[i];
-    i += 1;
-  }
-  throw new Error('unterminated quoted field in test fixture');
+function quotedFields(line: string): { request: string; referer: string; userAgent: string } {
+  const pieces = line.split('"');
+  expect(pieces).toHaveLength(7);
+  return { request: pieces[1], referer: pieces[3], userAgent: pieces[5] };
+}
+
+function lineWith(overrides: Partial<Parameters<typeof formatAccessLine>[0]>): string {
+  return formatAccessLine({
+    ip: '203.0.113.9', time: AT, method: 'GET', path: '/health', httpVersion: '1.1',
+    status: 200, bytes: 2, ...overrides,
+  });
 }
 
 describe('formatAccessLine', () => {
@@ -139,50 +144,92 @@ describe('formatAccessLine', () => {
   it('cannot be used to forge a second log line', () => {
     // A user agent is attacker-controlled. A newline in it would end the line and
     // start one of the attacker's choosing, in a stream a security tool reads.
-    const line = formatAccessLine({
-      ip: '203.0.113.9', time: AT, method: 'GET', path: '/health', httpVersion: '1.1',
-      status: 200, bytes: 2,
+    const line = lineWith({
       userAgent: 'evil\n1.2.3.4 - - [17/Aug/2026:20:44:01 +0000] "GET / HTTP/1.1" 200 0 "-" "forged"',
     });
 
     expect(line.split('\n')).toHaveLength(1);
-    expect(line).not.toContain('forged"');
+    // The newline survives as its encoding rather than being replaced, and every quote
+    // in the forged remainder is encoded too — so the whole payload stays inside the
+    // one user-agent field the parser sees, instead of ending it early.
+    expect(quotedFields(line).userAgent).toContain('evil\\x0A1.2.3.4');
+    expect(quotedFields(line).userAgent.endsWith('\\x22forged\\x22')).toBe(true);
   });
 
-  it('escapes a quote in the user agent rather than closing the field early', () => {
-    const line = formatAccessLine({
-      ip: '203.0.113.9', time: AT, method: 'GET', path: '/health', httpVersion: '1.1',
-      status: 200, bytes: 2, userAgent: 'we"ird',
+  /**
+   * Each case here is a value that, written the way this file used to write it, made
+   * the line unparseable for crowdsecurity/nginx-logs — which means no event, no
+   * bucket and no decision for the request that carried it.
+   */
+  describe('encodes a quoted field the way nginx does, because NOTDQUOTE has no escapes', () => {
+    it('encodes a quote in the user agent instead of emitting a raw or backslashed one', () => {
+      const line = lineWith({ userAgent: 'a"b' });
+
+      expect(quotedFields(line).userAgent).toBe('a\\x22b');
+      // The old form. `\"` is not an escape to this parser — it is a backslash and
+      // then the end of the field, one character early.
+      expect(line).not.toContain('\\"');
     });
 
-    expect(line.endsWith('"we\\"ird"')).toBe(true);
+    it('encodes a quote in the referer, the field the finding was demonstrated on', () => {
+      const line = lineWith({ referer: 'ev"il' });
+
+      expect(quotedFields(line).referer).toBe('ev\\x22il');
+    });
+
+    it('encodes a lone quote, the one-character header that removed a caller from CrowdSec', () => {
+      const line = lineWith({ referer: '"' });
+
+      expect(quotedFields(line).referer).toBe('\\x22');
+    });
+
+    it('encodes a backslash, so it can never pair with anything to look like an escape', () => {
+      const line = lineWith({ referer: 'back\\slash' });
+
+      expect(quotedFields(line).referer).toBe('back\\x5Cslash');
+    });
+
+    it('encodes a control character rather than replacing it, which is lossless and still safe', () => {
+      const line = lineWith({
+        userAgent: `a${String.fromCharCode(0x01)}b${String.fromCharCode(0x7f)}c`,
+      });
+
+      expect(quotedFields(line).userAgent).toBe('a\\x01b\\x7Fc');
+    });
+
+    it('encodes a byte above 0x7f, which nginx escapes and a log reader should not have to guess at', () => {
+      // Node decodes header bytes as latin-1, so this code unit IS the wire byte.
+      const line = lineWith({ userAgent: `caf${String.fromCharCode(0xe9)}` });
+
+      expect(quotedFields(line).userAgent).toBe('caf\\xE9');
+    });
+
+    it('leaves ordinary printable text exactly as it arrived', () => {
+      const line = lineWith({ userAgent: "Mozilla/5.0 (X11; Linux x86_64) 'quoted' ~ok~" });
+
+      expect(quotedFields(line).userAgent).toBe("Mozilla/5.0 (X11; Linux x86_64) 'quoted' ~ok~");
+    });
   });
 
-  it('escapes a pre-existing backslash before escaping a quote, so grok cannot desync the field', () => {
-    // A naive "escape the quote" pass leaves an existing backslash alone. Grok's
-    // QUOTEDSTRING then reads that backslash paired with the escaped quote's own
-    // backslash as ONE escaped-backslash sequence, and treats the quote that follows
-    // as the field's real, unescaped close — ending the field one character early.
-    // Decoding with the same rule the parser uses is the only check that catches that.
-    const ua = 'trailing backslash then quote: \\"';
-    const line = formatAccessLine({
-      ip: '203.0.113.9', time: AT, method: 'GET', path: '/health', httpVersion: '1.1',
-      status: 200, bytes: 2, userAgent: ua,
-    });
+  it('makes the request method match %{WORD}, which cannot reach past a hyphen', () => {
+    // M-SEARCH is the only method in Node's http.METHODS containing a character that
+    // `\b\w+\b` cannot match. Verified against the live LAPI: such a line still parses,
+    // but LePresidente/http-generic-401-bf never fires for it — so repeated 401s on
+    // this verb would be invisible to the bruteforce scenario while still answering
+    // whether a guessed token was right. Replaced rather than encoded: `M\x2DSEARCH`
+    // fails just the same, because %{WORD} still cannot reach the space that follows.
+    const line = lineWith({ method: 'M-SEARCH', path: '/mcp', status: 401 });
 
-    const boundary = line.lastIndexOf('"-" "');
-    expect(boundary).toBeGreaterThan(-1);
-    const uaFieldStart = boundary + '"-" "'.length - 1;
-    expect(decodeQuotedField(line, uaFieldStart)).toBe(ua);
+    expect(quotedFields(line).request).toBe('M_SEARCH /mcp HTTP/1.1');
   });
 
   it('strips a newline from the ip field, which nginx never quotes', () => {
     // The ip field is interpolated unquoted (nginx doesn't quote it either, and
-    // CrowdSec's grok expects it bare) — but a newline in it is still the one thing
-    // cheap enough to defend against here, rather than trusting a caller's guarantee
-    // that it never hands one back. Unquoted also means an attacker's injected text
-    // still lands, verbatim, inside the single resulting line — that's expected and
-    // is not what this test is about; the only real defense is against a second line.
+    // CrowdSec's grok expects it bare) — so it gets the strip, not the encoding: a
+    // `\x0A` there would be text inside a field the parser expects to hold an address.
+    // Unquoted also means an attacker's injected text still lands, verbatim, inside
+    // the single resulting line — that's expected and is not what this test is about;
+    // the only real defense is against a second line.
     const line = formatAccessLine({
       ip: '203.0.113.9\n1.2.3.4 - - [17/Aug/2026:20:44:01 +0000] "GET / HTTP/1.1" 200 0 "-" "forged"',
       time: AT, method: 'GET', path: '/health', httpVersion: '1.1', status: 200, bytes: 2,
@@ -192,10 +239,7 @@ describe('formatAccessLine', () => {
   });
 
   it('never prints NaN for status or bytes', () => {
-    const line = formatAccessLine({
-      ip: '203.0.113.9', time: AT, method: 'GET', path: '/health', httpVersion: '1.1',
-      status: Number.NaN, bytes: Number.NaN,
-    });
+    const line = lineWith({ status: Number.NaN, bytes: Number.NaN });
 
     expect(line).not.toContain('NaN');
   });

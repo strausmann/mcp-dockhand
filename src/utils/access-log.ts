@@ -19,6 +19,11 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 // the source stays readable in a diff.
 const CONTROL_CHARS = new RegExp('[\\x00-\\x1f\\x7f]', 'g');
 
+// Everything `%{WORD}` (`\b\w+\b`) cannot match. See wordSafeMethod().
+const NON_WORD_CHARS = new RegExp('[^A-Za-z0-9_]', 'g');
+
+const UTF8 = new TextEncoder();
+
 export interface AccessLogFields {
   ip: string;
   time: Date;
@@ -43,27 +48,84 @@ function formatTime(at: Date): string {
   );
 }
 
-/** Strips C0 control characters and DEL — the one substitution every field gets. */
+/**
+ * Strips C0 control characters and DEL. Only the unquoted `ip` field still needs
+ * this — inside a quoted field a control character is encoded rather than removed
+ * (see escapeLikeNginx), which is both lossless and safe.
+ */
 function stripControlChars(value: string): string {
   return value.replace(CONTROL_CHARS, ' ');
 }
 
+/** nginx writes `\xNN` with uppercase hex; matching it keeps the two comparable. */
+function hexEscape(byte: number): string {
+  return `\\x${byte.toString(16).toUpperCase().padStart(2, '0')}`;
+}
+
 /**
- * A user agent or referer is attacker-controlled. Without the control-character strip
- * a newline in one ends the line and starts a forged one in a stream CrowdSec reads.
+ * Escapes a field the way nginx itself does, because that is the only escaping the
+ * consumer understands.
  *
- * Backslashes are escaped BEFORE quotes, not after. Escaping only the quote leaves a
- * pre-existing backslash untouched, so a value ending in `\"` becomes `\\"` in the
- * output; grok's `QUOTEDSTRING` reads `\\` as one escaped backslash and then treats
- * the quote that follows as the field's real, unescaped close — the field ends one
- * character early and everything after it is misread as content outside the quotes.
- * Escaping the backslash first turns that same input into `\\\"`, which the same
- * parser reads back as backslash-then-quote: the field closes in the right place.
+ * crowdsecurity/nginx-logs reads every quoted field with `%{NOTDQUOTE}`, which is
+ * defined as `[^"]*`. It has no concept of an escape sequence: the first raw `"`
+ * inside a field is the field's end, full stop, and a `\"` is a backslash followed
+ * by that end. A line carrying one does not parse at all — confirmed with
+ * `cscli explain` against the live LAPI, where a referer of `"` makes the whole line
+ * a parser failure while the same line with `\x22` parses green. A request that does
+ * not parse produces no event, no bucket and no decision: one header would have taken
+ * its sender out of CrowdSec entirely.
+ *
+ * That is not a gap in the parser. Real nginx never emits a raw quote inside a field,
+ * so the parser never needed to handle one: ngx_http_log_module escapes `"` as `\x22`,
+ * `\` as `\x5C`, and every C0 control character, DEL and byte >= 0x80 as `\xNN`.
+ * Emitting the same thing keeps every field bounded by construction.
+ *
+ * Note what that makes moot: there is no backslash-ordering question here, because no
+ * raw quote is ever written for a backslash to interact with. An earlier version of
+ * this file reasoned carefully about that ordering — correctly, but for grok's
+ * `QUOTEDSTRING`, which is not the rule this consumer applies.
  */
+function escapeLikeNginx(value: string): string {
+  let out = '';
+  for (const char of value) {
+    const code = char.codePointAt(0) as number;
+
+    if (code === 0x22 || code === 0x5c || code < 0x20 || code === 0x7f) {
+      out += hexEscape(code);
+    } else if (code <= 0x7e) {
+      out += char;
+    } else if (code <= 0xff) {
+      // Node decodes header bytes as latin-1, so a code unit in this range IS the byte
+      // that arrived on the wire — the same one nginx would have escaped.
+      out += hexEscape(code);
+    } else {
+      // Not reachable from an HTTP header, but a direct caller can hand us one. nginx
+      // escapes bytes, so encode the character the way the wire would have carried it.
+      for (const byte of UTF8.encode(char)) out += hexEscape(byte);
+    }
+  }
+  return out;
+}
+
 function quoted(value: string | undefined): string {
   if (!value) return '"-"';
-  const safe = stripControlChars(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  return `"${safe}"`;
+  return `"${escapeLikeNginx(value)}"`;
+}
+
+/**
+ * The verb reaches `%{WORD}` in the grok, which is `\b\w+\b` and cannot match a
+ * hyphen. `M-SEARCH` is the one method in Node's `http.METHODS` that contains one, and
+ * llhttp rejects arbitrary custom verbs, so that single method is the whole exposure —
+ * but it is enough: verified against the live LAPI, such a line still parses, yet
+ * `LePresidente/http-generic-401-bf` does not fire for it. Repeated 401s on that verb
+ * are then invisible to the bruteforce scenario while `401` versus `404` still answers
+ * whether a token was right.
+ *
+ * Replaced rather than encoded, deliberately: `M\x2DSEARCH` fails just the same,
+ * because `%{WORD}` still cannot reach the space that follows.
+ */
+function wordSafeMethod(method: string): string {
+  return method.replace(NON_WORD_CHARS, '_');
 }
 
 /**
@@ -101,7 +163,7 @@ function finiteOrZero(value: number): number {
 
 export function formatAccessLine(fields: AccessLogFields): string {
   const target = fields.path.split('?')[0];
-  const request = quoted(`${fields.method} ${target} HTTP/${fields.httpVersion}`);
+  const request = quoted(`${wordSafeMethod(fields.method)} ${target} HTTP/${fields.httpVersion}`);
 
   // nginx never quotes this field and CrowdSec's grok expects it bare, so it isn't
   // run through quoted() — but a newline in it is still cheap to strip here rather
