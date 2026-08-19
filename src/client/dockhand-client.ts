@@ -3,6 +3,7 @@
  * Handles cookie-based auth, auto-relogin, SSE parsing, and env parameter injection.
  */
 
+import { ReadableStream } from 'node:stream/web';
 import { SessionManager } from '../auth/session.js';
 import type { DockhandConfig, SSEResult } from '../types/dockhand.js';
 import { normalizeBaseUrl } from '../utils/url.js';
@@ -138,6 +139,9 @@ export class DockhandClient {
 
     if (response.status === 401) {
       this.session.invalidate();
+      // This attempt's body is never read — cancel it so #215's proxy stream
+      // still fires its (discarded-attempt) debug line instead of never firing.
+      await response.body?.cancel();
       // Retry once after re-login
       const retryCookie = await this.session.getCookie();
       headers['Cookie'] = retryCookie;
@@ -175,6 +179,9 @@ export class DockhandClient {
 
     if (response.status === 401) {
       this.session.invalidate();
+      // See postSSE() above: cancel this attempt's unread body so its #215
+      // debug line still fires.
+      await response.body?.cancel();
       const retryCookie = await this.session.getCookie();
       headers['Cookie'] = retryCookie;
       const retryResponse = await this.loggedFetch('PUT', url, {
@@ -220,20 +227,9 @@ export class DockhandClient {
     const route = matchRoute(parsed.pathname, method) ?? coarseRoute(parsed.pathname);
     const query = [...parsed.searchParams.keys()];
 
+    let response: Response;
     try {
-      const response = await fetch(url, init);
-      log().debug(
-        {
-          component: 'client',
-          method,
-          route,
-          ...(query.length ? { query } : {}),
-          status: response.status,
-          ms: Date.now() - started,
-        },
-        'dockhand request',
-      );
-      return response;
+      response = await fetch(url, init);
     } catch (error) {
       // Flat `errType`, not nested under `err`: pino's default error serializer
       // treats ANY object carrying a `message` key as error-like and overwrites
@@ -243,6 +239,9 @@ export class DockhandClient {
       // exception vocabulary (TypeError, TimeoutError, AbortError, ...) and —
       // unlike the previous hardcoded 'NetworkError' — actually reflects what
       // AbortSignal.timeout() throws when the SSE timeout fires.
+      //
+      // Headers never arrived here — there is no body to wrap, and no `response`
+      // to hand back. Unchanged from before #215.
       log().warn(
         {
           component: 'client',
@@ -256,6 +255,157 @@ export class DockhandClient {
       );
       throw error;
     }
+
+    return this.wrapBodyForLogging(response, { method, route, query, started });
+  }
+
+  /**
+   * #215: `fetch()` resolves as soon as the response HEADERS arrive, before the
+   * body is read — for a streamed response (SSE via `parseSSEResponse`, a large
+   * `arrayBuffer()`) that made the debug line's `ms` time-to-headers instead of
+   * request duration, and `bytes` never existed (no `Content-Length` at header
+   * time for a chunked/streamed body).
+   *
+   * Fix: replace `response.body` with a small counting proxy stream and return a
+   * new `Response` over it (status/statusText/headers copied, nothing else about
+   * the response changes). Callers keep reading the body exactly as before
+   * (`.json()`/`.text()`/`.arrayBuffer()`/SSE parsing) — the proxy is transparent
+   * to them. `loggedFetch` stays the ONLY place that emits the debug/warn line;
+   * it now just emits it later, at body completion instead of right after
+   * `fetch()` resolves:
+   *
+   * - Body fully read (flush): debug line, `ms` spans the whole body read,
+   *   `bytes` is the real consumed size.
+   * - Body read throws mid-stream (e.g. the SSE `AbortSignal.timeout` firing
+   *   while a stream is still open): warn line with `ms` + `errType` — there was
+   *   no line at all for this before #215.
+   * - Body cancelled without being read (the four call sites that discard a 401
+   *   response's body before retrying call `response.body?.cancel()`): debug
+   *   line fires exactly as if flushed, `bytes` reflects whatever was counted
+   *   before the cancel (0 for an unread body).
+   * - `response.body` is falsy (`null` for a real null-body response e.g. a 204,
+   *   or `undefined` for the hand-rolled response objects several existing tests
+   *   mock `fetch()` with — those never gained a `.body` property and must keep
+   *   working unmodified): nothing to wrap, emit immediately with `bytes: 0`.
+   *
+   * An `emitted` guard makes sure exactly one of these fires per attempt, no
+   * matter which path gets there first.
+   */
+  private wrapBodyForLogging(
+    response: Response,
+    ctx: { method: string; route: string; query: string[]; started: number },
+  ): Response {
+    const { method, route, query, started } = ctx;
+    const status = response.status;
+    let emitted = false;
+    let bytes = 0;
+
+    const emitDebug = () => {
+      if (emitted) return;
+      emitted = true;
+      log().debug(
+        {
+          component: 'client',
+          method,
+          route,
+          ...(query.length ? { query } : {}),
+          status,
+          ms: Date.now() - started,
+          bytes,
+        },
+        'dockhand request',
+      );
+    };
+
+    const emitWarn = (error: unknown) => {
+      if (emitted) return;
+      emitted = true;
+      // Unlike the fetch()-reject warn in loggedFetch (no response ever arrived,
+      // so no status to report), headers DID arrive here — `status` is known and
+      // worth a triage signal: "500 that then broke mid-body" reads very
+      // differently from "200 that broke mid-body".
+      log().warn(
+        {
+          component: 'client',
+          method,
+          route,
+          ...(query.length ? { query } : {}),
+          status,
+          ms: Date.now() - started,
+          errType: error instanceof Error ? error.name : 'UnknownError',
+        },
+        'dockhand request failed',
+      );
+    };
+
+    // No stream to wrap. Also covers the hand-rolled `{ ok, status, json, text,
+    // headers }` response objects several existing tests mock `fetch()` with —
+    // those never had a `.body` property (`undefined`), same "nothing to wrap"
+    // treatment as a real null body (`null`).
+    if (!response.body) {
+      emitDebug();
+      return response;
+    }
+
+    const source = response.body;
+    const reader = source.getReader();
+
+    // A `pull()` the runtime auto-triggers to pre-fill the queue (up to its
+    // default high-water mark of 1) can still be in flight when a caller
+    // cancels the discarded-401 body before ever reading from it. When that
+    // happens, `reader.cancel()` resolves the pending `reader.read()` with
+    // `{ done: true }` (or, depending on the underlying source, rejects it) —
+    // but the stream's controller has by then already been torn down by the
+    // cancellation itself, so `pull()`'s own `controller.close()` throws
+    // "Invalid state: Controller is already closed". Left unguarded, that
+    // caught exception looked exactly like a genuine body-read failure and
+    // fired a spurious warn line instead of (and — via the `emitted` guard —
+    // INSTEAD OF, not in addition to) the correct cancel-triggered debug
+    // line, silently losing the discarded-attempt's log line. `cancelled` is
+    // set synchronously as the first statement in `cancel()`, before any
+    // `await` — since JS is single-threaded, any `pull()` continuation that
+    // resumes afterward is guaranteed to see it, whether pull() resolves or
+    // rejects, letting it recognise "this is fallout from a cancel that
+    // already handled logging" and step aside instead of misreporting it.
+    let cancelled = false;
+
+    const proxied = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        try {
+          const { done, value } = await reader.read();
+          if (cancelled) return;
+          if (done) {
+            controller.close();
+            emitDebug();
+            return;
+          }
+          bytes += value.byteLength;
+          controller.enqueue(value);
+        } catch (error) {
+          if (cancelled) return;
+          // Let the stream error itself the normal way (a rejecting `pull()` is
+          // spec'd to error the stream with that reason) — no need to also call
+          // `controller.error()` ourselves.
+          emitWarn(error);
+          throw error;
+        }
+      },
+      async cancel(reason) {
+        // The four 401-discard call sites cancel a response whose body they never
+        // read. Propagate to the real source so the underlying connection is
+        // actually released, then emit — this is the ONLY place that attempt's
+        // line would ever fire.
+        cancelled = true;
+        await reader.cancel(reason).catch(() => {});
+        emitDebug();
+      },
+    });
+
+    return new Response(proxied, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
   }
 
   private buildUrl(path: string, params?: Record<string, string | number | undefined>): string {
@@ -288,6 +438,9 @@ export class DockhandClient {
 
     if (response.status === 401) {
       this.session.invalidate();
+      // See postSSE() above: cancel this attempt's unread body so its #215
+      // debug line still fires.
+      await response.body?.cancel();
       const retryCookie = await this.session.getCookie();
       headers['Cookie'] = retryCookie;
       response = await this.loggedFetch(method, url, { method, headers, body });
@@ -331,6 +484,9 @@ export class DockhandClient {
     // Auto-relogin on 401
     if (response.status === 401) {
       this.session.invalidate();
+      // See postSSE() above: cancel this attempt's unread body so its #215
+      // debug line still fires.
+      await response.body?.cancel();
       const retryCookie = await this.session.getCookie();
       headers['Cookie'] = retryCookie;
       response = await this.loggedFetch(method, url, {
