@@ -85,6 +85,7 @@ export function registerTool<T extends ZodShape>(
           log().error(
             {
               component: 'tools',
+              route: toolRoute,
               ms: Date.now() - started,
               errType: 'ToolError',
               errMessage: message,
