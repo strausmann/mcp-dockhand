@@ -320,12 +320,17 @@ export class DockhandClient {
     const emitWarn = (error: unknown) => {
       if (emitted) return;
       emitted = true;
+      // Unlike the fetch()-reject warn in loggedFetch (no response ever arrived,
+      // so no status to report), headers DID arrive here — `status` is known and
+      // worth a triage signal: "500 that then broke mid-body" reads very
+      // differently from "200 that broke mid-body".
       log().warn(
         {
           component: 'client',
           method,
           route,
           ...(query.length ? { query } : {}),
+          status,
           ms: Date.now() - started,
           errType: error instanceof Error ? error.name : 'UnknownError',
         },
@@ -345,10 +350,30 @@ export class DockhandClient {
     const source = response.body;
     const reader = source.getReader();
 
+    // A `pull()` the runtime auto-triggers to pre-fill the queue (up to its
+    // default high-water mark of 1) can still be in flight when a caller
+    // cancels the discarded-401 body before ever reading from it. When that
+    // happens, `reader.cancel()` resolves the pending `reader.read()` with
+    // `{ done: true }` (or, depending on the underlying source, rejects it) —
+    // but the stream's controller has by then already been torn down by the
+    // cancellation itself, so `pull()`'s own `controller.close()` throws
+    // "Invalid state: Controller is already closed". Left unguarded, that
+    // caught exception looked exactly like a genuine body-read failure and
+    // fired a spurious warn line instead of (and — via the `emitted` guard —
+    // INSTEAD OF, not in addition to) the correct cancel-triggered debug
+    // line, silently losing the discarded-attempt's log line. `cancelled` is
+    // set synchronously as the first statement in `cancel()`, before any
+    // `await` — since JS is single-threaded, any `pull()` continuation that
+    // resumes afterward is guaranteed to see it, whether pull() resolves or
+    // rejects, letting it recognise "this is fallout from a cancel that
+    // already handled logging" and step aside instead of misreporting it.
+    let cancelled = false;
+
     const proxied = new ReadableStream<Uint8Array>({
       async pull(controller) {
         try {
           const { done, value } = await reader.read();
+          if (cancelled) return;
           if (done) {
             controller.close();
             emitDebug();
@@ -357,6 +382,7 @@ export class DockhandClient {
           bytes += value.byteLength;
           controller.enqueue(value);
         } catch (error) {
+          if (cancelled) return;
           // Let the stream error itself the normal way (a rejecting `pull()` is
           // spec'd to error the stream with that reason) — no need to also call
           // `controller.error()` ourselves.
@@ -369,6 +395,7 @@ export class DockhandClient {
         // read. Propagate to the real source so the underlying connection is
         // actually released, then emit — this is the ONLY place that attempt's
         // line would ever fire.
+        cancelled = true;
         await reader.cancel(reason).catch(() => {});
         emitDebug();
       },
