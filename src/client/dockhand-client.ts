@@ -7,7 +7,8 @@ import { SessionManager } from '../auth/session.js';
 import type { DockhandConfig, SSEResult } from '../types/dockhand.js';
 import { normalizeBaseUrl } from '../utils/url.js';
 import { redactQueryStrings } from '../utils/redact.js';
-import { log, currentLogContext } from '../utils/log-context.js';
+import { log } from '../utils/log-context.js';
+import { matchRoute } from '../openapi/match-route.js';
 
 /** Timeout for SSE streaming responses (5 minutes). */
 const SSE_TIMEOUT_MS = 300_000;
@@ -194,20 +195,29 @@ export class DockhandClient {
    * The single place this client talks to the network, so the single place a debug
    * line belongs.
    *
-   * It logs the endpoint TEMPLATE from the call context, never `url`. That is not
-   * politeness: `url` carries stack names, container ids and — for
-   * trigger_git_webhook — a secret in the query string. There is deliberately no code
-   * path here that can write a value, rather than a filter that has to keep up with
-   * every parameter a future tool introduces. That is exact for the context-supplied
-   * route; for the `coarseRoute()` fallback it is a truncation argument instead — two
-   * path segments are short enough that no identifier fits, even though the segments
-   * themselves come from the same caller-supplied `pathname` that `url` would expose
-   * in full.
+   * It logs the endpoint TEMPLATE, never `url`. That is not politeness: `url` carries
+   * stack names, container ids and — for trigger_git_webhook — a secret in the query
+   * string. There is deliberately no code path here that can write a value, rather than
+   * a filter that has to keep up with every parameter a future tool introduces.
+   *
+   * The template comes from `matchRoute()` (src/openapi/match-route.ts), which
+   * reverse-matches THIS request's own `parsed.pathname` against the pinned spec's known
+   * path templates — not from the tool-scope context. A tool that fans out to several
+   * endpoints (e.g. remove_stack_env_vars hitting both `/env` and `/env/raw`) previously
+   * logged the same context-supplied route for every one of its requests; matching each
+   * request's own pathname gives each of them its own, correct route. `matchRoute()`
+   * only ever returns one of the spec's known template strings, so this is exact, the
+   * same way the context-supplied route used to be. For the `coarseRoute()` fallback —
+   * used when the pathname matches no known template, e.g. a stale `TOOL_ENDPOINT_MAP`
+   * entry pointing at a path the pinned spec no longer has, or the spec being
+   * unavailable at runtime — it is a truncation argument instead: two path segments are
+   * short enough that no identifier fits, even though the segments themselves come from
+   * the same caller-supplied `pathname` that `url` would expose in full.
    */
   private async loggedFetch(method: string, url: string, init: RequestInit): Promise<Response> {
     const started = Date.now();
     const parsed = new URL(url);
-    const route = currentLogContext().route ?? coarseRoute(parsed.pathname);
+    const route = matchRoute(parsed.pathname, method) ?? coarseRoute(parsed.pathname);
     const query = [...parsed.searchParams.keys()];
 
     try {
