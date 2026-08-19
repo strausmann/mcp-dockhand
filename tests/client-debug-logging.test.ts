@@ -93,7 +93,13 @@ describe('client debug logging', () => {
     const instance = await client();
     await instance.get('/api/stacks/paperless/env/raw');
 
-    const serialised = JSON.stringify(debugLines());
+    // Non-empty first: "contains no path" is trivially true of a line that was never
+    // written, which would make this test green against the very version it exists to
+    // rule out (see the identical guard on 'never carries the ...' tests elsewhere).
+    const lines = debugLines();
+    expect(lines.length).toBeGreaterThan(0);
+
+    const serialised = JSON.stringify(lines);
     expect(serialised).not.toContain('paperless');
   });
 

@@ -987,7 +987,17 @@ function validate() {
 }
 
 /**
+ * computeBodyFindingsForCalls()'s return-element shape: the raw `BodyFinding`
+ * (scripts/lib/body-checks.mjs) enriched with the call site, so generateReport() can
+ * render a table row from it.
+ * @typedef {{ type: string, field?: string, expectedRequired?: string[], toolName: string, httpMethod: string, path: string, file: string, line: number }} EnrichedBodyFinding
+ */
+
+/**
  * Generiert den Markdown-Report
+ * @param {object} args
+ * @param {Array<EnrichedBodyFinding>} [args.bodyFindings]
+ * @param {Array<{type: string, tool: string, method: string, path: string}>} [args.crossRefFindings]
  */
 function generateReport({ schema, covered, missingTool, deliberatelyOmitted = [], orphanedTool, paramMismatch, missingEncode, queryParamMissingRequired, queryParamUnknown, bodyFindings = [], crossRefFindings = [] }) {
   const lines = [];

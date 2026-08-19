@@ -39,8 +39,8 @@ function jsonOut(res: unknown): Record<string, unknown> {
   return JSON.parse((res as { content: { text: string }[] }).content[0].text);
 }
 
-function setupHandlers(
-  register: (server: unknown, client: unknown) => void,
+function setupHandlers<TServer, TClient>(
+  register: (server: TServer, client: TClient) => void,
 ) {
   const handlers = new Map<string, ToolHandler>();
   const server = { tool: (n: string, _d: string, _s: unknown, cb: ToolHandler) => handlers.set(n, cb) };
@@ -50,8 +50,11 @@ function setupHandlers(
     put: vi.fn().mockResolvedValue({ success: true }),
     delete: vi.fn().mockResolvedValue({ success: true }),
   };
+  // The fakes above only implement the slice of McpServer/DockhandClient each
+  // register*Tools() function actually calls -- real structural typing would
+  // reject them, so the cast is deliberate, not a shortcut.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  register(server as any, client as any);
+  register(server as any as TServer, client as any as TClient);
   return { handlers, client };
 }
 

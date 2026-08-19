@@ -136,7 +136,7 @@ describe('log context', () => {
     });
 
     it('binds context fields to the child logger', () => {
-      let boundLogger;
+      let boundLogger!: ReturnType<typeof log>;
 
       runWithLogContext({ req: 'r1', sid: 's1', call: 'c1' }, () => {
         boundLogger = log();
@@ -158,7 +158,7 @@ describe('log context', () => {
     });
 
     it('binds extended context fields to the child logger', () => {
-      let boundLogger;
+      let boundLogger!: ReturnType<typeof log>;
 
       runWithLogContext({ req: 'r1' }, () => {
         extendLogContext({ call: 'c1', tool: 'list_stacks' });

@@ -1,6 +1,6 @@
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci
 COPY . .
 RUN npm run build
@@ -27,7 +27,7 @@ ENV NODE_ENV=production \
     MCP_GIT_SHA=$MCP_GIT_SHA \
     MCP_BUILD_DATE=$MCP_BUILD_DATE
 RUN addgroup -g 1001 mcp && adduser -u 1001 -G mcp -D mcp
-COPY --from=build /app/package*.json ./
+COPY --from=build /app/package*.json /app/.npmrc ./
 # --ignore-scripts skips the `prepare` hook that runs `husky` (a devDependency
 # excluded by --omit=dev). Runtime install needs no install-side scripts.
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force

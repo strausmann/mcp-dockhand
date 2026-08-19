@@ -109,6 +109,9 @@ describe('buildCoverageDoc', () => {
 
   it('includes an ORPHANED_TOOL section only when there are orphaned tools', () => {
     const clean = buildCoverageDoc(baseInput);
+    // Non-empty/real first: "has no ORPHANED_TOOL section" is trivially true of a doc
+    // that was never built at all.
+    expect(clean).toContain(baseInput.sourceCommit);
     expect(clean).not.toContain('## ORPHANED_TOOL');
 
     const withOrphans = buildCoverageDoc({

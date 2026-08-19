@@ -16,7 +16,9 @@
     "api:validate": "node scripts/validate-mcp-tools.mjs",
     "api:coverage-doc": "node scripts/generate-coverage-doc.mjs",
     "api:tool-endpoint-map": "node scripts/generate-tool-endpoint-map.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "typecheck:tests": "tsc -p tsconfig.tests.json",
+    "lint": "bash scripts/lint-in-container.sh"
   },
   "keywords": [
     "mcp",
