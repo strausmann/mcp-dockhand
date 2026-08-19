@@ -615,14 +615,14 @@ The server uses session-based cookie authentication. It automatically:
 ### Troubleshooting
 
 Start with `LOG_LEVEL=debug`. Every Dockhand request then appears with its endpoint,
-status code, duration and body size, and every line of a single call shares one
+status code and duration, and every line of a single call shares one
 `call` identifier — `grep` for it to get the whole sequence. The `req` identifier
 ties those lines back to the access line that started them, and `sid` covers
-everything one client did across its whole session. `ms` is the full request
+everything one client did across its whole session. For requests through the client, `ms` is the full request
 duration — it spans the response body being read, not just the time until the
 response headers arrived, so it reflects what a slow or stalled streamed
-response (e.g. a deploy's SSE output) actually cost. `bytes` is the size of the
-body that was actually read. A failed Dockhand request additionally logs a
+response (e.g. a deploy's SSE output) actually cost — and `bytes` is the size of the
+body that was actually read. (The login and self-check probes bootstrap the client and can't route through it, so their lines log time-to-headers without a `bytes` field.) A failed Dockhand request additionally logs a
 `warn` line carrying `errType` — the exception name (e.g. `TimeoutError`, `TypeError`),
 a bounded vocabulary rather than free text — so you can filter failures by error
 type. That warn line fires both when the request itself failed before any
