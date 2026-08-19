@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-18T05:08:59.828Z",
+  "generatedAt": "2026-08-19T05:09:23.330Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "5c0fa6aa912e66ea4c2a55c9047aab61a5fe3720",
-  "endpointCount": 244,
+  "sourceCommit": "adabaffb23483fdcec2f4f3e50c5dd113c19b522",
+  "endpointCount": 245,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -2397,6 +2397,15 @@
     },
     {
       "path": "/api/stacks/{name}/stop",
+      "methods": [
+        "POST"
+      ],
+      "pathParams": [
+        "name"
+      ]
+    },
+    {
+      "path": "/api/stacks/{name}/validate",
       "methods": [
         "POST"
       ],
