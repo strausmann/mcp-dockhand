@@ -97,6 +97,31 @@ describe('client debug logging', () => {
     expect(serialised).not.toContain('paperless');
   });
 
+  it('emits exactly one route key inside a tool context — no stale tool-wide route (Codex #219)', async () => {
+    // The production path: a request made from inside a tool invocation. registerTool used
+    // to BIND the tool's single route into the log context, log() baked it into the pino
+    // child, and loggedFetch's own matched route did not replace it — pino serialized BOTH
+    // keys, so a fan-out line carried the stale tool-wide route alongside the correct one.
+    // JSON.parse silently keeps the last duplicate, which is exactly why the other tests in
+    // this file (which parse) never saw it — this one asserts on the RAW line.
+    const { runWithLogContext } = await import('../src/utils/log-context.js');
+    const instance = await client();
+    await runWithLogContext({ sid: 's', req: 'r', call: 'c', tool: 'remove_stack_env_vars' }, async () => {
+      await instance.get('/api/stacks/paperless/env/raw');
+    });
+
+    const clientLine = written
+      .join('')
+      .trim()
+      .split('\n')
+      .find((l) => l.includes('"component":"client"'));
+    expect(clientLine).toBeDefined();
+    // Exactly one "route" in the raw JSON — a duplicate is the bug.
+    expect((clientLine!.match(/"route"/g) ?? []).length).toBe(1);
+    // And it is the request's own matched template, not any tool-wide value.
+    expect((JSON.parse(clientLine!) as { route: string }).route).toBe('/api/stacks/{name}/env/raw');
+  });
+
   it('matches a request to its own template regardless of tool context', async () => {
     // The route now comes from matchRoute() reverse-matching THIS request's own
     // pathname against the spec (src/openapi/match-route.ts) — not from a tool-scope

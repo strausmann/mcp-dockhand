@@ -46,20 +46,26 @@ export function registerTool<T extends ZodShape>(
     const outer = currentLogContext();
     const started = Date.now();
 
+    // The tool's own endpoint template (never a concrete path). This is logged on the
+    // tool's own start/ok/failed lines call-time — NOT bound into the log context.
+    // Binding it would bake it into every pino child (see log()), and the per-request
+    // client debug line (loggedFetch) now derives and logs its OWN route from the
+    // request pathname (matchRoute, #214): a child already carrying a bound `route`
+    // makes pino serialize BOTH keys, so a fan-out line would report the stale
+    // tool-wide route alongside the correct request one. (Codex, PR #219.)
+    const toolRoute = TOOL_ENDPOINT_MAP[name]?.path;
+
     return runWithLogContext(
       {
         ...outer,
         call: randomUUID(),
         tool: name,
-        // The template, never the concrete path: this is what keeps a stack name or a
-        // container id out of every debug line the client below will write.
-        route: TOOL_ENDPOINT_MAP[name]?.path,
       },
       async () => {
-        log().info({ component: 'tools' }, 'start');
+        log().info({ component: 'tools', route: toolRoute }, 'start');
         try {
           const result = await callback(args);
-          log().info({ component: 'tools', ms: Date.now() - started }, 'ok');
+          log().info({ component: 'tools', route: toolRoute, ms: Date.now() - started }, 'ok');
           return result;
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Unknown error';
