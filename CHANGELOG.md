@@ -5,6 +5,22 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0](https://github.com/strausmann/mcp-dockhand/compare/v1.14.0...v1.15.0) (2026-08-19)
+
+### Features
+
+* make LOG_LEVEL real, add an access log CrowdSec can parse ([#209](https://github.com/strausmann/mcp-dockhand/issues/209)) ([b88cdaa](https://github.com/strausmann/mcp-dockhand/commit/b88cdaaaa3942933d8104cc7918c9a81bca341fb))
+
+### Bug Fixes
+
+* **client:** unify error logging on flat errType, pin the serializer trap ([#218](https://github.com/strausmann/mcp-dockhand/issues/218)) ([6ed596f](https://github.com/strausmann/mcp-dockhand/commit/6ed596ff2130db301b21ae30a44b29460195d0d9)), closes [#212](https://github.com/strausmann/mcp-dockhand/issues/212)
+* **system:** async log destination in production, sync fatal-exit lines ([#216](https://github.com/strausmann/mcp-dockhand/issues/216)) ([e3d785a](https://github.com/strausmann/mcp-dockhand/commit/e3d785a6a49e16af206173c8d21bbd227e861f39)), closes [#210](https://github.com/strausmann/mcp-dockhand/issues/210), references [#210](https://github.com/strausmann/mcp-dockhand/issues/210) [#210](https://github.com/strausmann/mcp-dockhand/issues/210)
+* **system:** make log-context isolation a module invariant ([#217](https://github.com/strausmann/mcp-dockhand/issues/217)) ([75c5d0f](https://github.com/strausmann/mcp-dockhand/commit/75c5d0fd43ebd5879c2beb92a839c2747ac35ed4)), closes [#211](https://github.com/strausmann/mcp-dockhand/issues/211), references [#209](https://github.com/strausmann/mcp-dockhand/issues/209)
+
+### Documentation
+
+* **api:** update API coverage report (automated) ([5cdcf31](https://github.com/strausmann/mcp-dockhand/commit/5cdcf3150798bce0946974816cf1ad60e54854b7))
+
 ## [1.14.0](https://github.com/strausmann/mcp-dockhand/compare/v1.13.2...v1.14.0) (2026-08-18)
 
 ### Features
