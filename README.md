@@ -643,13 +643,16 @@ npm run dev
 
 ### Linting
 
-There is currently no `npm run lint` script. `typescript-eslint` (the only maintained
-ESLint/TypeScript integration) does not yet support the pinned `typescript@^7.0.2`
-devDependency — it refuses to run at all against TS 7.0 (hard runtime error, not just a
-peer-dependency warning): see
-[typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940).
-Re-add `eslint` + `typescript-eslint` as devDependencies once that's resolved upstream —
-`tsc --noEmit` (via `npm run typecheck`) is the only static check enforced today.
+`npm run lint` lints `src/` and `tests/` with two rules: `no-unused-vars` and
+`no-explicit-any`. Because `typescript-eslint` does not support the pinned
+`typescript@^7.0.2` compiler — it hard-throws on TS 7.0, not just a peer warning: see
+[typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940)
+— the lint runs inside a throwaway `node:22` container with pinned TypeScript 5 (the
+language is identical across TS 5/6/7; only the compiler differs). It mounts `src/`,
+`tests/` and `eslint.config.js` read-only, so **Docker is required** to run it. The same
+script runs as a hard gate in CI. Unused imports/locals are additionally caught natively on
+TS 7 by `tsc` (`noUnusedLocals`/`noUnusedParameters` in `tsconfig.tests.json`, via
+`npm run typecheck:tests`).
 
 ## License
 
