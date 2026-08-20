@@ -145,4 +145,21 @@ describe('deriveRoutesFromOpenapi', () => {
     expect(ep.pathParams).toBeUndefined();
     expect(ep.methods).toEqual(['GET']);
   });
+
+  it('strips the env query param, mirroring the old extractor (p.name !== "env")', () => {
+    // GET /api/auto-update has exactly ONE query param in the real spec: `env`
+    // (`in: query`, `name: env`) -- verified directly against
+    // docs/dockhand-openapi.json. `scripts/extract-dockhand-api.mjs` /
+    // `scripts/lib/route-handlers.mjs` deliberately filter `env` out
+    // (`.filter((p) => p.name !== 'env')`) so it NEVER appears in the committed
+    // `docs/dockhand-api-schema.json`'s `queryParamsByMethod`. The deriver must match
+    // that invariant: with `env` stripped, GET /api/auto-update has NO query params
+    // left at all, so `queryParamsByMethod` must be omitted entirely for this route
+    // (same "omit when empty" rule as the test above).
+    const ep = findEndpoint('/api/auto-update');
+    expect(ep.queryParamsByMethod?.GET?.some((p: { name: string }) => p.name === 'env')).not.toBe(
+      true
+    );
+    expect(ep.queryParamsByMethod).toBeUndefined();
+  });
 });

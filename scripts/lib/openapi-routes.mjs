@@ -21,6 +21,12 @@
  * `environmentId`/`environment_id` across different endpoints) -- this deriver does NOT
  * normalize them, matching the old extractor's behavior of reading whatever the source
  * actually used.
+ *
+ * The `env` query param is stripped everywhere, mirroring the old extractor's
+ * `.filter((p) => p.name !== 'env')` (see `scripts/extract-dockhand-api.mjs` /
+ * `scripts/lib/route-handlers.mjs`): it never appears in the committed
+ * `docs/dockhand-api-schema.json`, and `scripts/validate-mcp-tools.mjs` relies on that
+ * invariant via its own `WHITELISTED_QUERY_PARAMS = new Set(['env'])`.
  */
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
@@ -47,8 +53,13 @@ export function deriveRoutesFromOpenapi(spec) {
       const operation = pathItem[key];
       const parameters = operation?.parameters ?? [];
 
+      // `env` is filtered out to mirror the old extractor's
+      // `.filter((p) => p.name !== 'env')` (see scripts/extract-dockhand-api.mjs /
+      // scripts/lib/route-handlers.mjs): it never appears in the committed
+      // docs/dockhand-api-schema.json, and scripts/validate-mcp-tools.mjs relies on
+      // that invariant via its own `WHITELISTED_QUERY_PARAMS = new Set(['env'])`.
       const queryParams = parameters
-        .filter((p) => p?.in === 'query')
+        .filter((p) => p?.in === 'query' && p.name !== 'env')
         .map((p) => ({ name: p.name, required: p.required === true }))
         .sort((a, b) => a.name.localeCompare(b.name));
 
