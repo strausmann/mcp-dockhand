@@ -3,8 +3,13 @@
 /**
  * MCP Tool Validator
  *
- * Vergleicht die MCP-Tool-Definitionen in src/tools/*.ts mit dem
- * generierten API-Schema in docs/dockhand-api-schema.json.
+ * Vergleicht die MCP-Tool-Definitionen in src/tools/*.ts mit den Routen/Query-Params,
+ * die `deriveRoutesFromOpenapi()` (scripts/lib/openapi-routes.mjs, Task 1 der
+ * Spec-Source-Konsolidierung #222) aus der einzigen committeten
+ * docs/dockhand-openapi.json ableitet -- vormals ein separater Clone-and-Regex-Scan
+ * nach docs/dockhand-api-schema.json (extract-dockhand-api.mjs). Das alte Schema-File
+ * bleibt vorerst im Repo (Loeschung ist ein spaeterer Task), wird hier aber nicht mehr
+ * gelesen.
  *
  * Prüft:
  * - COVERED: Endpunkt hat ein MCP-Tool
@@ -13,8 +18,8 @@
  * - PARAM_MISMATCH: Path-Parameter stimmen nicht überein (Anzahl + Namens-Suffix)
  * - MISSING_ENCODE: Path-Parameter wird nicht mit encodePath() encoded
  * - QUERY_PARAM_MISSING_REQUIRED: der Endpunkt 400ed ohne diesen Query-Parameter
- *   (per-Methode required/optional aus dem Schema, siehe docs/dockhand-api-schema.json
- *   `queryParamsByMethod`), das Tool sendet ihn nicht
+ *   (per-Methode required/optional aus dem via deriveRoutesFromOpenapi() abgeleiteten
+ *   Schema, siehe `queryParamsByMethod`), das Tool sendet ihn nicht
  * - QUERY_PARAM_UNKNOWN: Tool sendet einen Query-Parameter, den der Endpunkt nicht kennt
  * - BODY_PARAM_MISSING_REQUIRED: der Endpunkt verlangt dieses Feld laut OpenAPI-Body-Contract
  *   (docs/dockhand-openapi.json), das Tool sendet es nicht als required (Task P2.2, Gate seit
@@ -56,15 +61,16 @@ import { execFileSync } from 'node:child_process';
 import { findMatchingClose, splitTopLevel, extractObjectKey } from './lib/js-scan.mjs';
 import { resolveQueryParamKeys } from './lib/query-params.mjs';
 import { getBodyContract, getOperationParamNames, loadOpenApiSpec } from './lib/openapi-contract-source.mjs';
+import { deriveRoutesFromOpenapi } from './lib/openapi-routes.mjs';
 import { computeBodyFindings } from './lib/body-checks.mjs';
 import { checkCrossRefs, buildCrossRefEntries } from './lib/crossref-checks.mjs';
 import { partitionMissingTools } from './lib/omission-registry.mjs';
+import { SOURCE_COMMIT as OPENAPI_SOURCE_COMMIT } from './fetch-openapi.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = resolve(__dirname, '..');
 
-const SCHEMA_FILE = join(PROJECT_ROOT, 'docs', 'dockhand-api-schema.json');
 const TOOLS_DIR = join(PROJECT_ROOT, 'src', 'tools');
 const REPORT_FILE = join(PROJECT_ROOT, 'validation-report.md');
 const COLLECT_SHAPES_SCRIPT = join(__dirname, 'collect-tool-shapes.mjs');
@@ -111,16 +117,30 @@ const BODY_LIKE_METHODS = new Set(['post', 'postSSE', 'postMultipart', 'put', 'p
 const WHITELISTED_QUERY_PARAMS = new Set(['env']);
 
 /**
- * Lädt das API-Schema
- * @returns {object}
+ * Lädt das API-Schema -- seit Task 3 der Spec-Source-Konsolidierung (#222) via
+ * deriveRoutesFromOpenapi() aus der einzigen committeten docs/dockhand-openapi.json
+ * abgeleitet, nicht mehr aus dem separat gepflegten docs/dockhand-api-schema.json.
+ *
+ * deriveRoutesFromOpenapi() liefert NUR das `endpoints`-Array (siehe dessen JSDoc +
+ * tests/openapi-routes.test.ts: das ist der eigentliche Contract, den
+ * computeValidation() konsumiert). Die alte `{generatedAt, sourceRepo, sourceCommit,
+ * endpointCount, endpoints}`-Wrapper-Metadaten beschrieb den git-Clone-Prozess des
+ * ALTEN Extractors und hat kein 1:1-Äquivalent in der openapi-Welt -- `sourceCommit`
+ * wird deshalb durch den gepinnten Dockhand-Upstream-Commit ersetzt, den
+ * fetch-openapi.mjs zum Holen von docs/dockhand-openapi.json selbst verwendet (dieselbe
+ * Bedeutung: "welcher Upstream-Commit steckt hinter den Endpunkt-Daten"), und
+ * `endpointCount` wird aus der Länge des abgeleiteten Arrays berechnet statt aus dem
+ * alten Schema übernommen.
+ * @returns {{endpoints: Array, endpointCount: number, sourceCommit: string}}
  */
 function loadSchema() {
-  if (!existsSync(SCHEMA_FILE)) {
-    console.error(`[validate] Schema-Datei nicht gefunden: ${SCHEMA_FILE}`);
-    console.error('[validate] Bitte zuerst extract-dockhand-api.mjs ausführen');
-    process.exit(2);
-  }
-  return JSON.parse(readFileSync(SCHEMA_FILE, 'utf8'));
+  const spec = loadOpenApiSpec();
+  const endpoints = deriveRoutesFromOpenapi(spec);
+  return {
+    endpoints,
+    endpointCount: endpoints.length,
+    sourceCommit: OPENAPI_SOURCE_COMMIT,
+  };
 }
 
 /**
@@ -387,10 +407,10 @@ function isIgnored(path) {
 //
 // Die Body-Contract-Quelle (docs/dockhand-openapi.json, siehe scripts/lib/
 // openapi-contract-source.mjs) indiziert Endpunkte per exaktem Pfad-String samt der
-// dortigen Parameter-Namen (z.B. '/api/containers/{id}/rename'), unser eigenes
-// dockhand-api-schema.json samt der Tool-Aufrufe kennt aber die SPRECHENDEN
-// Variablennamen der Tools (z.B. '/api/containers/{containerId}/rename', siehe
-// pathParamsMatch() oben). buildOpenApiPathIndex() überbrückt das über dieselbe
+// dortigen Parameter-Namen (z.B. '/api/containers/{id}/rename'), das via
+// deriveRoutesFromOpenapi() abgeleitete Schema samt der Tool-Aufrufe kennt aber die
+// SPRECHENDEN Variablennamen der Tools (z.B. '/api/containers/{containerId}/rename',
+// siehe pathParamsMatch() oben). buildOpenApiPathIndex() überbrückt das über dieselbe
 // normalizePath()-Normalisierung (alle {…} → {*}), die schon schemaEndpoints/
 // toolEndpoints benutzen — kein zweiter Normalisierungs-Mechanismus.
 
@@ -623,7 +643,7 @@ function computeBodyFindingsForCalls(toolCalls, toolBodyShapes, openApiPathIndex
  * ohne I/O (kein Datei-Read, kein console.error). Wird sowohl von der CLI-Validierung
  * (`validate()`) als auch vom Coverage-Doc-Generator (`generate-coverage-doc.mjs`)
  * genutzt, damit beide garantiert dieselben Zahlen liefern.
- * @param {object} schema Geladenes docs/dockhand-api-schema.json
+ * @param {object} schema Von deriveRoutesFromOpenapi() abgeleitetes Schema (siehe loadSchema())
  * @param {Array} toolCalls Rückgabe von extractToolCalls()
  * @param {Record<string, {sentFields: string[], requiredSent: string[], passthrough: boolean}>|null} [toolBodyShapes]
  *   Rückgabe von loadToolBodyShapes() (Task P1.4/P1.6, advisory). `null`/`undefined`
