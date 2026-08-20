@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-19T05:09:23.330Z",
+  "generatedAt": "2026-08-20T05:10:09.930Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "adabaffb23483fdcec2f4f3e50c5dd113c19b522",
-  "endpointCount": 245,
+  "sourceCommit": "99b1672be5cbc508d8befa973cc6139ac2f2c3ae",
+  "endpointCount": 246,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -2245,6 +2245,13 @@
       "path": "/api/settings/scanner/cache",
       "methods": [
         "DELETE"
+      ]
+    },
+    {
+      "path": "/api/settings/semver",
+      "methods": [
+        "GET",
+        "POST"
       ]
     },
     {
