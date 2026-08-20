@@ -58,6 +58,21 @@ jobs:
             src/openapi/tool-endpoint-map.ts \
             docs/body-contract-report.md
 
+      # Task #222 (mcp-dockhand#222 Task 5): the body-contract validator existed since
+      # Task P1.4/P1.6 but only ran nightly in api-schema-sync.yml with
+      # continue-on-error: true -- a body-contract drift introduced by a NEW Dockhand
+      # release, or a tool change that drops a required body field, was never caught at
+      # PR time, only surfaced (informationally) up to 24h later via the nightly issue.
+      # This step closes that gap: it is the PR-blocking enforcer. It fails hard
+      # (process.exit(1) in validate-mcp-tools.mjs, see hasCriticalErrors()) on
+      # ORPHANED_TOOL / PARAM_MISMATCH / MISSING_ENCODE / QUERY_PARAM_UNKNOWN /
+      # QUERY_PARAM_MISSING_REQUIRED / BODY_PARAM_MISSING_REQUIRED, and passes on
+      # advisory-only findings (BODY_PARAM_UNKNOWN / UNTYPED_PASSTHROUGH /
+      # BODY_CONTRACT_UNRESOLVED / MISSING_TOOL / CROSSREF_UNRESOLVED). No
+      # continue-on-error here -- that is the whole point of this step.
+      - name: Body-contract validation against Dockhand OpenAPI (hard gate)
+        run: npm run api:validate
+
   docker:
     runs-on: ubuntu-latest
     needs: build
