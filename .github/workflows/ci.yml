@@ -48,11 +48,6 @@ jobs:
       #
       # If this fails: run `npm run api:coverage-doc`, `npm run api:tool-endpoint-map` and
       # `node scripts/generate-body-contract-doc.mjs`, then commit the result.
-      #
-      # NOT gated here: docs/dockhand-api-schema.json. Its generator (`npm run api:extract`)
-      # talks to a LIVE Dockhand instance, which CI has no access to — gating it would fail
-      # for a reason that is not a defect, and a gate that goes red without a defect is one
-      # people learn to ignore. It stays with the nightly api-schema-sync run.
       - name: Derived docs are in sync with the code
         run: |
           npm run api:coverage-doc

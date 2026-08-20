@@ -6,9 +6,11 @@
 
 ## Kontext
 
-`scripts/validate-mcp-tools.mjs` vergleicht bei jedem Lauf die Endpunkte im generierten
-Dockhand-API-Schema (`docs/dockhand-api-schema.json`) mit den tatsächlich registrierten
-MCP-Tools (`src/tools/*.ts`). Jeder Endpunkt ohne Tool erzeugt einen `MISSING_TOOL`-Fund
+`scripts/validate-mcp-tools.mjs` vergleicht bei jedem Lauf die Endpunkte im aus der
+einzigen committeten `docs/dockhand-openapi.json` abgeleiteten Dockhand-API-Schema (bis
+zur Spec-Source-Konsolidierung #222: einem separat generierten
+`docs/dockhand-api-schema.json`) mit den tatsächlich registrierten MCP-Tools
+(`src/tools/*.ts`). Jeder Endpunkt ohne Tool erzeugt einen `MISSING_TOOL`-Fund
 (informativ, kein CI-Gate) — sichtbar in `validation-report.md` und in der eingecheckten
 `docs/coverage.md`.
 

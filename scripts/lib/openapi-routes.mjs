@@ -1,12 +1,12 @@
 /**
  * Derives the routes/query-params/path-params shape (previously only available via
- * `scripts/extract-dockhand-api.mjs`'s clone-and-regex-scan of the upstream SvelteKit
- * route tree) directly from the single already-committed `docs/dockhand-openapi.json`
- * spec instead.
+ * a clone-and-regex-scan of the upstream SvelteKit route tree, done by the old route
+ * extractor `scripts/extract-dockhand-api.mjs` -- removed in mcp-dockhand#222 Task 4
+ * once this deriver proved parity with it) directly from the single already-committed
+ * `docs/dockhand-openapi.json` spec instead.
  *
- * Locked output shape (matches `docs/dockhand-api-schema.json`'s `endpoints` array —
- * see `tests/openapi-routes.test.ts` header for how this was verified against the
- * actual extractor output):
+ * Locked output shape (`endpoints` array -- see `tests/openapi-routes.test.ts` header
+ * for how this was verified against the old extractor's output before removal):
  *
  *   Array<{
  *     path: string,                                    // e.g. "/api/activity/{id}"
@@ -23,18 +23,27 @@
  * actually used.
  *
  * The `env` query param is stripped everywhere, mirroring the old extractor's
- * `.filter((p) => p.name !== 'env')` (see `scripts/extract-dockhand-api.mjs` /
- * `scripts/lib/route-handlers.mjs`): it never appears in the committed
- * `docs/dockhand-api-schema.json`, and `scripts/validate-mcp-tools.mjs` relies on that
- * invariant via its own `WHITELISTED_QUERY_PARAMS = new Set(['env'])`.
+ * `.filter((p) => p.name !== 'env')` (see `scripts/lib/route-handlers.mjs`): it never
+ * appeared in that extractor's output, and `scripts/validate-mcp-tools.mjs` relies on
+ * that same invariant via its own `WHITELISTED_QUERY_PARAMS = new Set(['env'])`.
  */
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
 
 /**
+ * @typedef {{ name: string, required: boolean }} DerivedQueryParam
+ * @typedef {{
+ *   path: string,
+ *   methods: string[],
+ *   pathParams?: string[],
+ *   queryParamsByMethod?: Record<string, DerivedQueryParam[]>
+ * }} DerivedRoute
+ */
+
+/**
  * @param {object} spec A parsed OpenAPI 3 document (as loaded by
  *   `loadOpenApiSpec()`/`getBodyContract()`'s `options.spec` in openapi-contract-source.mjs).
- * @returns {Array<{path: string, methods: string[], pathParams?: string[], queryParamsByMethod?: object}>}
+ * @returns {DerivedRoute[]}
  */
 export function deriveRoutesFromOpenapi(spec) {
   const endpoints = [];
@@ -53,11 +62,10 @@ export function deriveRoutesFromOpenapi(spec) {
       const operation = pathItem[key];
       const parameters = operation?.parameters ?? [];
 
-      // `env` is filtered out to mirror the old extractor's
-      // `.filter((p) => p.name !== 'env')` (see scripts/extract-dockhand-api.mjs /
-      // scripts/lib/route-handlers.mjs): it never appears in the committed
-      // docs/dockhand-api-schema.json, and scripts/validate-mcp-tools.mjs relies on
-      // that invariant via its own `WHITELISTED_QUERY_PARAMS = new Set(['env'])`.
+      // `env` is filtered out to mirror the old (now-removed) extractor's
+      // `.filter((p) => p.name !== 'env')` (see scripts/lib/route-handlers.mjs): it
+      // never appeared in that extractor's output, and scripts/validate-mcp-tools.mjs
+      // relies on that same invariant via its own `WHITELISTED_QUERY_PARAMS = new Set(['env'])`.
       const queryParams = parameters
         .filter((p) => p?.in === 'query' && p.name !== 'env')
         .map((p) => ({ name: p.name, required: p.required === true }))

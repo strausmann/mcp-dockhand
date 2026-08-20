@@ -25,4 +25,4 @@ If an MCP tool uses a different HTTP method or parameter name than the upstream 
 4. `additionalConfig`/`additionalSettings` merged BEFORE explicit fields
 5. No unnecessary API calls (don't fetch just to read connectionType)
 6. Tests must actually validate what they claim (no loose string matching)
-7. API schema (`docs/dockhand-api-schema.json`) must stay deterministic
+7. API schema (`docs/dockhand-openapi.json`) must stay deterministic
