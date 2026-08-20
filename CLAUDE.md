@@ -95,4 +95,4 @@ server.tool(
 - **Auth:** Cookie-basiert (`dockhand_session`)
 - **Base URL:** Konfigurierbar via `DOCKHAND_URL` env var
 - **Alle Endpoints:** Environment-scoped via `?env=<id>` Query-Parameter
-- **API Schema:** `docs/dockhand-api-schema.json` (auto-refreshed daily by `scripts/extract-dockhand-api.mjs`)
+- **API Schema:** `docs/dockhand-openapi.json` (pinned upstream OpenAPI spec, single source since #222; refreshed via `scripts/fetch-openapi.mjs`, auto-run nightly by `.github/workflows/api-schema-sync.yml`)

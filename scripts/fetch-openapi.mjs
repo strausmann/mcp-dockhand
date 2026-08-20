@@ -19,8 +19,9 @@
  *      ohnehin nicht mehr — dort fehlen die Generator-Dateien.
  *   3. Kopiert die Spec nach `docs/dockhand-openapi.json` in DIESEM Repo, mit
  *      No-op-Schutz (ignoriert ein eventuelles `generatedAt`-Feld beim Vergleich, analog
- *      `generate-coverage-doc.mjs`/`extract-dockhand-api.mjs`), damit ein inhaltlich
- *      unveränderter Contract keinen Leer-Commit erzeugt.
+ *      `generate-coverage-doc.mjs` -- frueher auch `extract-dockhand-api.mjs`, bis zu
+ *      dessen Entfernung in #222 Task 4), damit ein inhaltlich unveränderter Contract
+ *      keinen Leer-Commit erzeugt.
  *   5. Räumt das Temp-Verzeichnis wieder auf.
  *
  * Verwendung:

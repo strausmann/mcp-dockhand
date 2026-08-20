@@ -5,10 +5,13 @@ import { loadOpenApiSpec } from '../scripts/lib/openapi-contract-source.mjs';
 /**
  * Task 1 of the mcp-dockhand spec-source consolidation (#222).
  *
- * LOCKED SHAPE (Step 1) -- read from `scripts/extract-dockhand-api.mjs` (the OUTPUT it
- * writes to `docs/dockhand-api-schema.json`), cross-checked against the actual committed
- * `docs/dockhand-api-schema.json` and against `scripts/validate-mcp-tools.mjs` (the
- * consumer that reads `schema.endpoints`):
+ * LOCKED SHAPE (Step 1) -- read from the OLD route extractor `scripts/extract-dockhand-api.mjs`
+ * (the OUTPUT it wrote to `docs/dockhand-api-schema.json`), cross-checked against the
+ * actual committed schema file and against `scripts/validate-mcp-tools.mjs` (the
+ * consumer that reads `schema.endpoints`). Both the extractor and its schema file were
+ * removed in Task 4 of the same consolidation, once this deriver proved parity with them
+ * (see the Task 2/3 commits in git history -- `scripts/diff-route-sources.mjs` and
+ * `tests/route-source-parity.test.ts`, also removed in Task 4 -- for that proof).
  *
  *   schema.endpoints: Array<{
  *     path: string,              // e.g. "/api/activity", "/api/containers/{id}"
@@ -34,7 +37,8 @@ import { loadOpenApiSpec } from '../scripts/lib/openapi-contract-source.mjs';
  * equivalent; the array is the actual contract `validate-mcp-tools.mjs` consumes).
  *
  * Concrete assertions below are verified directly against the real, committed
- * `docs/dockhand-openapi.json` (not guessed/copied from `dockhand-api-schema.json`):
+ * `docs/dockhand-openapi.json` (not guessed/copied from the old, since-removed
+ * extractor's schema file):
  *   - GET /api/activity -> 9 optional query params (all `required: false`)
  *   - GET /api/audit -> 12 query params
  *   - DELETE /api/backup/snapshots/{id} -> query param `destinationId` with `required: true`
@@ -65,7 +69,7 @@ describe('deriveRoutesFromOpenapi', () => {
     expect(getParams).toBeDefined();
     expect(getParams).toHaveLength(9);
 
-    const names = getParams.map((p: { name: string }) => p.name).sort();
+    const names = getParams!.map((p: { name: string }) => p.name).sort();
     expect(names).toEqual(
       [
         'actions',
@@ -81,7 +85,7 @@ describe('deriveRoutesFromOpenapi', () => {
     );
 
     // All optional (none of these have an `if (!x) 4xx` guard upstream).
-    expect(getParams.every((p: { required: boolean }) => p.required === false)).toBe(true);
+    expect(getParams!.every((p: { required: boolean }) => p.required === false)).toBe(true);
   });
 
   it('GET /api/audit yields exactly 12 query params', () => {
@@ -90,7 +94,7 @@ describe('deriveRoutesFromOpenapi', () => {
     expect(getParams).toBeDefined();
     expect(getParams).toHaveLength(12);
 
-    const names = getParams.map((p: { name: string }) => p.name).sort();
+    const names = getParams!.map((p: { name: string }) => p.name).sort();
     expect(names).toEqual(
       [
         'action',
@@ -116,26 +120,26 @@ describe('deriveRoutesFromOpenapi', () => {
     const deleteParams = ep.queryParamsByMethod?.DELETE;
     expect(deleteParams).toBeDefined();
 
-    const destinationId = deleteParams.find((p: { name: string }) => p.name === 'destinationId');
+    const destinationId = deleteParams!.find((p: { name: string }) => p.name === 'destinationId');
     expect(destinationId).toBeDefined();
-    expect(destinationId.required).toBe(true);
+    expect(destinationId!.required).toBe(true);
 
     // ...and the path param from "{id}" is captured separately, not mixed into query params.
     expect(ep.pathParams).toEqual(['id']);
-    expect(deleteParams.some((p: { name: string }) => p.name === 'id')).toBe(false);
+    expect(deleteParams!.some((p: { name: string }) => p.name === 'id')).toBe(false);
   });
 
   it('does not normalize the mixed environmentId/environment_id naming in the spec', () => {
     // /api/activity uses "environmentId"; /api/activity/containers uses "environment_id"
     // in the real spec -- both must be passed through verbatim, not unified.
     const camel = findEndpoint('/api/activity');
-    expect(camel.queryParamsByMethod.GET.some((p: { name: string }) => p.name === 'environmentId')).toBe(
+    expect(camel.queryParamsByMethod!.GET.some((p: { name: string }) => p.name === 'environmentId')).toBe(
       true
     );
 
     const snake = findEndpoint('/api/activity/containers');
     expect(
-      snake.queryParamsByMethod.GET.some((p: { name: string }) => p.name === 'environment_id')
+      snake.queryParamsByMethod!.GET.some((p: { name: string }) => p.name === 'environment_id')
     ).toBe(true);
   });
 
@@ -148,14 +152,13 @@ describe('deriveRoutesFromOpenapi', () => {
 
   it('strips the env query param, mirroring the old extractor (p.name !== "env")', () => {
     // GET /api/auto-update has exactly ONE query param in the real spec: `env`
-    // (`in: query`, `name: env`) -- verified directly against
-    // docs/dockhand-openapi.json. `scripts/extract-dockhand-api.mjs` /
-    // `scripts/lib/route-handlers.mjs` deliberately filter `env` out
-    // (`.filter((p) => p.name !== 'env')`) so it NEVER appears in the committed
-    // `docs/dockhand-api-schema.json`'s `queryParamsByMethod`. The deriver must match
-    // that invariant: with `env` stripped, GET /api/auto-update has NO query params
-    // left at all, so `queryParamsByMethod` must be omitted entirely for this route
-    // (same "omit when empty" rule as the test above).
+    // (`in: query`, `name: env`) -- verified directly against docs/dockhand-openapi.json.
+    // `scripts/lib/route-handlers.mjs` (and, before its Task 4 removal, the old
+    // `scripts/extract-dockhand-api.mjs`) deliberately filter `env` out
+    // (`.filter((p) => p.name !== 'env')`) so it NEVER appears in `queryParamsByMethod`.
+    // The deriver must match that invariant: with `env` stripped, GET /api/auto-update
+    // has NO query params left at all, so `queryParamsByMethod` must be omitted
+    // entirely for this route (same "omit when empty" rule as the test above).
     const ep = findEndpoint('/api/auto-update');
     expect(ep.queryParamsByMethod?.GET?.some((p: { name: string }) => p.name === 'env')).not.toBe(
       true

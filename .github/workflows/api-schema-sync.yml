@@ -21,40 +21,13 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # Nötig ab hier (vorher lief dieser Workflow ohne npm ci -- extract-dockhand-api.mjs
-        # und validate-mcp-tools.mjs brauchen nur node-Builtins): validate-mcp-tools.mjs
+        # Nötig ab hier (vorher lief dieser Workflow ohne npm ci): validate-mcp-tools.mjs
         # ruft jetzt intern `npx tsx scripts/collect-tool-shapes.mjs` auf (Task P1.4/P1.6),
         # das echte Tool-Registrierungscode importiert (zod, @modelcontextprotocol/sdk) --
         # ohne installierte node_modules würde dieser Subprozess fehlschlagen und die
         # Body-Contract-Checks stillschweigend übersprungen (advisory-Fallback, siehe
         # loadToolBodyShapes()) statt tatsächlich zu laufen.
         run: npm ci
-
-      - name: Extract Dockhand API Schema
-        run: node scripts/extract-dockhand-api.mjs
-
-      - name: Check for changes
-        id: changes
-        run: |
-          if [ ! -f docs/dockhand-api-schema.json ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Kein Schema vorhanden — Initiale Extraktion"
-          elif ! git diff --quiet docs/dockhand-api-schema.json; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Schema hat sich geändert"
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "Keine Änderungen"
-          fi
-
-      - name: Commit schema update
-        if: steps.changes.outputs.changed == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/dockhand-api-schema.json
-          git commit -m "chore(api): update Dockhand API schema (automated)"
-          git push
 
       - name: Fetch Dockhand OpenAPI body-contract spec
         # Body-Contract-Quelle für Task P1.4 (scripts/lib/openapi-contract-source.mjs) --

@@ -7,9 +7,9 @@
  * die `deriveRoutesFromOpenapi()` (scripts/lib/openapi-routes.mjs, Task 1 der
  * Spec-Source-Konsolidierung #222) aus der einzigen committeten
  * docs/dockhand-openapi.json ableitet -- vormals ein separater Clone-and-Regex-Scan
- * nach docs/dockhand-api-schema.json (extract-dockhand-api.mjs). Das alte Schema-File
- * bleibt vorerst im Repo (Loeschung ist ein spaeterer Task), wird hier aber nicht mehr
- * gelesen.
+ * nach docs/dockhand-api-schema.json (scripts/extract-dockhand-api.mjs). Der alte
+ * Extractor und das von ihm erzeugte Schema-File sind seit Task 4 der
+ * Spec-Source-Konsolidierung #222 aus dem Repo entfernt.
  *
  * Prüft:
  * - COVERED: Endpunkt hat ein MCP-Tool
@@ -40,9 +40,9 @@
  * Tools -- geplant, nur noch nicht gebaut) bleibt unverändert `missingTool`. Siehe
  * scripts/lib/omission-registry.mjs (`partitionMissingTools()`).
  *
- * Required vs. optional kommt aus dem Schema (von extract-dockhand-api.mjs anhand des
- * echten `if (!x) { ... status: 4xx ... }`-Guards im Handler klassifiziert) — es gibt
- * KEINEN manuellen Re-Check mehr. Ein fehlender REQUIRED Query-Param ist ein harter
+ * Required vs. optional kommt aus dem Schema (von deriveRoutesFromOpenapi() direkt aus
+ * dem `required`-Flag jedes Parameters in docs/dockhand-openapi.json übernommen) — es
+ * gibt KEINEN manuellen Re-Check mehr. Ein fehlender REQUIRED Query-Param ist ein harter
  * Fehler (Exit 1); ein fehlender optionaler Query-Param wird gar nicht mehr gemeldet
  * (der frühere "QUERY_PARAM_MISSING (informativ)"-Eimer, der jeden fehlenden Query-Param
  * unabhängig von required/optional nur als Warnung auflistete, entfällt vollständig).
@@ -108,8 +108,9 @@ const BODY_LIKE_METHODS = new Set(['post', 'postSSE', 'postMultipart', 'put', 'p
 
 /**
  * `env` ist der universelle Environment-Scoping-Query-Param, den fast jeder Tool-Call
- * mitschickt. extract-dockhand-api.mjs filtert ihn beim Schema-Bau bewusst heraus
- * (`if (!['env'].includes(param))`), taucht also NIE in ep.queryParams auf — er darf
+ * mitschickt. deriveRoutesFromOpenapi() (scripts/lib/openapi-routes.mjs) filtert ihn
+ * beim Schema-Bau bewusst heraus (`.filter((p) => p.name !== 'env')`), taucht also NIE
+ * in ep.queryParams auf — er darf
  * deshalb nie als QUERY_PARAM_UNKNOWN markiert werden. `envId` und alle anderen
  * Query-Params werden normal geprüft (siehe Issue #95 / #81: dort erwartete das Schema
  * `envId`, das Tool sendete nur `env` — envId fehlte tatsächlich).
@@ -119,7 +120,8 @@ const WHITELISTED_QUERY_PARAMS = new Set(['env']);
 /**
  * Lädt das API-Schema -- seit Task 3 der Spec-Source-Konsolidierung (#222) via
  * deriveRoutesFromOpenapi() aus der einzigen committeten docs/dockhand-openapi.json
- * abgeleitet, nicht mehr aus dem separat gepflegten docs/dockhand-api-schema.json.
+ * abgeleitet, nicht mehr aus einem separat gepflegten, extrahierten Schema-File (das
+ * seit Task 4 derselben Konsolidierung ganz aus dem Repo entfernt ist).
  *
  * deriveRoutesFromOpenapi() liefert NUR das `endpoints`-Array (siehe dessen JSDoc +
  * tests/openapi-routes.test.ts: das ist der eigentliche Contract, den
@@ -165,8 +167,9 @@ function loadOmissionRegistry() {
 // (`cond ? {...} : undefined`, siehe get_registry_catalog). Der komplette
 // Argument-Ausdruck muss deshalb geparst werden — nicht nur die eine Zeile mit dem
 // Funktionsnamen. `findMatchingClose`/`splitTopLevel`/`extractObjectKey` kommen aus
-// `lib/js-scan.mjs` (gemeinsam mit extract-dockhand-api.mjs genutzt), die eigentliche
-// Objekt-/Ternary-Auflösung aus `lib/query-params.mjs`.
+// `lib/js-scan.mjs` (frueher gemeinsam mit dem inzwischen entfernten
+// scripts/extract-dockhand-api.mjs genutzt), die eigentliche Objekt-/Ternary-Auflösung
+// aus `lib/query-params.mjs`.
 
 /**
  * Extrahiert die statisch bestimmbaren Query-Param-Keys eines `client.<method>(...)`
@@ -762,10 +765,10 @@ function computeValidation(schema, toolCalls, toolBodyShapes = null, registry = 
     const schemaEp = schemaEndpoints.get(key);
     if (!schemaEp) continue; // ORPHANED_TOOL deckt das schon ab
 
-    // Query-Params sind jetzt PRO METHODE im Schema (extract-dockhand-api.mjs scannt
-    // jeden Handler-Body einzeln, nicht mehr die ganze Datei) — der Missing-Check kann
-    // deshalb für JEDEN Endpunkt laufen, nicht mehr nur bei Dateien mit genau einer
-    // HTTP-Methode.
+    // Query-Params sind PRO METHODE im Schema (deriveRoutesFromOpenapi() liest sie
+    // pro Operation aus docs/dockhand-openapi.json, nicht mehr aus einem
+    // Handler-Body-Scan) — der Missing-Check kann deshalb für JEDEN Endpunkt laufen,
+    // nicht mehr nur bei Dateien mit genau einer HTTP-Methode.
     const { missingRequired, unknown } = diffQueryParams(
       call.queryParamKeys,
       schemaEp.queryParamsByMethod?.[call.httpMethod],
