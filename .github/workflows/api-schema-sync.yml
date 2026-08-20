@@ -57,7 +57,17 @@ jobs:
           git commit -m "chore(api): update Dockhand OpenAPI body-contract spec (automated)"
           git push
 
-      - name: Validate MCP tools against schema
+      # mcp-dockhand#222 Task 5: this step is now INFORMATIONAL ONLY -- the PR-blocking
+      # enforcer is `ci.yml`'s "Body-contract validation against Dockhand OpenAPI (hard
+      # gate)" step (no continue-on-error there). This nightly run stays useful for a
+      # DIFFERENT reason: it validates against the OpenAPI spec freshly fetched a few
+      # steps above (and possibly just committed if it changed), i.e. it can catch
+      # upstream Dockhand drift on its own, a day before any PR would touch
+      # docs/dockhand-openapi.json. continue-on-error is kept so the downstream
+      # steps below (coverage-doc/body-contract-doc regeneration, issue creation on
+      # steps.validate.outcome == 'failure', report upload) still run and still see the
+      # real outcome/report -- removing this step would break all three.
+      - name: Validate MCP tools against schema (informational, drift detection only)
         id: validate
         run: node scripts/validate-mcp-tools.mjs
         continue-on-error: true
