@@ -17,7 +17,7 @@ When reviewing MCP tool implementations, **always cross-reference with the upstr
 2. **Request Body Fields:** Check the actual request parsing in the Dockhand route handlers to verify parameter names and types match what our tools send.
 3. **Response Format:** Verify our tools correctly handle the response structure (JSON object vs array, pagination, error format).
 4. **Hawser Protocol:** For environment/hawser-related tools, check `internal/protocol/messages.go` and `internal/docker/compose.go` in finsys/hawser.
-5. **API Schema:** Compare against `docs/dockhand-api-schema.json` (auto-generated daily from upstream source).
+5. **API Schema:** Compare against `docs/dockhand-openapi.json` (pinned upstream OpenAPI spec, single source since #222; refreshed nightly by `.github/workflows/api-schema-sync.yml`).
 
 **If a tool's implementation differs from upstream, flag it as HIGH priority.**
 

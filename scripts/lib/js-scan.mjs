@@ -1,13 +1,13 @@
 /**
  * Shared string/template/comment-aware bracket scanner.
  *
- * Both `extract-dockhand-api.mjs` (scans the upstream Dockhand route handlers) and
- * `validate-mcp-tools.mjs` (scans our own MCP tool call sites) need to walk JS/TS source
- * text respecting string literals, template literals and comments — a plain regex over
- * raw source text breaks the moment a `{`, `}`, `(`, `)`, `'`, `"` or `` ` `` shows up
- * inside a string/comment. This module is the single, tested implementation of that
- * bracket/string-aware scanning so both scripts (and their tests) share one behavior
- * instead of drifting apart.
+ * `validate-mcp-tools.mjs` (scans our own MCP tool call sites) needs to walk JS/TS
+ * source text respecting string literals, template literals and comments — a plain
+ * regex over raw source text breaks the moment a `{`, `}`, `(`, `)`, `'`, `"` or `` ` ``
+ * shows up inside a string/comment. This module is the single, tested implementation of
+ * that bracket/string-aware scanning (previously shared with the now-removed
+ * `scripts/extract-dockhand-api.mjs`, which scanned the upstream Dockhand route
+ * handlers the same way).
  *
  * This is intentionally NOT a full JS/TS parser (no AST, no operator precedence beyond
  * what is needed for ternaries) — just enough structural awareness for the simple

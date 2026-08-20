@@ -12,7 +12,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "api:extract": "node scripts/extract-dockhand-api.mjs",
     "api:validate": "node scripts/validate-mcp-tools.mjs",
     "api:coverage-doc": "node scripts/generate-coverage-doc.mjs",
     "api:tool-endpoint-map": "node scripts/generate-tool-endpoint-map.mjs",

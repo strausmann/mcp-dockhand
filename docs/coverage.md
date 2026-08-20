@@ -2,11 +2,11 @@
 
 > **Auto-generiert** von `scripts/generate-coverage-doc.mjs` — nicht von Hand editieren.
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
-> Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
+> Änderung committet. Grundlage: `docs/dockhand-openapi.json` (via `deriveRoutesFromOpenapi()`).
 
-**Erzeugt:** 2026-08-20T05:10:14.995Z
-**Dockhand-Upstream-Commit:** `99b1672be5cbc508d8befa973cc6139ac2f2c3ae`
-**Schema-Endpunkte gesamt:** 246
+**Erzeugt:** 2026-08-20T11:57:19.367Z
+**Dockhand-Upstream-Commit:** `da26f7f764563a35dacc970cc0196e6aa7828384`
+**Schema-Endpunkte gesamt:** 247
 
 ## Coverage
 
@@ -24,6 +24,24 @@
 
 Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
 ersten Pfad-Segment nach `/api/`:
+
+### /audit (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/audit` | - |
+
+### /audit/users (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/audit/users` | - |
+
+### /metrics (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/metrics` | - |
 
 ### backup (30)
 
@@ -77,19 +95,6 @@ ersten Pfad-Segment nach `/api/`:
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
 | POST | `/api/images/load` | - |
-
-### settings (2)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/api/settings/semver` | - |
-| POST | `/api/settings/semver` | - |
-
-### stacks (1)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| POST | `/api/stacks/{name}/validate` | name |
 
 ## Deliberately omitted (with reason)
 

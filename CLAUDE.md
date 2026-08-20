@@ -95,4 +95,6 @@ server.tool(
 - **Auth:** Cookie-basiert (`dockhand_session`)
 - **Base URL:** Konfigurierbar via `DOCKHAND_URL` env var
 - **Alle Endpoints:** Environment-scoped via `?env=<id>` Query-Parameter
-- **API Schema:** `docs/dockhand-api-schema.json` (auto-refreshed daily by `scripts/extract-dockhand-api.mjs`)
+- **API Schema:** `docs/dockhand-openapi.json` — single pinned source (upstream `Finsys/dockhand` commit; `PINNED_DOCKHAND_OPENAPI_COMMIT` in `src/openapi/pinned.ts` mirrors `SOURCE_COMMIT` in `scripts/fetch-openapi.mjs`) for routes, query params AND body contracts. Refreshed via `scripts/fetch-openapi.mjs`, re-fetched nightly by `.github/workflows/api-schema-sync.yml` (no-op unless the pin changed).
+- **API Change Gate:** `npm run api:validate` is a hard, PR-blocking gate in `ci.yml` (route/query mismatches plus `BODY_PARAM_MISSING_REQUIRED` fail the build; other body-contract findings stay advisory). `.github/workflows/drift-bump.yml` runs weekly, bumps the pin toward upstream `main`, and opens a PR (no auto-merge) so drift surfaces on review.
+- **Not yet done:** version-gating (comparing the live Dockhand server version against the pinned spec version) is a separate follow-up, not implemented here.

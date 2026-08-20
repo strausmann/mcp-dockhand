@@ -32,9 +32,10 @@ const PROJECT_ROOT = resolve(__dirname, '..');
 const COVERAGE_DOC = join(PROJECT_ROOT, 'docs', 'coverage.md');
 
 // Die Zeile mit dem Erzeugungs-Zeitstempel — beim Vergleich "hat sich der Inhalt
-// wirklich geändert?" ausgeblendet, analog zu extract-dockhand-api.mjs (dort
-// `generatedAt: ''`), sonst würde JEDER Lauf (z.B. der tägliche Cron) einen Commit
-// erzeugen, obwohl sich an Coverage/Endpunkten nichts geändert hat.
+// wirklich geändert?" ausgeblendet (derselbe Trick wie beim inzwischen entfernten
+// extract-dockhand-api.mjs, dort `generatedAt: ''`), sonst würde JEDER Lauf (z.B. der
+// tägliche Cron) einen Commit erzeugen, obwohl sich an Coverage/Endpunkten nichts
+// geändert hat.
 const TIMESTAMP_LINE = /^\*\*Erzeugt:\*\* .*$/m;
 
 function stripTimestamp(content) {

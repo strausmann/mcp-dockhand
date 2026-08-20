@@ -1,0 +1,136 @@
+name: OpenAPI Pin Drift Bump
+
+# Weekly: bumps the pinned upstream Finsys/dockhand OpenAPI source commit (see
+# scripts/fetch-openapi.mjs's header comment for the pinning rationale) toward the
+# current `main` HEAD, regenerates the derived body-contract artifacts, and opens a PR --
+# it never pushes/merges directly. That PR then runs the Task-5 hard gate ("Body-contract
+# validation against Dockhand OpenAPI (hard gate)" in ci.yml) against the refreshed spec,
+# so body-contract drift introduced by a NEW Dockhand release surfaces on review, instead
+# of at runtime. NO auto-merge.
+#
+# Uses a repo-scoped PAT fetched from Infisical for the push/PR-open steps instead of the
+# built-in GITHUB_TOKEN: GitHub does not trigger downstream `pull_request`-typed workflow
+# runs (like ci.yml) for events caused by the default GITHUB_TOKEN -- this is the exact
+# same problem renovate.yml in this repo already documents and solves the same way (see
+# its header comment). Without this, ci.yml's hard gate would silently never run on the
+# bump PR, defeating the whole point of this workflow.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # weekly, Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get a repo-scoped PAT from Infisical (so the resulting PR triggers CI)
+        uses: Infisical/secrets-action@v1.0.16
+        with:
+          method: universal
+          client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
+          client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          project-slug: fileee-server-ci
+          env-slug: prod
+          secret-path: /
+          domain: https://secretsmanager.strausmann.cloud
+
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ env.RENOVATE_TOKEN }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # scripts/bump-openapi-pin.mjs validates the fetched upstream SHA against
+      # /^[0-9a-f]{40}$/ before it is ever written to GITHUB_OUTPUT (see
+      # fetchLatestMainSha() in that script) -- new_sha/previous_sha below are therefore
+      # constrained hex, never free-form text.
+      - name: Bump the pinned Dockhand OpenAPI source commit toward upstream main HEAD
+        id: bump
+        run: node scripts/bump-openapi-pin.mjs
+
+      - name: Refresh the OpenAPI spec and derived artifacts
+        if: steps.bump.outputs.changed == 'true'
+        run: |
+          node scripts/fetch-openapi.mjs
+          npm run api:coverage-doc
+          npm run api:tool-endpoint-map
+          node scripts/generate-body-contract-doc.mjs
+
+      - name: Check for an existing open PR for this commit
+        if: steps.bump.outputs.changed == 'true'
+        id: existing-pr
+        env:
+          GH_TOKEN: ${{ env.RENOVATE_TOKEN }}
+          NEW_SHA: ${{ steps.bump.outputs.new_sha }}
+        run: |
+          set -euo pipefail
+          branch="ci/openapi-pin-bump-${NEW_SHA}"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          count=$(gh pr list --head "$branch" --state open --json number --jq 'length')
+          if [ "$count" != "0" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit the bump and push the branch
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          BRANCH: ${{ steps.existing-pr.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add \
+            scripts/fetch-openapi.mjs \
+            src/openapi/pinned.ts \
+            docs/dockhand-openapi.json \
+            docs/coverage.md \
+            src/openapi/tool-endpoint-map.ts \
+            docs/body-contract-report.md
+          git commit -m "chore(api): bump pinned Dockhand OpenAPI source commit (automated)"
+          git push --force-with-lease -u origin "$BRANCH"
+
+      - name: Open the PR
+        if: steps.bump.outputs.changed == 'true' && steps.existing-pr.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ env.RENOVATE_TOKEN }}
+          BRANCH: ${{ steps.existing-pr.outputs.branch }}
+          PREVIOUS_SHA: ${{ steps.bump.outputs.previous_sha }}
+          NEW_SHA: ${{ steps.bump.outputs.new_sha }}
+        run: |
+          set -euo pipefail
+          body="$(cat <<EOF
+          Bumps the pinned upstream \`Finsys/dockhand\` OpenAPI source commit from
+          \`${PREVIOUS_SHA}\` to \`${NEW_SHA}\` (upstream \`main\` HEAD at run time), and
+          regenerates the derived body-contract artifacts: \`docs/dockhand-openapi.json\`,
+          \`docs/coverage.md\`, \`src/openapi/tool-endpoint-map.ts\`,
+          \`docs/body-contract-report.md\`.
+
+          This PR runs the body-contract hard gate ("Body-contract validation against
+          Dockhand OpenAPI (hard gate)" in \`ci.yml\`) against the refreshed spec -- any
+          drift introduced by a new Dockhand release surfaces here, on review, instead of
+          at runtime.
+
+          No auto-merge -- review required.
+
+          Refs #222
+          EOF
+          )"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(api): bump pinned Dockhand OpenAPI source commit" \
+            --body "$body"
