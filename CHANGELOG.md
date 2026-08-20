@@ -5,6 +5,17 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.1](https://github.com/strausmann/mcp-dockhand/compare/v1.15.0...v1.15.1) (2026-08-20)
+
+### Bug Fixes
+
+* **client:** derive each request's own route template in the debug log ([#219](https://github.com/strausmann/mcp-dockhand/issues/219)) ([98629c0](https://github.com/strausmann/mcp-dockhand/commit/98629c0b07aaf691e63715263082a326bc2a9dde)), closes [#214](https://github.com/strausmann/mcp-dockhand/issues/214), references [#214](https://github.com/strausmann/mcp-dockhand/issues/214)
+* **client:** measure ms/bytes at body completion for streamed responses ([#223](https://github.com/strausmann/mcp-dockhand/issues/223)) ([8ee1d5e](https://github.com/strausmann/mcp-dockhand/commit/8ee1d5e5e085325657295c3322054931eec11dcc)), closes [#215](https://github.com/strausmann/mcp-dockhand/issues/215), references [#215](https://github.com/strausmann/mcp-dockhand/issues/215) [#215](https://github.com/strausmann/mcp-dockhand/issues/215) [pre-#215](https://github.com/pre-/issues/215) [#215](https://github.com/strausmann/mcp-dockhand/issues/215)
+
+### Documentation
+
+* **api:** update API coverage report (automated) ([c103740](https://github.com/strausmann/mcp-dockhand/commit/c10374049afec166e83f240a641f4c72e74e705d))
+
 ## [1.15.0](https://github.com/strausmann/mcp-dockhand/compare/v1.14.0...v1.15.0) (2026-08-19)
 
 ### Features
