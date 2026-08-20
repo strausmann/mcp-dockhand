@@ -94,7 +94,7 @@ function buildCoverageDoc({
   lines.push(
     '> Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei'
   );
-  lines.push('> Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.');
+  lines.push('> Änderung committet. Grundlage: `docs/dockhand-openapi.json` (via `deriveRoutesFromOpenapi()`).');
   lines.push('');
   lines.push(`**Erzeugt:** ${generatedAt}`);
   lines.push(`**Dockhand-Upstream-Commit:** \`${sourceCommit}\``);
