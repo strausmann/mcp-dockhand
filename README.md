@@ -649,6 +649,15 @@ DOCKHAND_PASSWORD=secret \
 npm run dev
 ```
 
+### Dockhand API spec
+
+MCP tool routes, query parameters, and request-body contracts are all derived from a single pinned source, `docs/dockhand-openapi.json` — fetched from a fixed upstream `Finsys/dockhand` commit by `scripts/fetch-openapi.mjs` (the pin is mirrored in `src/openapi/pinned.ts` and kept in sync with `SOURCE_COMMIT` in that script).
+
+- `npm run api:validate` is a hard, PR-blocking CI gate: it fails the build on route/query mismatches and on a tool missing a required body field (`BODY_PARAM_MISSING_REQUIRED`); other body-contract findings (unknown body fields, untyped passthrough, unresolved contracts, missing tools) stay advisory-only — see [`docs/body-contract-report.md`](docs/body-contract-report.md).
+- `npm run api:coverage-doc` and `npm run api:tool-endpoint-map` regenerate the derived docs (`docs/coverage.md`, `src/openapi/tool-endpoint-map.ts`, `docs/body-contract-report.md`); CI checks they're in sync with the code on every PR.
+- A weekly workflow (`.github/workflows/drift-bump.yml`) bumps the pinned commit toward upstream `main` and opens a PR — no auto-merge, so any body-contract drift from a new Dockhand release is caught by the hard gate above before it ships.
+- Version-gating (comparing the live Dockhand server's version against the pinned spec) is a separate, not-yet-implemented follow-up.
+
 ### Linting
 
 `npm run lint` lints `src/` and `tests/` with two rules: `no-unused-vars` and
