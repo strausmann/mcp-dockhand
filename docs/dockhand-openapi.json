@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Dockhand API",
-    "version": "1.0.42",
+    "version": "1.0.43",
     "description": "Auto-generated from src/routes/**/+server.ts by scripts/generate-openapi.ts. Path, HTTP method, tag, and auth requirement are derived automatically from the route tree and hooks.server.ts PUBLIC_PATHS. Parameters, response status codes, and request body fields are additionally auto-detected from each handler’s own source (query params via url.searchParams, status codes via status:/error(), body fields via destructuring) — adding a new endpoint therefore requires ZERO manual spec edits to show up with real params/responses. An optional, additive `@openapi` JSDoc annotation on a handler replaces the generic auto-descriptions with hand-written summaries, exact types, and examples."
   },
   "servers": [
@@ -7329,7 +7329,30 @@
             "bearerAuth": []
           }
         ],
-        "description": "Send `multipart/form-data` with one or more `files` parts; each file is tar-wrapped and written into the target directory. Partial success is reported per file in `uploaded`/`errors`."
+        "description": "Send `multipart/form-data` with one or more `files` parts; each file is tar-wrapped and written into the target directory. Partial success is reported per file in `uploaded`/`errors`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    },
+                    "description": "One or more files to write into the target directory"
+                  }
+                },
+                "required": [
+                  "files"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/api/containers/{id}/inspect": {
@@ -8627,6 +8650,9 @@
                     },
                     "source": {
                       "type": "string"
+                    },
+                    "rateLimited": {
+                      "type": "boolean"
                     },
                     "notes": {
                       "type": "array",
@@ -11923,18 +11949,6 @@
                   },
                   "vulnerabilityCriteria": {
                     "type": "string"
-                  },
-                  "checkPinnedVersions": {
-                    "type": "boolean"
-                  },
-                  "semverMaxBump": {
-                    "type": "string"
-                  },
-                  "semverMatchFlavor": {
-                    "type": "boolean"
-                  },
-                  "semverIncludePrerelease": {
-                    "type": "boolean"
                   }
                 }
               },
@@ -11942,11 +11956,7 @@
                 "enabled": true,
                 "cron": "0 4 * * *",
                 "autoUpdate": false,
-                "vulnerabilityCriteria": "never",
-                "checkPinnedVersions": true,
-                "semverMaxBump": "minor",
-                "semverMatchFlavor": true,
-                "semverIncludePrerelease": false
+                "vulnerabilityCriteria": "never"
               }
             }
           }
@@ -15491,7 +15501,19 @@
             "bearerAuth": []
           }
         ],
-        "description": "The request body is the raw image tar (Content-Type application/x-tar), streamed straight to the daemon without buffering. Local/socket or direct TCP only; Hawser is rejected."
+        "description": "The request body is the raw image tar (Content-Type application/x-tar), streamed straight to the daemon without buffering. Local/socket or direct TCP only; Hawser is rejected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-tar": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "The raw image tar, streamed to the daemon (docker load)"
+              }
+            }
+          }
+        }
       }
     },
     "/api/images/pull": {
@@ -23447,6 +23469,134 @@
         ]
       }
     },
+    "/api/settings/semver": {
+      "get": {
+        "operationId": "get_api_settings_semver",
+        "tags": [
+          "settings"
+        ],
+        "summary": "Get the global newer-version-tag (semver) detection config",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "maxBump": {
+                      "type": "string"
+                    },
+                    "matchFlavor": {
+                      "type": "boolean"
+                    },
+                    "includePrerelease": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "maxBump",
+                    "matchFlavor",
+                    "includePrerelease"
+                  ]
+                },
+                "example": {
+                  "enabled": true,
+                  "maxBump": "minor",
+                  "matchFlavor": true,
+                  "includePrerelease": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "post_api_settings_semver",
+        "tags": [
+          "settings"
+        ],
+        "summary": "Set the global newer-version-tag (semver) detection config",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                },
+                "example": {
+                  "success": true
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied (needs settings:edit)"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "maxBump": {
+                    "type": "string"
+                  },
+                  "matchFlavor": {
+                    "type": "boolean"
+                  },
+                  "includePrerelease": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "example": {
+                "enabled": true,
+                "maxBump": "minor",
+                "matchFlavor": true,
+                "includePrerelease": false
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/theme": {
       "get": {
         "operationId": "get_api_settings_theme",
@@ -24992,6 +25142,178 @@
             "bearerAuth": []
           }
         ]
+      }
+    },
+    "/api/stacks/{name}/validate": {
+      "post": {
+        "operationId": "post_api_stacks_name_validate",
+        "tags": [
+          "stacks"
+        ],
+        "summary": "Run the Compose Validate preflight linter on a compose file and return findings with severities and line numbers (requires the 'view' permission)",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Stack name (used to exclude the stack's own containers from cross-stack collision checks)"
+          },
+          {
+            "name": "env",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Environment ID for the context-aware checks (from GET /api/environments)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "findings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "ruleId": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "hint": {
+                            "type": "string"
+                          },
+                          "service": {
+                            "type": "string"
+                          },
+                          "line": {
+                            "type": "integer"
+                          },
+                          "fix": {
+                            "type": "string"
+                          },
+                          "fixDescription": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "ruleId",
+                          "severity",
+                          "message"
+                        ]
+                      }
+                    },
+                    "counts": {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "integer"
+                        },
+                        "warn": {
+                          "type": "integer"
+                        },
+                        "info": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "warn",
+                        "info"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "findings",
+                    "counts"
+                  ]
+                },
+                "example": {
+                  "findings": [
+                    {
+                      "ruleId": "LATEST_TAG",
+                      "severity": "warn",
+                      "message": "\"web\" uses `:latest` (nginx:latest)",
+                      "hint": "Pin a version tag for reproducible deploys and to enable newer-version detection.",
+                      "service": "web",
+                      "line": 3
+                    }
+                  ],
+                  "counts": {
+                    "error": 0,
+                    "warn": 1,
+                    "info": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "compose content is required"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "compose": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "type": "object",
+                    "properties": {
+                      "disabled": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "severity": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "envVars": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "compose"
+                ]
+              },
+              "example": {
+                "compose": "services:\n  web:\n    image: nginx:latest\n    ports: [\"8080:80\"]\n"
+              }
+            }
+          }
+        }
       }
     },
     "/api/stacks/adopt": {
