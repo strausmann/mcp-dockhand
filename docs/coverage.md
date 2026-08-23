@@ -4,18 +4,18 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-08-20T05:10:14.995Z
-**Dockhand-Upstream-Commit:** `99b1672be5cbc508d8befa973cc6139ac2f2c3ae`
-**Schema-Endpunkte gesamt:** 246
+**Erzeugt:** 2026-08-23T05:23:22.424Z
+**Dockhand-Upstream-Commit:** `30fb770a9f37a2414c34d0acd14f1fa289576d18`
+**Schema-Endpunkte gesamt:** 247
 
 ## Coverage
 
-**89.1%** (295/331 in-Scope-Endpunkte haben ein MCP-Tool)
+**88.9%** (295/332 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
 | COVERED | 295 |
-| MISSING_TOOL | 36 |
+| MISSING_TOOL | 37 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -71,6 +71,12 @@ ersten Pfad-Segment nach `/api/`:
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
 | GET | `/api/docs` | - |
+
+### git (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| POST | `/api/git/branches` | - |
 
 ### images (1)
 
