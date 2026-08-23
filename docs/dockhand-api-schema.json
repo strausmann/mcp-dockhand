@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-20T05:10:09.930Z",
+  "generatedAt": "2026-08-23T05:23:17.884Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "99b1672be5cbc508d8befa973cc6139ac2f2c3ae",
-  "endpointCount": 246,
+  "sourceCommit": "30fb770a9f37a2414c34d0acd14f1fa289576d18",
+  "endpointCount": 247,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -1246,6 +1246,12 @@
       "path": "/api/events",
       "methods": [
         "GET"
+      ]
+    },
+    {
+      "path": "/api/git/branches",
+      "methods": [
+        "POST"
       ]
     },
     {
