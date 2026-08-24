@@ -4,18 +4,18 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-08-23T05:23:22.424Z
-**Dockhand-Upstream-Commit:** `30fb770a9f37a2414c34d0acd14f1fa289576d18`
-**Schema-Endpunkte gesamt:** 247
+**Erzeugt:** 2026-08-24T05:32:42.347Z
+**Dockhand-Upstream-Commit:** `730ad8ff8271166ab97bd4ef6bf163ae06294d1f`
+**Schema-Endpunkte gesamt:** 253
 
 ## Coverage
 
-**88.9%** (295/332 in-Scope-Endpunkte haben ein MCP-Tool)
+**86.3%** (295/342 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
 | COVERED | 295 |
-| MISSING_TOOL | 37 |
+| MISSING_TOOL | 47 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -60,10 +60,20 @@ ersten Pfad-Segment nach `/api/`:
 | GET | `/api/backup/stack-dir-listing` | - |
 | GET | `/api/backup/stack-path` | - |
 
-### containers (1)
+### container-icons (4)
 
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
+| GET | `/api/container-icons` | - |
+| DELETE | `/api/container-icons/{name}` | name |
+| GET | `/api/container-icons/{name}` | name |
+| POST | `/api/container-icons/{name}` | name |
+
+### containers (2)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/containers/{id}/compose` | id |
 | GET | `/api/containers/{id}/version-notes` | id |
 
 ### docs (1)
@@ -78,6 +88,13 @@ ersten Pfad-Segment nach `/api/`:
 |------|------|----------------|
 | POST | `/api/git/branches` | - |
 
+### icons (2)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/icons/selfhst-manifest` | - |
+| GET | `/api/icons/selfhst/{ref}` | ref |
+
 ### images (1)
 
 | HTTP | Pfad | Path-Parameter |
@@ -91,10 +108,13 @@ ersten Pfad-Segment nach `/api/`:
 | GET | `/api/settings/semver` | - |
 | POST | `/api/settings/semver` | - |
 
-### stacks (1)
+### stacks (4)
 
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
+| DELETE | `/api/stacks/{name}/icon` | name |
+| GET | `/api/stacks/{name}/icon` | name |
+| POST | `/api/stacks/{name}/icon` | name |
 | POST | `/api/stacks/{name}/validate` | name |
 
 ## Deliberately omitted (with reason)
