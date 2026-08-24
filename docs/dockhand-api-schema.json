@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-23T05:23:17.884Z",
+  "generatedAt": "2026-08-24T05:32:37.355Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "30fb770a9f37a2414c34d0acd14f1fa289576d18",
-  "endpointCount": 247,
+  "sourceCommit": "730ad8ff8271166ab97bd4ef6bf163ae06294d1f",
+  "endpointCount": 253,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -663,6 +663,23 @@
       ]
     },
     {
+      "path": "/api/container-icons",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/container-icons/{name}",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST"
+      ],
+      "pathParams": [
+        "name"
+      ]
+    },
+    {
       "path": "/api/containers",
       "methods": [
         "GET",
@@ -694,6 +711,15 @@
           }
         ]
       }
+    },
+    {
+      "path": "/api/containers/{id}/compose",
+      "methods": [
+        "GET"
+      ],
+      "pathParams": [
+        "id"
+      ]
     },
     {
       "path": "/api/containers/{id}/exec",
@@ -1469,6 +1495,21 @@
       "path": "/api/host",
       "methods": [
         "GET"
+      ]
+    },
+    {
+      "path": "/api/icons/selfhst-manifest",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/icons/selfhst/{ref}",
+      "methods": [
+        "GET"
+      ],
+      "pathParams": [
+        "ref"
       ]
     },
     {
@@ -2367,6 +2408,17 @@
     {
       "path": "/api/stacks/{name}/env/validate",
       "methods": [
+        "POST"
+      ],
+      "pathParams": [
+        "name"
+      ]
+    },
+    {
+      "path": "/api/stacks/{name}/icon",
+      "methods": [
+        "DELETE",
+        "GET",
         "POST"
       ],
       "pathParams": [
