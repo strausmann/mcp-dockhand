@@ -10,7 +10,7 @@
 > hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-Issue) — hier weiterhin nur
 > zur Übersicht gelistet. Die übrigen drei Typen bleiben vollständig advisory.
 
-**Erzeugt:** 2026-08-17T20:01:17.811Z
+**Erzeugt:** 2026-08-26T08:56:14.633Z
 
 ## Zusammenfassung
 
@@ -31,12 +31,12 @@ Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Aussch
 | `adopt_stack` | POST | `/api/stacks/adopt` | `composePath` | stacks.ts:494 |
 | `adopt_stack` | POST | `/api/stacks/adopt` | `envPath` | stacks.ts:494 |
 | `adopt_stack` | POST | `/api/stacks/adopt` | `sourceDir` | stacks.ts:494 |
-| `create_environment` | POST | `/api/environments` | `url` | environments.ts:93 |
+| `create_environment` | POST | `/api/environments` | `url` | environments.ts:157 |
 | `create_user` | POST | `/api/users` | `roles` | users.ts:33 |
 | `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env` | `keys` | stacks.ts:419 |
 | `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env/raw` | `keys` | stacks.ts:427 |
 | `set_container_auto_update` | POST | `/api/auto-update/{containerName}` | `policy` | auto-update.ts:37 |
-| `test_environment_connection` | POST | `/api/environments/test` | `url` | environments.ts:161 |
+| `test_environment_connection` | POST | `/api/environments/test` | `url` | environments.ts:225 |
 
 ## UNTYPED_PASSTHROUGH (46)
 
@@ -46,7 +46,7 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 |------|------|------|------|-------|
 | `create_config_set` | POST | `/api/config-sets` | `name` | users.ts:281 |
 | `create_container` | POST | `/api/containers` | `name`, `image` | containers.ts:284 |
-| `create_environment_notification` | POST | `/api/environments/{environmentId}/notifications` | `notificationId` | environments.ts:253 |
+| `create_environment_notification` | POST | `/api/environments/{environmentId}/notifications` | `notificationId` | environments.ts:317 |
 | `create_git_credential` | POST | `/api/git/credentials` | `name` | git-stacks.ts:98 |
 | `create_git_stack` | POST | `/api/git/stacks` | `stackName` | git-stacks.ts:234 |
 | `create_ldap_provider` | POST | `/api/auth/ldap` | `name`, `serverUrl`, `baseDn` | auth.ts:65 |
@@ -60,8 +60,8 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `create_template_source` | POST | `/api/templates/sources` | `name`, `url` | templates.ts:41 |
 | `create_volume` | POST | `/api/volumes` | `name` | volumes.ts:116 |
 | `set_dashboard_preferences` | POST | `/api/dashboard/preferences` | - | dashboard.ts:29 |
-| `set_environment_image_prune` | POST | `/api/environments/{environmentId}/image-prune` | - | environments.ts:236 |
-| `set_environment_update_check` | POST | `/api/environments/{environmentId}/update-check` | - | environments.ts:219 |
+| `set_environment_image_prune` | POST | `/api/environments/{environmentId}/image-prune` | - | environments.ts:300 |
+| `set_environment_update_check` | POST | `/api/environments/{environmentId}/update-check` | - | environments.ts:283 |
 | `set_grid_preferences` | POST | `/api/preferences/grid` | `gridId` | users.ts:263 |
 | `set_sidebar_preferences` | POST | `/api/preferences/sidebar` | `order`, `hidden` | preferences.ts:24 |
 | `test_notification_config` | POST | `/api/notifications/test` | `type` | notifications.ts:65 |
@@ -72,8 +72,8 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `update_config_set` | PUT | `/api/config-sets/{configSetId}` | - | users.ts:298 |
 | `update_container` | POST | `/api/containers/{containerId}/update` | - | containers.ts:255 |
 | `update_container_runtime` | POST | `/api/containers/{containerId}/update-runtime` | - | containers.ts:522 |
-| `update_environment` | PUT | `/api/environments/{environmentId}` | - | environments.ts:133 |
-| `update_environment_notification` | PUT | `/api/environments/{environmentId}/notifications/{notificationId}` | - | environments.ts:284 |
+| `update_environment` | PUT | `/api/environments/{environmentId}` | - | environments.ts:197 |
+| `update_environment_notification` | PUT | `/api/environments/{environmentId}/notifications/{notificationId}` | - | environments.ts:348 |
 | `update_general_settings` | POST | `/api/settings/general` | - | system.ts:97 |
 | `update_git_credential` | PUT | `/api/git/credentials/{credentialId}` | - | git-stacks.ts:129 |
 | `update_git_repository` | PUT | `/api/git/repositories/{repositoryId}` | - | git-stacks.ts:280 |
@@ -121,7 +121,7 @@ Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehl
 | `stop_stack` | POST | `/api/stacks/{name}/stop` | - | stacks.ts:68 |
 | `sync_git_repository` | POST | `/api/git/repositories/{repositoryId}/sync` | - | git-stacks.ts:181 |
 | `sync_git_stack` | POST | `/api/git/stacks/{stackId}/sync` | - | git-stacks.ts:37 |
-| `test_environment` | POST | `/api/environments/{environmentId}/test` | - | environments.ts:147 |
+| `test_environment` | POST | `/api/environments/{environmentId}/test` | - | environments.ts:211 |
 | `test_git_repository` | POST | `/api/git/repositories/{repositoryId}/test` | - | git-stacks.ts:188 |
 | `test_git_stack` | POST | `/api/git/stacks/{stackId}/test` | - | git-stacks.ts:44 |
 | `test_ldap_provider` | POST | `/api/auth/ldap/{providerId}/test` | - | auth.ts:79 |
@@ -129,7 +129,7 @@ Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehl
 | `test_oidc_provider` | POST | `/api/auth/oidc/{providerId}/test` | - | auth.ts:51 |
 | `toggle_schedule` | POST | `/api/schedules/{type}/{scheduleId}/toggle` | - | schedules.ts:66 |
 | `toggle_system_schedule` | POST | `/api/schedules/system/{scheduleId}/toggle` | - | schedules.ts:73 |
-| `trigger_environment_image_prune` | PUT | `/api/environments/{environmentId}/image-prune` | - | environments.ts:293 |
+| `trigger_environment_image_prune` | PUT | `/api/environments/{environmentId}/image-prune` | - | environments.ts:357 |
 | `unpause_container` | POST | `/api/containers/{containerId}/unpause` | - | containers.ts:194 |
 | `upload_container_file` | POST | `/api/containers/{containerId}/files/upload` | - | containers.ts:412 |
 
