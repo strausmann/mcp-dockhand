@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-24T05:32:37.355Z",
+  "generatedAt": "2026-08-27T16:02:46.404Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "730ad8ff8271166ab97bd4ef6bf163ae06294d1f",
-  "endpointCount": 253,
+  "sourceCommit": "a9b1998aad9549aa9ac0a1e44f438f809283f101",
+  "endpointCount": 254,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -1510,6 +1510,12 @@
       ],
       "pathParams": [
         "ref"
+      ]
+    },
+    {
+      "path": "/api/icons/selfhst/batch",
+      "methods": [
+        "POST"
       ]
     },
     {
