@@ -4,18 +4,18 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-08-24T05:32:42.347Z
-**Dockhand-Upstream-Commit:** `730ad8ff8271166ab97bd4ef6bf163ae06294d1f`
-**Schema-Endpunkte gesamt:** 253
+**Erzeugt:** 2026-08-27T16:02:51.056Z
+**Dockhand-Upstream-Commit:** `a9b1998aad9549aa9ac0a1e44f438f809283f101`
+**Schema-Endpunkte gesamt:** 254
 
 ## Coverage
 
-**86.3%** (295/342 in-Scope-Endpunkte haben ein MCP-Tool)
+**86.0%** (295/343 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
 | COVERED | 295 |
-| MISSING_TOOL | 47 |
+| MISSING_TOOL | 48 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -88,12 +88,13 @@ ersten Pfad-Segment nach `/api/`:
 |------|------|----------------|
 | POST | `/api/git/branches` | - |
 
-### icons (2)
+### icons (3)
 
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
 | GET | `/api/icons/selfhst-manifest` | - |
 | GET | `/api/icons/selfhst/{ref}` | ref |
+| POST | `/api/icons/selfhst/batch` | - |
 
 ### images (1)
 
