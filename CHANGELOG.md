@@ -5,6 +5,18 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.2](https://github.com/strausmann/mcp-dockhand/compare/v1.15.1...v1.15.2) (2026-08-27)
+
+### Bug Fixes
+
+* **environments:** stop leaking hawserToken and tlsKey in environment responses ([#233](https://github.com/strausmann/mcp-dockhand/issues/233)) ([bac0e73](https://github.com/strausmann/mcp-dockhand/commit/bac0e73dfa12c8b76cfeea229026da039e91d6be)), references [#232](https://github.com/strausmann/mcp-dockhand/issues/232)
+
+### Documentation
+
+* **api:** update API coverage report (automated) ([5399c7c](https://github.com/strausmann/mcp-dockhand/commit/5399c7c6c99cacdb7fd282b089e422c31a18b4bb))
+* **api:** update API coverage report (automated) ([f12d4aa](https://github.com/strausmann/mcp-dockhand/commit/f12d4aa892e993baafc792ad168eeced4d043d22))
+* **api:** update API coverage report (automated) ([2c01d4d](https://github.com/strausmann/mcp-dockhand/commit/2c01d4d71afe1299f276b5089f2f75a0008de561))
+
 ## [1.15.1](https://github.com/strausmann/mcp-dockhand/compare/v1.15.0...v1.15.1) (2026-08-20)
 
 ### Bug Fixes
