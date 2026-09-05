@@ -48,13 +48,15 @@ describe('describeTool', () => {
     expect(description).toMatch(/environmentId from list_environments/);
   });
 
-  it('falls back to a non-empty default and logs an advisory for a tool with no registry entry', () => {
+  // Was the "known registry gap" example until Dockhand v1.0.46 gave `/metrics` (the
+  // tool's real route, see src/tools/system.ts) an `@openapi` annotation — the tool
+  // now resolves via the spec like any other, no fallback/advisory involved (Refs #234).
+  it('derives a real description for get_prometheus_metrics via the spec (no fallback/advisory since v1.0.46)', () => {
     const { written, restore } = captureLoggerOutput();
     const description = describeTool('get_prometheus_metrics');
     expect(description.length).toBeGreaterThan(0);
-    expect(written.length).toBeGreaterThan(0);
-    const logged = written.join('\n');
-    expect(logged).toContain('get_prometheus_metrics');
+    expect(description).not.toBe('No description available.');
+    expect(written.length).toBe(0);
     restore();
   });
 
@@ -105,8 +107,13 @@ describe('describeTool', () => {
       // tools the spec operation's summary actually describes — they must keep getting the
       // plain derived text (no override entry for them).
       expect(describeTool('update_stack_env_raw')).toMatch(/write raw \.env file/i);
-      // 1.0.42 reworded this summary and now also mentions the provider-injected keys.
-      expect(describeTool('get_stack_env')).toMatch(/env vars .*secrets masked/i);
+      // 1.0.42 reworded this summary to mention the provider-injected keys; 1.0.44 dropped
+      // the "secrets masked" phrase from the summary entirely (it now only appears in the
+      // operation's `description` prose, which deriveToolDescription() does not surface —
+      // see derive-description.ts's file header). Verified against the 1.0.46 handler
+      // (`src/routes/api/stacks/[name]/env/+server.ts`, `@openapi summary:`): the real
+      // summary is "Get a stack's env vars plus injected provider keys".
+      expect(describeTool('get_stack_env')).toMatch(/env vars plus injected provider keys/i);
       expect(describeTool('remove_user_role')).toMatch(/remove a role assignment/i);
       expect(describeTool('trigger_git_webhook')).toMatch(
         /secret passed as the `secret` query parameter/i,

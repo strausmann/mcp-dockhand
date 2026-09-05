@@ -92,10 +92,18 @@ describe('update_stack_env — merge-semantic implementation', () => {
   });
 
   describe('replace path — splits the payload by isSecret without a merge GET', () => {
-    it('derives secrets and non-secrets directly from the payload in replace mode', () => {
-      // replace branch: secrets = variables.filter(...), payloadNonSecrets = variables.filter(...)
-      expect(block).toMatch(/secrets\s*=\s*variables\.filter/);
-      expect(block).toMatch(/payloadNonSecrets\s*=\s*variables\.filter/);
+    it('derives replaceSecrets/replaceNonSecrets directly from the payload in replace mode', () => {
+      // #231 (Fix-Runde 2): the replace branch now also routes a git stack's
+      // non-secrets into the DB PUT (isGitStack-gated — see
+      // tests/stack-env-git-routing.test.ts for that BEHAVIOR coverage,
+      // which this source-text guard cannot exercise). What it still
+      // guards is the base split every replace call computes before any
+      // git-routing decision: replaceSecrets = variables.filter(...),
+      // replaceNonSecrets = variables.filter(...). It cannot distinguish
+      // these identifiers appearing in a comment from the real assignment —
+      // that's a limitation of grepping source text, not of the code.
+      expect(block).toMatch(/replaceSecrets\s*=\s*variables\.filter/);
+      expect(block).toMatch(/replaceNonSecrets\s*=\s*variables\.filter/);
     });
   });
 
@@ -136,6 +144,25 @@ describe('update_stack_env — merge-semantic implementation', () => {
     it('the mode parameter documents the replace opt-in and that it deletes everything else', () => {
       expect(block).toMatch(/"replace":\s*overwrite/i);
       expect(block).toMatch(/all others are deleted/i);
+    });
+  });
+
+  // #231 (Fix-Runde 4, Codex P2): a prior description draft claimed "a pure-secret
+  // payload needs only stacks:edit" without qualifying it by mode — wrong for the
+  // DEFAULT mode="merge", which unconditionally does a load-bearing GET /env
+  // (Ground Truth: line ~244, `const existing = await client.get<StackEnv>(envPath,
+  // ...)`, runs BEFORE any branch on payload content) that itself requires
+  // stacks:view. Only replace + a pure-secret payload gets away with stacks:edit
+  // alone. These assertions pin the corrected, mode-qualified claim.
+  describe('description — documents the full stacks:view/stacks:edit permission contract', () => {
+    it('merge (default) is documented as ALWAYS requiring stacks:view in addition to stacks:edit, for every payload', () => {
+      expect(block).toMatch(/merge[\s\S]{0,200}ALWAYS requires "stacks:view"[\s\S]{0,100}"stacks:edit"/);
+      expect(block).toMatch(/including a pure-secret one/i);
+    });
+
+    it('replace is documented as needing stacks:view ONLY when the payload has a non-secret variable, and stacks:edit alone for a pure-secret payload', () => {
+      expect(block).toMatch(/"stacks:view"\s*only when the payload includes any non-secret variable/i);
+      expect(block).toMatch(/pure-secret replace payload needs only "stacks:edit"/i);
     });
   });
 

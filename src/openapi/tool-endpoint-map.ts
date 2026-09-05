@@ -1,8 +1,7 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * Regenerate with: node scripts/generate-tool-endpoint-map.mjs
- * (see that script's header for the two manually-verified EXPLICIT_OVERRIDES entries
- * and why `get_prometheus_metrics` has no entry at all)
+ * (see that script's header for the manually-verified EXPLICIT_OVERRIDES entries)
  *
  * Maps every registered MCP tool name to the {method, path} of the real Dockhand
  * endpoint it calls, using docs/dockhand-openapi.json's own path form (e.g.
@@ -152,6 +151,7 @@ export const TOOL_ENDPOINT_MAP: Readonly<Record<string, ToolEndpointEntry>> = {
   "get_privacy_policy": { method: "GET", path: "/api/legal/privacy" },
   "get_profile": { method: "GET", path: "/api/profile" },
   "get_profile_preferences": { method: "GET", path: "/api/profile/preferences" },
+  "get_prometheus_metrics": { method: "GET", path: "/metrics" },
   "get_registry": { method: "GET", path: "/api/registries/{id}" },
   "get_registry_catalog": { method: "GET", path: "/api/registry/catalog" },
   "get_registry_tag_info": { method: "GET", path: "/api/registry/tag-info" },
@@ -162,6 +162,7 @@ export const TOOL_ENDPOINT_MAP: Readonly<Record<string, ToolEndpointEntry>> = {
   "get_schedule_executions": { method: "GET", path: "/api/schedules/executions" },
   "get_schedule_settings": { method: "GET", path: "/api/schedules/settings" },
   "get_secret_provider": { method: "GET", path: "/api/secret-providers/{id}" },
+  "get_semver_settings": { method: "GET", path: "/api/settings/semver" },
   "get_sidebar_preferences": { method: "GET", path: "/api/preferences/sidebar" },
   "get_stack_base_path": { method: "GET", path: "/api/stacks/base-path" },
   "get_stack_compose": { method: "GET", path: "/api/stacks/{name}/compose" },
@@ -305,12 +306,14 @@ export const TOOL_ENDPOINT_MAP: Readonly<Record<string, ToolEndpointEntry>> = {
   "update_scanner_settings": { method: "POST", path: "/api/settings/scanner" },
   "update_schedule_settings": { method: "PUT", path: "/api/schedules/settings" },
   "update_secret_provider": { method: "PUT", path: "/api/secret-providers/{id}" },
+  "update_semver_settings": { method: "POST", path: "/api/settings/semver" },
   "update_stack_compose": { method: "PUT", path: "/api/stacks/{name}/compose" },
   "update_stack_env": { method: "PUT", path: "/api/stacks/{name}/env" },
   "update_stack_env_raw": { method: "PUT", path: "/api/stacks/{name}/env/raw" },
   "update_template_source": { method: "PUT", path: "/api/templates/sources" },
   "update_user": { method: "PUT", path: "/api/users/{id}" },
   "upload_container_file": { method: "POST", path: "/api/containers/{id}/files/upload" },
+  "validate_stack_compose": { method: "POST", path: "/api/stacks/{name}/validate" },
   "validate_stack_env": { method: "POST", path: "/api/stacks/{name}/env/validate" },
   "validate_stack_path": { method: "POST", path: "/api/stacks/validate-path" },
   "write_container_file_content": { method: "PUT", path: "/api/containers/{id}/files/content" },

@@ -18,9 +18,12 @@ import { TOOL_DESCRIPTION_OVERRIDES } from './description-overrides.js';
 
 /**
  * Resolves a registered MCP tool name to the {method, path} of the Dockhand endpoint
- * it calls. Returns `undefined` for tools with no registry entry (currently only
- * `get_prometheus_metrics` — `/api/metrics` is not a SvelteKit route and therefore
- * cannot carry an `@openapi` annotation) and for any name that is not a known tool.
+ * it calls. Returns `undefined` for any name that is not a known, registered tool —
+ * AND, just as importantly, for a registered META-tool that legitimately has no
+ * single-endpoint mapping in `TOOL_ENDPOINT_MAP` (e.g. `self_check`, which composes
+ * several underlying calls rather than wrapping one endpoint 1:1). Callers must not
+ * read `undefined` as "this tool does not exist" — check the tool registry itself for
+ * that question.
  */
 export function toolEndpoint(name: string): ToolEndpointEntry | undefined {
   return TOOL_ENDPOINT_MAP[name];

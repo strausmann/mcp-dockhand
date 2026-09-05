@@ -118,8 +118,13 @@ describe('update_stack_env — merge auto-routing (mocked client)', () => {
       variables: [{ key: 'TOKEN', value: 'x', isSecret: true }],
     });
 
-    // structured GET, then a raw GET to scrub the (brand-new) promoted key from .env — see Critical 2
-    expect(client.get).toHaveBeenCalledTimes(2);
+    // structured GET, then #231's GET /api/stacks/sources (a DB PUT is about
+    // to fire — existingSecretsCount/secrets.length>0 — so the source type
+    // must be resolved to know whether existing DB non-secrets need
+    // preserving; here it resolves to non-git via the generic structured
+    // mock, so routing is unaffected), then a raw GET to scrub the
+    // (brand-new) promoted key from .env — see Critical 2
+    expect(client.get).toHaveBeenCalledTimes(3);
     expect(envPut(client)?.[1]).toEqual({ variables: [{ key: 'TOKEN', value: 'x', isSecret: true }] });
     // .env content is unchanged (TOKEN was never there), but the scrub PUT still fires
     expect(rawPut(client)?.[1]).toEqual({ content: '' });
@@ -453,12 +458,18 @@ describe('update_stack_env — summary (merge and replace)', () => {
     expect(String(out.hint)).toContain('remove_stack_env_vars');
   });
 
-  it('replace mode: no summary/hint and no extra GET (existing #105 contract preserved — Critical 4)', async () => {
+  it('replace mode: no summary/hint (existing #105 contract preserved — Critical 4); a payload with a non-secret DOES now resolve the source type (#231, Fix-Runde 2) but that alone never adds a summary/hint', async () => {
     const { handler, client } = setup();
+    // 'A' has no isSecret field -> it is a non-secret -> #231's replace-mode
+    // git-routing fix must know the stack's source type before deciding
+    // where it goes, so it resolves it here (isGitStack ends up false: the
+    // mocked sources map has no entry for 'x').
+    client.get.mockResolvedValue({});
     const res = await handler({ environmentId: 10, name: 'x',
       variables: [{ key: 'A', value: 'a' }], mode: 'replace' });
     const out = jsonOut(res);
-    expect(client.get).not.toHaveBeenCalled();
+    expect(client.get).toHaveBeenCalledTimes(1);
+    expect(client.get).toHaveBeenCalledWith('/api/stacks/sources', { env: 10 });
     expect(out.summary).toBeUndefined();
     expect(out.hint).toBeUndefined();
   });

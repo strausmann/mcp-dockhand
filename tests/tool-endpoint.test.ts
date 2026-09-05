@@ -23,8 +23,16 @@ describe('toolEndpoint', () => {
     expect(toolEndpoint('list_git_stacks')).toEqual({ method: 'GET', path: '/api/git/stacks' });
   });
 
-  it('returns undefined for a tool with no registry entry (e.g. get_prometheus_metrics)', () => {
-    expect(toolEndpoint('get_prometheus_metrics')).toBeUndefined();
+  // get_prometheus_metrics was this test's example until Dockhand v1.0.46 gave
+  // `/metrics` (its real route) an `@openapi` annotation — it now resolves like any
+  // other tool (see the 'resolves a known tool' case above; Refs #234). The six
+  // self-help/meta tools (META_TOOL_NAMES) are the remaining real example of a
+  // registered tool with genuinely no TOOL_ENDPOINT_MAP entry — none of them wrap a
+  // single Dockhand endpoint (see tests/tool-endpoint.test.ts's own describe block
+  // further down and src/tools/meta.ts's META_TOOL_NAMES doc comment).
+  it('returns undefined for a registered tool with no registry entry (e.g. self_check, a meta/self-help tool)', () => {
+    expect(META_TOOL_NAMES).toContain('self_check');
+    expect(toolEndpoint('self_check')).toBeUndefined();
   });
 
   it('returns undefined for a name that is not a tool at all', () => {
