@@ -25,6 +25,7 @@ import { registerTemplateTools } from './templates.js';
 import { registerLabelTools } from './labels.js';
 import { registerPreferenceTools } from './preferences.js';
 import { registerSecretProviderTools } from './secret-providers.js';
+import { registerSettingsTools } from './settings.js';
 import { registerMetaTools } from './meta.js';
 import { logger } from '../utils/logger.js';
 
@@ -50,6 +51,7 @@ export function registerAllTools(server: McpServer, client: DockhandClient): voi
   registerLabelTools(server, client);
   registerPreferenceTools(server, client);
   registerSecretProviderTools(server, client);
+  registerSettingsTools(server, client);
   registerMetaTools(server, client);
 
   logger.info({ component: 'tools' }, 'all Dockhand tools registered');
