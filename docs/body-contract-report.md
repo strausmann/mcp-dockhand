@@ -10,7 +10,7 @@
 > hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-Issue) — hier weiterhin nur
 > zur Übersicht gelistet. Die übrigen drei Typen bleiben vollständig advisory.
 
-**Erzeugt:** 2026-09-05T20:54:24.531Z
+**Erzeugt:** 2026-09-05T21:59:23.338Z
 
 ## Zusammenfassung
 
@@ -27,14 +27,14 @@ Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Aussch
 | Tool | HTTP | Pfad | Feld | Datei |
 |------|------|------|------|-------|
 | `activate_license` | POST | `/api/license` | `licenseKey` | system.ts:179 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `name` | stacks.ts:711 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `composePath` | stacks.ts:711 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `envPath` | stacks.ts:711 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `sourceDir` | stacks.ts:711 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `name` | stacks.ts:747 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `composePath` | stacks.ts:747 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `envPath` | stacks.ts:747 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `sourceDir` | stacks.ts:747 |
 | `create_environment` | POST | `/api/environments` | `url` | environments.ts:157 |
 | `create_user` | POST | `/api/users` | `roles` | users.ts:33 |
-| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env` | `keys` | stacks.ts:636 |
-| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env/raw` | `keys` | stacks.ts:644 |
+| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env` | `keys` | stacks.ts:672 |
+| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env/raw` | `keys` | stacks.ts:680 |
 | `set_container_auto_update` | POST | `/api/auto-update/{containerName}` | `policy` | auto-update.ts:37 |
 | `test_environment_connection` | POST | `/api/environments/test` | `url` | environments.ts:225 |
 
@@ -90,7 +90,7 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `update_secret_provider` | PUT | `/api/secret-providers/{id}` | - | secret-providers.ts:83 |
 | `update_template_source` | PUT | `/api/templates/sources` | `id` | templates.ts:52 |
 | `update_user` | PUT | `/api/users/{userId}` | - | users.ts:50 |
-| `validate_stack_compose` | POST | `/api/stacks/{name}/validate` | `compose` | stacks.ts:843 |
+| `validate_stack_compose` | POST | `/api/stacks/{name}/validate` | `compose` | stacks.ts:879 |
 
 ## BODY_CONTRACT_UNRESOLVED (35)
 

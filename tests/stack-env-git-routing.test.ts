@@ -373,6 +373,37 @@ describe('update_stack_env — replace mode routes non-secrets by resolved stack
 
     expect(client.get).not.toHaveBeenCalled();
   });
+
+  it('git stack, mode=replace: a malformed GET /env response (missing/non-array "variables") THROWS — never silently falls back to an empty existing-secrets map (which would demote a resent secret to plaintext, #244)', async () => {
+    const { handler, client } = setup();
+    wireGet(client, {
+      // Malformed: no usable `variables` array at all — e.g. an unexpected
+      // API shape (not the documented {variables:[...]} form).
+      structured: { error: 'unexpected shape' } as unknown as { variables: EnvVariable[] },
+      sources: { 'my-git-stack': { sourceType: 'git' } },
+    });
+
+    const res = await handler({
+      environmentId: 4,
+      name: 'my-git-stack',
+      mode: 'replace',
+      variables: [
+        { key: 'EXISTING_SECRET', value: 'old-secret-value' }, // isSecret omitted!
+        { key: 'PLAIN', value: 'p', isSecret: false },
+      ],
+    });
+
+    // Nothing may be written: a malformed existing-state lookup must not
+    // silently default to "no existing secrets" and demote EXISTING_SECRET
+    // to a plaintext non-secret via the DB PUT (DELETE-all+INSERT).
+    expect(envPut(client)).toBeUndefined();
+    expect(rawPut(client)).toBeUndefined();
+
+    const out = jsonOut(res);
+    expect(typeof out.error).toBe('string');
+    expect(String(out.error)).toContain('my-git-stack');
+    expect(String(out.error)).toMatch(/variables/i);
+  });
 });
 
 describe('update_stack_env — GET /api/stacks/sources permission (#231, Fix-Runde 3, Codex P2)', () => {

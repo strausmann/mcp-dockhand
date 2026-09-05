@@ -109,6 +109,144 @@ jobs:
             echo "docs/coverage.md unverändert — kein Commit"
           fi
 
+      - name: Coverage tracker summary
+        # #227 Part 2 -- reuses the SAME computeValidation() numbers docs/coverage.md
+        # was just (re)generated from above, so the tracker issue below can never
+        # disagree with the committed report. See scripts/coverage-tracker-summary.mjs
+        # for why this can't be a github-script step directly (needs the schema/tool
+        # loading machinery, not just GitHub API access).
+        id: coverage-tracker
+        if: always()
+        run: node scripts/coverage-tracker-summary.mjs
+
+      - name: Create/update/close/reopen coverage tracker issue
+        # #227 Part 2 ("Make future MISSING_TOOL coverage gaps self-tracking").
+        #
+        # Fixes the exact failure mode that got the PREVIOUS mechanism (issue #60,
+        # label `coverage-tracker`) removed in #165 ("drop dead coverage-tracker"):
+        # that step could only ever UPDATE an already-OPEN issue with the label --
+        # once a human closed #60, every subsequent run silently no-op'd
+        # (core.warning() only, never failed the workflow) and coverage drift went
+        # unnoticed for ~3 months. This step instead:
+        #   - creates the ONE tracker issue if none exists at all (open or closed),
+        #   - reopens a previously-closed tracker if new gaps appear later,
+        #   - updates the body of an already-open tracker (no duplicate created),
+        #   - closes the tracker (state_reason: completed) once MISSING_TOOL hits 0.
+        # docs/coverage.md (committed above) remains the single source of truth for
+        # the numbers -- this issue is only the actionable, self-healing companion.
+        if: always()
+        uses: actions/github-script@v9
+        env:
+          MISSING_COUNT: ${{ steps.coverage-tracker.outputs.missing_count }}
+          TRACKER_BODY: ${{ steps.coverage-tracker.outputs.body }}
+        with:
+          script: |
+            const TRACKER_LABEL = 'coverage-tracker';
+            const TRACKER_TITLE = 'MCP API coverage tracker (auto-maintained)';
+            const missingCount = parseInt(process.env.MISSING_COUNT, 10);
+            const body = process.env.TRACKER_BODY;
+
+            if (Number.isNaN(missingCount)) {
+              core.warning('coverage-tracker-summary.mjs did not report a numeric missing_count -- skipping tracker update.');
+              return;
+            }
+
+            // state: 'all' -- a previously CLOSED tracker must be found too, so it
+            // can be reopened instead of a duplicate being created (the #60/#165 bug
+            // was specifically about a closed issue never getting revisited).
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: TRACKER_LABEL,
+              state: 'all',
+              per_page: 10,
+            });
+
+            const openIssues = existing.data.filter((i) => i.state === 'open');
+            if (openIssues.length > 1) {
+              const nums = openIssues.map((i) => `#${i.number}`).join(', ');
+              core.warning(`Multiple OPEN issues carry label "${TRACKER_LABEL}" (${nums}) -- skipping update to avoid clobbering.`);
+              return;
+            }
+
+            const openIssue = openIssues[0];
+            // Most recently updated (closed or open) issue with the label, if any --
+            // the one candidate to reopen when a fresh tracker is needed.
+            const anyIssue = existing.data.length > 0
+              ? existing.data.slice().sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0]
+              : undefined;
+
+            if (missingCount === 0) {
+              if (!openIssue) {
+                core.info('MISSING_TOOL is 0 and no open tracker issue exists -- nothing to close.');
+                return;
+              }
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: openIssue.number,
+                body,
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: openIssue.number,
+                body: 'MISSING_TOOL reached 0 -- closing this tracker automatically. It will reopen if a future Dockhand release introduces an endpoint without an MCP tool.',
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: openIssue.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+              core.info(`Closed coverage tracker issue #${openIssue.number} (MISSING_TOOL: 0).`);
+              return;
+            }
+
+            // missingCount > 0 from here on.
+            if (openIssue) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: openIssue.number,
+                body,
+              });
+              core.info(`Updated open coverage tracker issue #${openIssue.number} (MISSING_TOOL: ${missingCount}).`);
+              return;
+            }
+
+            if (anyIssue) {
+              // A tracker exists but is CLOSED (either it was resolved before, or a
+              // human closed it manually) -- reopen it instead of creating a
+              // duplicate. This is the exact step the #60 mechanism never took.
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: anyIssue.number,
+                body,
+                state: 'open',
+                state_reason: 'reopened',
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: anyIssue.number,
+                body: `Reopened automatically: MISSING_TOOL is ${missingCount} again.`,
+              });
+              core.info(`Reopened coverage tracker issue #${anyIssue.number} (MISSING_TOOL: ${missingCount}).`);
+              return;
+            }
+
+            const created = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: TRACKER_TITLE,
+              labels: [TRACKER_LABEL],
+              body,
+            });
+            core.info(`Created coverage tracker issue #${created.data.number} (MISSING_TOOL: ${missingCount}).`);
+
       - name: Generate body-contract report
         # Task P1.4/P1.6, rein advisory: siehe generate-body-contract-doc.mjs Kopf-
         # kommentar. Läuft wie der Coverage-Schritt unabhängig vom Validate-Ergebnis --
