@@ -147,6 +147,25 @@ describe('update_stack_env — merge-semantic implementation', () => {
     });
   });
 
+  // #231 (Fix-Runde 4, Codex P2): a prior description draft claimed "a pure-secret
+  // payload needs only stacks:edit" without qualifying it by mode — wrong for the
+  // DEFAULT mode="merge", which unconditionally does a load-bearing GET /env
+  // (Ground Truth: line ~244, `const existing = await client.get<StackEnv>(envPath,
+  // ...)`, runs BEFORE any branch on payload content) that itself requires
+  // stacks:view. Only replace + a pure-secret payload gets away with stacks:edit
+  // alone. These assertions pin the corrected, mode-qualified claim.
+  describe('description — documents the full stacks:view/stacks:edit permission contract', () => {
+    it('merge (default) is documented as ALWAYS requiring stacks:view in addition to stacks:edit, for every payload', () => {
+      expect(block).toMatch(/merge[\s\S]{0,200}ALWAYS requires "stacks:view"[\s\S]{0,100}"stacks:edit"/);
+      expect(block).toMatch(/including a pure-secret one/i);
+    });
+
+    it('replace is documented as needing stacks:view ONLY when the payload has a non-secret variable, and stacks:edit alone for a pure-secret payload', () => {
+      expect(block).toMatch(/"stacks:view"\s*only when the payload includes any non-secret variable/i);
+      expect(block).toMatch(/pure-secret replace payload needs only "stacks:edit"/i);
+    });
+  });
+
   describe('type safety', () => {
     it('imports StackEnv type from dockhand types', () => {
       expect(stacksSource).toMatch(/import\s+type\s+\{[^}]*StackEnv[^}]*\}/);
