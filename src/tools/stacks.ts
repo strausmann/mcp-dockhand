@@ -657,4 +657,34 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       return jsonResponse(await client.postSSE(`/api/stacks/${encodePath(name)}/deploy`, body, { env: environmentId }));
     }
   );
+
+  registerTool(server, 'validate_stack_compose',
+    {
+      environmentId: z.number().optional().describe('Environment ID for context-aware checks (cross-stack port/name collisions, missing external networks/volumes) — the handler\'s `env` query param is genuinely optional, ground-truthed against v1.0.46'),
+      name: z.string().describe('Stack name (used to exclude the stack\'s own containers from cross-stack collision checks when `existing` is true)'),
+      compose: z.string().describe('Compose file content to run the preflight linter against (required)'),
+      config: z.object({
+        disabled: z.array(z.string()).optional().describe('Rule IDs to disable'),
+        severity: z.record(z.string(), z.string()).optional().describe('Per-rule severity overrides'),
+      }).optional().describe('Validation rule configuration'),
+      envVars: z.record(z.string(), z.string()).optional().describe('The editor\'s current env vars (including secrets) so `docker compose config` resolves `${VAR}` the same way a deploy would, instead of reporting a spurious "VAR not set"'),
+      // Ground-truthed against Finsys/dockhand v1.0.46,
+      // src/routes/api/stacks/[name]/validate/+server.ts, lines 62 + 82:
+      // `body.existing` is read by the handler to self-exclude the stack's OWN
+      // running containers/ports from cross-stack collision checks — but it is
+      // NOT part of the `@openapi` annotation or docs/dockhand-openapi.json,
+      // only visible in the handler source. Set true when validating an
+      // ALREADY-EXISTING stack (e.g. before redeploying it); omit/false for a
+      // brand-new stack, where a name/port clash with a same-named running
+      // stack must still be reported.
+      existing: z.boolean().optional().describe('Set true when validating an EXISTING stack\'s compose (self-excludes its own containers from collision checks) — undocumented handler-only field, ground-truthed against v1.0.46 source'),
+    },
+    async ({ environmentId, name, compose, config, envVars, existing }) => {
+      const body: Record<string, unknown> = { compose };
+      if (config !== undefined) body.config = config;
+      if (envVars !== undefined) body.envVars = envVars;
+      if (existing !== undefined) body.existing = existing;
+      return jsonResponse(await client.post(`/api/stacks/${encodePath(name)}/validate`, body, { env: environmentId }));
+    }
+  );
 }

@@ -311,6 +311,7 @@ export const TOOL_ENDPOINT_MAP: Readonly<Record<string, ToolEndpointEntry>> = {
   "update_template_source": { method: "PUT", path: "/api/templates/sources" },
   "update_user": { method: "PUT", path: "/api/users/{id}" },
   "upload_container_file": { method: "POST", path: "/api/containers/{id}/files/upload" },
+  "validate_stack_compose": { method: "POST", path: "/api/stacks/{name}/validate" },
   "validate_stack_env": { method: "POST", path: "/api/stacks/{name}/env/validate" },
   "validate_stack_path": { method: "POST", path: "/api/stacks/validate-path" },
   "write_container_file_content": { method: "PUT", path: "/api/containers/{id}/files/content" },
