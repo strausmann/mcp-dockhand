@@ -204,6 +204,17 @@ describe('runCoverageTrackerStep', () => {
 
     await runCoverageTrackerStep(github, context, core, { env: { MISSING_COUNT: '2', TRACKER_BODY: 'new gaps' } });
 
+    // Our mockGithub() ignores whatever `state` filter it was called with and
+    // always returns the full fixture array -- so without this assertion, a
+    // regression from state:'all' back to state:'open' (the exact #165/#60
+    // bug: the real GitHub API would then never return a CLOSED issue at
+    // all, so a closed tracker could never be found and reopened) would
+    // still pass every other assertion below, because the mock's returned
+    // data doesn't change. This is the one assertion that actually pins the
+    // real-world-relevant call argument.
+    expect(github.rest.issues.listForRepo).toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'all' }),
+    );
     expect(github.rest.issues.create).not.toHaveBeenCalled();
     expect(github.rest.issues.update).toHaveBeenCalledTimes(1);
     expect(github.rest.issues.update).toHaveBeenCalledWith(
