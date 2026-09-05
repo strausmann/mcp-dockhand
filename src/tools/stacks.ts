@@ -284,9 +284,30 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         const existing = await client.get<StackEnv>(envPath, { env: environmentId });
         const existingVarsRaw = existing?.variables;
         // Guard against a malformed API response (variables null / not an array).
-        const existingVars: EnvVariable[] = Array.isArray(existingVarsRaw)
-          ? existingVarsRaw.filter((v): v is EnvVariable => !!v && typeof v.key === 'string')
-          : [];
+        //
+        // Same guard as #244's replace-mode fix, and for the same reason
+        // (Issue-#196 lesson: unexpected shape on a write path must throw,
+        // never silently default). A silent [] fallback here is WORSE than
+        // in replace mode: this existingVars feeds the merge below that
+        // preserves an existing key's isSecret flag when the payload omits
+        // it ("Preserve the existing isSecret flag when the caller omits
+        // it"). An empty map means that lookup always misses, so
+        // `existingVar?.isSecret` is `undefined` for every key -- a caller
+        // rotating an EXISTING secret's value without resending isSecret
+        // (the normal shape after a get_stack_env round-trip) then sends
+        // isSecret:undefined, which JSON.stringify drops from the request
+        // body entirely. Ground Truth (Finsys/dockhand src/lib/server/db.ts,
+        // setStackEnvVars): `isSecret: v.isSecret ?? false` defaults the
+        // missing flag to false server-side, and the DB PUT there is
+        // DELETE-all-for-this-stack + INSERT of exactly the sent list -- so
+        // the old encrypted row is gone the instant the plaintext-defaulted
+        // one replaces it, reported as `success: true`.
+        if (!Array.isArray(existingVarsRaw)) {
+          throw new Error(
+            `update_stack_env: GET ${envPath} returned an unexpected response shape (missing/invalid "variables" array) — refusing to merge variable(s) for stack "${name}" without a reliably resolved existing isSecret state (a malformed response could silently demote an existing secret to plaintext).`);
+        }
+        const existingVars: EnvVariable[] = existingVarsRaw
+          .filter((v): v is EnvVariable => !!v && typeof v.key === 'string');
 
         existingVarsForBaseline = existingVars;
         existingSecrets = existingVars.filter((v) => v.isSecret === true);

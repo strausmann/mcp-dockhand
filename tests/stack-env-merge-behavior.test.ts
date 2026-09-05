@@ -261,13 +261,67 @@ describe('update_stack_env — merge auto-routing (mocked client)', () => {
     expect(rawPut(client)).toBeUndefined();
   });
 
-  it('merge tolerates a malformed structured GET response (variables not an array) without crashing', async () => {
+  it('merge now ABORTS instead of silently tolerating a malformed structured GET response (variables not an array) — same guard as #244\'s replace-mode fix, no write happens at all', async () => {
     const { handler, client } = setup();
     wireGet(client, { variables: null }, '');
 
-    await handler({ environmentId: 1, name: 's', variables: [{ key: 'X', value: 'y', isSecret: true }] });
+    const res = await handler({ environmentId: 1, name: 's', variables: [{ key: 'X', value: 'y', isSecret: true }] });
 
-    expect(envPut(client)?.[1]).toEqual({ variables: [{ key: 'X', value: 'y', isSecret: true }] });
+    // Before this fix: the malformed response silently fell back to an empty
+    // existing-state map, and the payload's own isSecret:true happened to
+    // make this particular case harmless (a brand-new key, no existing state
+    // needed). That was luck, not safety -- see the credential-loss test
+    // below for the case where the same silent fallback is NOT harmless.
+    expect(envPut(client)).toBeUndefined();
+    expect(rawPut(client)).toBeUndefined();
+    const out = jsonOut(res);
+    expect(typeof out.error).toBe('string');
+    expect(String(out.error)).toMatch(/variables/i);
+  });
+
+  it('merge-mode credential-loss guard: a GIT STACK\'s EXISTING secret resent as a value-only update (isSecret omitted) against a malformed structured GET response THROWS instead of silently demoting it to plaintext in the DB PUT', async () => {
+    const { handler, client } = setup();
+    // Malformed: no usable `variables` array at all -- the exact shape that,
+    // before this fix, silently emptied `existingVars` and discarded the
+    // knowledge that TOKEN already exists as an encrypted secret. Ground
+    // Truth (Finsys/dockhand src/lib/server/db.ts, setStackEnvVars):
+    // `isSecret: v.isSecret ?? false` -- an omitted isSecret defaults to
+    // false server-side, and the DB PUT there is DELETE-all-for-this-stack
+    // + INSERT of exactly the sent list, so the old encrypted row is gone
+    // the instant a plaintext-defaulted one replaces it.
+    //
+    // On a git stack the merged set (finalVariables) goes to the DB PUT
+    // verbatim -- so BEFORE this fix, TOKEN would reach client.put(envPath,
+    // {variables:[{key:'TOKEN',value:'rotated'}]}) with isSecret simply
+    // absent (JSON.stringify drops `isSecret: undefined`), which
+    // setStackEnvVars stores unencrypted. This test pins the git-stack path
+    // specifically; the guard itself fires earlier and unconditionally
+    // (before any git/internal routing decision), so it protects internal
+    // stacks identically -- see the "merge now ABORTS ..." test above.
+    client.get.mockImplementation((path: string) => {
+      if (path.endsWith('/env/raw')) return Promise.resolve({ content: '' });
+      if (path.endsWith('/api/stacks/sources')) return Promise.resolve({ s: { sourceType: 'git' } });
+      return Promise.resolve({ error: 'unexpected shape' });
+    });
+
+    const res = await handler({
+      environmentId: 1,
+      name: 's',
+      // Caller rotates the value but omits isSecret -- exactly like the
+      // safe "merge preserves an existing secret flag" test above; the ONLY
+      // difference here is the malformed GET response standing in for the
+      // existing-state lookup that test relies on.
+      variables: [{ key: 'TOKEN', value: 'rotated' }],
+    });
+
+    // Nothing may be written: TOKEN must never go out with isSecret
+    // undefined (which JSON.stringify drops from the request body entirely).
+    expect(envPut(client)).toBeUndefined();
+    expect(rawPut(client)).toBeUndefined();
+
+    const out = jsonOut(res);
+    expect(typeof out.error).toBe('string');
+    expect(String(out.error)).toMatch(/variables/i);
   });
 
   it('partial failure: DB PUT succeeds, .env/raw PUT fails -> error reported, db.secretsWritten stays set', async () => {
