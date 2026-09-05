@@ -375,6 +375,54 @@ describe('update_stack_env — replace mode routes non-secrets by resolved stack
   });
 });
 
+describe('update_stack_env — GET /api/stacks/sources permission (#231, Fix-Runde 3, Codex P2)', () => {
+  it('a 403 from GET /api/stacks/sources (missing stacks:view) is translated into an actionable message, not the raw 403', async () => {
+    const { handler, client } = setup();
+    client.get.mockImplementation((path: string) => {
+      if (path.endsWith('/api/stacks/sources')) {
+        // What client.get() actually throws for a non-ok response — see
+        // DockhandClient.request(): `Dockhand API error: ${method} ${url}
+        // returned ${status}: ${errorBody}`.
+        return Promise.reject(new Error(
+          'Dockhand API error: GET https://dockhand.invalid/api/stacks/sources?env=1 returned 403: {"error":"Permission denied"}'));
+      }
+      return Promise.resolve({ variables: [] });
+    });
+
+    const res = await handler({
+      environmentId: 1,
+      name: 'my-stack',
+      variables: [{ key: 'PLAIN', value: 'v', isSecret: false }],
+    });
+
+    const out = jsonOut(res);
+    expect(typeof out.error).toBe('string');
+    expect(String(out.error)).toContain('stacks:view');
+    expect(String(out.error)).toContain('stacks:edit');
+  });
+
+  it('a non-403 error from GET /api/stacks/sources is passed through unchanged (not misreported as a permission problem)', async () => {
+    const { handler, client } = setup();
+    client.get.mockImplementation((path: string) => {
+      if (path.endsWith('/api/stacks/sources')) {
+        return Promise.reject(new Error('Dockhand API error: GET https://dockhand.invalid/api/stacks/sources?env=1 returned 500: internal error'));
+      }
+      return Promise.resolve({ variables: [] });
+    });
+
+    const res = await handler({
+      environmentId: 1,
+      name: 'my-stack',
+      variables: [{ key: 'PLAIN', value: 'v', isSecret: false }],
+    });
+
+    const out = jsonOut(res);
+    expect(typeof out.error).toBe('string');
+    expect(String(out.error)).not.toContain('stacks:view');
+    expect(String(out.error)).toContain('returned 500');
+  });
+});
+
 describe('update_stack_env — merge summary baseline on a git stack (#231, Fix-Runde 2, Codex P2)', () => {
   it('git stack: changing an existing non-secret reports it as "updated", an untouched existing non-secret as "preserved" (not added/missing)', async () => {
     const { handler, client } = setup();

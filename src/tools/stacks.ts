@@ -166,7 +166,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         key: z.string().describe('Environment variable name (UPPER_SNAKE_CASE convention)'),
         value: z.string().describe('Variable value as string'),
         isSecret: z.boolean().optional().describe('When true, store value in the Dockhand database (encrypted at rest) and inject via shell-env at deploy. When false/omitted, value is written to the .env file as plain text — DO NOT use for credentials.'),
-      })).describe('Environment variables — flag secrets with isSecret:true'),
+      })).describe('Environment variables — flag secrets with isSecret:true. A call that includes any non-secret variable (isSecret:false or omitted) requires BOTH "stacks:view" and "stacks:edit": correctly routing a non-secret (DB vs. .env file) requires first resolving whether the stack is git-managed or internal, which needs "stacks:view" in addition to the "stacks:edit" the write itself needs. A pure-secret payload needs only "stacks:edit".'),
       mode: z.enum(['merge', 'replace']).optional().describe('How to handle existing variables. "merge" (default): fetch existing vars, update/add the provided ones, preserve all others. "replace": overwrite the entire variable list with exactly the provided variables — all others are deleted.'),
     },
     async ({ environmentId, name, variables: rawVariables, mode = 'merge' }) => {
@@ -188,8 +188,30 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       // malformed response THROWS and aborts the whole call rather than
       // silently defaulting — a wrong default here would misroute a write.
       async function resolveIsGitStack(): Promise<boolean> {
-        const sources = await client.get<Record<string, { sourceType?: string }>>(
-          '/api/stacks/sources', { env: environmentId });
+        let sources: Record<string, { sourceType?: string }>;
+        try {
+          sources = await client.get<Record<string, { sourceType?: string }>>(
+            '/api/stacks/sources', { env: environmentId });
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          // #231 (Fix-Runde 3, Codex P2 — permission-contract mismatch):
+          // Ground Truth confirms GET /api/stacks/sources requires
+          // 'stacks:view' (stacks/sources/+server.ts), while the write
+          // endpoints this tool calls (PUT /env, PUT /env/raw) require only
+          // 'stacks:edit' (env/+server.ts, env/raw/+server.ts). A caller
+          // with edit-but-not-view previously never needed 'view' for a
+          // pure replace-mode call (Critical 4 made zero GETs) — now every
+          // call that has to resolve the stack's source type does, and gets
+          // a bare 403. Issue-#196 lesson applies here too: don't let an
+          // unexplained permission failure surface as an opaque error —
+          // translate it into what the caller must actually do, and keep
+          // the original detail attached rather than discarding it.
+          if (/\breturned 403\b/.test(message)) {
+            throw new Error(
+              `update_stack_env: determining the stack source type for correct env routing requires the "stacks:view" permission (in addition to "stacks:edit"). Grant "stacks:view", or env updates that include non-secret variables cannot safely distinguish a git stack from an internal one. (${message})`);
+          }
+          throw e;
+        }
         if (sources === undefined || sources === null || typeof sources !== 'object' || Array.isArray(sources)) {
           throw new Error(
             `update_stack_env: GET /api/stacks/sources returned an unexpected response shape — refusing to route variable(s) for stack "${name}" without a resolved source type.`);
