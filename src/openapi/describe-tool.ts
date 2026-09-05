@@ -8,8 +8,8 @@
  *   2. `specOperation(endpoint)` — what does docs/dockhand-openapi.json say about it?
  *   3. `deriveToolDescription(op, endpointToTool)` — summary + resolved cross-refs.
  *
- * Never returns an empty string. When the tool has no registry entry (currently only
- * `get_prometheus_metrics` — see tool-endpoint-map.ts) or is not a known tool at all,
+ * Never returns an empty string. When the tool has no registry entry (a tool name that
+ * exists but whose endpoint could not be resolved) or is not a known tool at all,
  * `specOperation` resolves to `undefined`; `deriveToolDescription({}, ...)` still
  * produces its own defined fallback text (`FALLBACK_DESCRIPTION`), and this function
  * logs an advisory so the gap is visible in server startup logs instead of silently

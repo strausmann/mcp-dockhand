@@ -1,8 +1,7 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * Regenerate with: node scripts/generate-tool-endpoint-map.mjs
- * (see that script's header for the two manually-verified EXPLICIT_OVERRIDES entries
- * and why `get_prometheus_metrics` has no entry at all)
+ * (see that script's header for the manually-verified EXPLICIT_OVERRIDES entries)
  *
  * Maps every registered MCP tool name to the {method, path} of the real Dockhand
  * endpoint it calls, using docs/dockhand-openapi.json's own path form (e.g.
@@ -152,6 +151,7 @@ export const TOOL_ENDPOINT_MAP: Readonly<Record<string, ToolEndpointEntry>> = {
   "get_privacy_policy": { method: "GET", path: "/api/legal/privacy" },
   "get_profile": { method: "GET", path: "/api/profile" },
   "get_profile_preferences": { method: "GET", path: "/api/profile/preferences" },
+  "get_prometheus_metrics": { method: "GET", path: "/metrics" },
   "get_registry": { method: "GET", path: "/api/registries/{id}" },
   "get_registry_catalog": { method: "GET", path: "/api/registry/catalog" },
   "get_registry_tag_info": { method: "GET", path: "/api/registry/tag-info" },

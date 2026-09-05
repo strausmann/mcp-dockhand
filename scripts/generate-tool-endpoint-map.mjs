@@ -75,12 +75,12 @@
  * ones from this same "first call wins" class; see tests/tool-endpoint-map-multi-call.test.ts
  * for a regression guard specifically against reintroducing this class of bug.
  *
- * `get_prometheus_metrics` (GET /api/metrics) is deliberately left OUT of the registry:
- * `/api/metrics` is not a SvelteKit route (see the matching comment in
- * scripts/validate-mcp-tools.mjs's ORPHANED_TOOL check) and therefore structurally
- * cannot carry an `@openapi` annotation. `toolEndpoint('get_prometheus_metrics')`
- * returns `undefined` by design; `deriveDescriptionForTool()` (src/utils/tool-helper.ts)
- * falls back to `deriveToolDescription`'s defined fallback text and logs an advisory.
+ * `get_prometheus_metrics` (GET /metrics) used to be a deliberate gap left OUT of this
+ * registry: prior to Dockhand v1.0.46, `/api/metrics` (the path the tool called at the
+ * time) was not a SvelteKit route at all and could not carry an `@openapi` annotation.
+ * As of v1.0.46 the real route is `/metrics` (Prometheus convention,
+ * `src/routes/metrics/+server.ts`) and DOES carry an `@openapi` annotation, so it now
+ * resolves like any other tool — no override or exemption needed (Refs #234, #242).
  *
  * Regenerate after adding/removing/renaming a tool or changing which endpoint it calls:
  *   node scripts/generate-tool-endpoint-map.mjs
@@ -175,12 +175,9 @@ function buildMap() {
     map.set(name, entry);
   }
 
-  // get_prometheus_metrics is the one known, accepted gap (see file header) — anything
-  // else left unresolved after applying EXPLICIT_OVERRIDES is unexpected and must stop
-  // the generator rather than silently producing an incomplete registry.
-  const stillUnresolved = unresolved.filter(
-    (c) => c.toolName !== 'get_prometheus_metrics' && !(c.toolName in EXPLICIT_OVERRIDES)
-  );
+  // Anything left unresolved after applying EXPLICIT_OVERRIDES is unexpected and must
+  // stop the generator rather than silently producing an incomplete registry.
+  const stillUnresolved = unresolved.filter((c) => !(c.toolName in EXPLICIT_OVERRIDES));
 
   return { map, stillUnresolved };
 }
@@ -198,8 +195,7 @@ function render(map) {
   return `/**
  * GENERATED FILE — do not hand-edit.
  * Regenerate with: node scripts/generate-tool-endpoint-map.mjs
- * (see that script's header for the two manually-verified EXPLICIT_OVERRIDES entries
- * and why \`get_prometheus_metrics\` has no entry at all)
+ * (see that script's header for the manually-verified EXPLICIT_OVERRIDES entries)
  *
  * Maps every registered MCP tool name to the {method, path} of the real Dockhand
  * endpoint it calls, using docs/dockhand-openapi.json's own path form (e.g.
@@ -228,7 +224,7 @@ function main() {
       console.error(`  ${c.toolName}: ${c.httpMethod} ${c.path} (${c.file}:${c.line})`);
     }
     console.error(
-      '[generate-tool-endpoint-map] Add a manually-verified entry to EXPLICIT_OVERRIDES in this script, or confirm the tool is a deliberate gap like get_prometheus_metrics.'
+      '[generate-tool-endpoint-map] Add a manually-verified entry to EXPLICIT_OVERRIDES in this script.'
     );
     process.exitCode = 1;
     return;

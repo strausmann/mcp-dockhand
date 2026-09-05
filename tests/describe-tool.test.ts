@@ -48,13 +48,15 @@ describe('describeTool', () => {
     expect(description).toMatch(/environmentId from list_environments/);
   });
 
-  it('falls back to a non-empty default and logs an advisory for a tool with no registry entry', () => {
+  // Was the "known registry gap" example until Dockhand v1.0.46 gave `/metrics` (the
+  // tool's real route, see src/tools/system.ts) an `@openapi` annotation — the tool
+  // now resolves via the spec like any other, no fallback/advisory involved (Refs #234).
+  it('derives a real description for get_prometheus_metrics via the spec (no fallback/advisory since v1.0.46)', () => {
     const { written, restore } = captureLoggerOutput();
     const description = describeTool('get_prometheus_metrics');
     expect(description.length).toBeGreaterThan(0);
-    expect(written.length).toBeGreaterThan(0);
-    const logged = written.join('\n');
-    expect(logged).toContain('get_prometheus_metrics');
+    expect(description).not.toBe('No description available.');
+    expect(written.length).toBe(0);
     restore();
   });
 

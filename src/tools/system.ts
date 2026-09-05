@@ -185,7 +185,7 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
   registerTool(server, 'get_prometheus_metrics',
     {},
     async () => {
-      return textResponse(await client.get('/api/metrics'));
+      return textResponse(await client.get('/metrics'));
     }
   );
 

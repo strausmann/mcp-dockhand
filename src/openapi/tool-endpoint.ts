@@ -18,9 +18,7 @@ import { TOOL_DESCRIPTION_OVERRIDES } from './description-overrides.js';
 
 /**
  * Resolves a registered MCP tool name to the {method, path} of the Dockhand endpoint
- * it calls. Returns `undefined` for tools with no registry entry (currently only
- * `get_prometheus_metrics` — `/api/metrics` is not a SvelteKit route and therefore
- * cannot carry an `@openapi` annotation) and for any name that is not a known tool.
+ * it calls. Returns `undefined` for any name that is not a known, registered tool.
  */
 export function toolEndpoint(name: string): ToolEndpointEntry | undefined {
   return TOOL_ENDPOINT_MAP[name];

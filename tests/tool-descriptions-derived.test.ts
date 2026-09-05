@@ -66,11 +66,15 @@ describe('derived tool descriptions', () => {
     expect(previewEnv!.description).toMatch(/credentialId from list_git_credentials/);
   });
 
-  it('the one known registry gap (get_prometheus_metrics) still gets a non-empty fallback description', () => {
-    expect(toolEndpoint('get_prometheus_metrics')).toBeUndefined();
+  // Was the "known registry gap" example until Dockhand v1.0.46 gave `/metrics` (the
+  // tool's real route) an `@openapi` annotation — it now resolves like any other tool,
+  // no fallback description involved (Refs #234).
+  it('get_prometheus_metrics resolves via the spec since v1.0.46 (no longer a registry gap)', () => {
+    expect(toolEndpoint('get_prometheus_metrics')).toEqual({ method: 'GET', path: '/metrics' });
     const metrics = tools.find((t) => t.name === 'get_prometheus_metrics');
     expect(metrics).toBeDefined();
     expect(metrics!.description.length).toBeGreaterThan(0);
+    expect(metrics!.description).not.toBe('No description available.');
   });
 
   // Regression guard for the "first client call wins" bug class found in PR #177 review
