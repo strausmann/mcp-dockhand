@@ -420,8 +420,23 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
           // sources lookup (i.e. only when replaceNonSecrets is non-empty).
           const existingForReplace = await client.get<StackEnv>(envPath, { env: environmentId });
           const existingVarsRaw = existingForReplace?.variables;
+          // #244 (Codex finding on the merged #243/#231 code): a malformed
+          // response here (missing/non-array `variables`) must NOT silently
+          // fall back to an empty existing-state map — Issue-#196 lesson
+          // applies here too. An empty map means every key the caller omits
+          // isSecret on resolves via `?? false`, so a resent EXISTING secret
+          // (e.g. after a get_stack_env round-trip returning it masked as
+          // '***', then forwarded back unchanged) would be silently demoted
+          // to plaintext the instant the DB PUT below fires (DELETE-all +
+          // INSERT). Throw and abort the whole replace instead of risking
+          // that — mirrors resolveIsGitStack()'s "throw, don't default" shape
+          // guard above.
+          if (!Array.isArray(existingVarsRaw)) {
+            throw new Error(
+              `update_stack_env: GET ${envPath} returned an unexpected response shape (missing/invalid "variables" array) — refusing to replace variable(s) for stack "${name}" without a reliably resolved existing isSecret state (a malformed response could silently demote an existing secret to plaintext).`);
+          }
           const existingIsSecretByKey = new Map(
-            (Array.isArray(existingVarsRaw) ? existingVarsRaw : [])
+            existingVarsRaw
               .filter((v): v is EnvVariable => !!v && typeof v.key === 'string')
               .map((v) => [v.key, v.isSecret === true]),
           );
