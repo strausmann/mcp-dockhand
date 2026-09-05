@@ -216,7 +216,36 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
           throw new Error(
             `update_stack_env: GET /api/stacks/sources returned an unexpected response shape — refusing to route variable(s) for stack "${name}" without a resolved source type.`);
         }
-        return sources[name]?.sourceType === 'git';
+        const record = sources[name];
+        // #231 (Fix-Runde 5, Codex P2a): a record's sourceType, if the record
+        // exists at all, is NEVER missing/null — the DB column is `NOT NULL
+        // DEFAULT 'internal'` (Ground Truth: db/schema/pg-schema.ts:355) and
+        // the route spreads it verbatim (`sourceType: source.sourceType`,
+        // stacks/sources/+server.ts). A PRESENT record with an unrecognized
+        // sourceType can therefore only be an API-contract anomaly (schema
+        // drift, a future source type this tool doesn't know about yet) —
+        // trusting `=== 'git'` on it either way risks silently treating a
+        // real git stack as non-git and routing its non-secret into the dead
+        // /env/raw (data loss with `success:true`). Issue-#196 lesson: throw,
+        // don't default, when the shape can't be trusted.
+        if (record !== undefined) {
+          const KNOWN_SOURCE_TYPES = new Set(['internal', 'git', 'external']);
+          if (typeof record.sourceType !== 'string' || !KNOWN_SOURCE_TYPES.has(record.sourceType)) {
+            throw new Error(
+              `update_stack_env: GET /api/stacks/sources returned a source record for stack "${name}" with an unrecognized sourceType (${JSON.stringify(record.sourceType)}) — refusing to route variable(s) without a reliably resolved source type.`);
+          }
+          return record.sourceType === 'git';
+        }
+        // No record at all for this stack is a DIFFERENT, legitimate state —
+        // NOT the same as a present-but-malformed one. A git stack always
+        // gets a record at creation (POST /api/git/stacks -> upsertStackSource,
+        // Ground Truth: git/stacks/+server.ts), so a stack with no record
+        // cannot be a git stack. This also mirrors Dockhand's own GET /env
+        // handler (env/+server.ts): `getStackSource()` returns null for a
+        // missing row, and `source?.sourceType === 'git'` is then false,
+        // falling through to the internal/adopted branch — treating absence
+        // as "not git" here is not a workaround, it matches the real backend.
+        return false;
       }
 
       let secrets: EnvVariable[];
@@ -230,6 +259,17 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       // here, not inside a branch, so the shared .env/raw block and the
       // summary baseline further down can both read it).
       let isGitStack = false;
+      // #231 (Fix-Runde 5, Codex P2b): whether resolveIsGitStack() actually
+      // ran this call. It is false ONLY when merge mode's own gate decided no
+      // routing decision — and therefore no DB PUT — could possibly happen
+      // (empty payload, no existing secrets to re-affirm): in that exact
+      // case `isGitStack` staying `false` does NOT mean "resolved to
+      // non-git", it means "never asked". Read below when picking the
+      // summary baseline — nothing was written either way, so the full
+      // structured GET result is always the safe, accurate "everything is
+      // preserved" answer, regardless of what the (unresolved) stack type
+      // would have been.
+      let sourceTypeResolved = false;
       // #231 (Codex P2, Fix-Runde 2): the full pre-merge DB variable set for
       // a git stack (secrets AND non-secrets — GET /env returns both for
       // git). Used as the merge-summary baseline instead of the
@@ -310,6 +350,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
 
         if (preGitPayloadNonSecrets.length > 0 || willFireDbPutPreGit) {
           isGitStack = await resolveIsGitStack();
+          sourceTypeResolved = true;
         }
 
         // Git: the DB PUT payload is the ENTIRE merged set (preserves every
@@ -467,9 +508,20 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       // changed existing non-secret was misreported as "added" (it isn't in
       // existingSecrets, which only holds secrets) and every untouched
       // existing non-secret was missing from "preserved" entirely.
+      // #231 (Fix-Runde 5 — Codex P2b): the same full-set baseline is also
+      // correct — and needed — whenever `!sourceTypeResolved`. That flag is
+      // false ONLY for an empty payload with no existing secrets, i.e. a
+      // call that writes to NEITHER store either way (see the flag's own
+      // comment above). Falling through to the internal-shaped baseline
+      // there produced `preserved:0` for a git stack whose non-secrets sit
+      // in `existingVarsForBaseline` but never in `existingSecrets` or a
+      // (never-fetched) `.env` — even though every one of them survives
+      // untouched. Since nothing is written in this branch, using the full
+      // set here is safe regardless of what the (unresolved) source type
+      // actually is.
       let diff: EnvDiff | undefined;
       if (mode === 'merge') {
-        const baseline: EnvVariable[] = isGitStack
+        const baseline: EnvVariable[] = (isGitStack || !sourceTypeResolved)
           ? existingVarsForBaseline
           : [
               ...existingSecrets,

@@ -443,4 +443,142 @@ describe('update_stack_env — merge summary baseline on a git stack (#231, Fix-
     const out = jsonOut(res);
     expect(out.summary).toEqual({ added: 0, updated: 1, preserved: 1, removed: 0 });
   });
+
+  it('git stack, empty merge payload, NO existing secrets: summary reports ALL existing non-secrets as "preserved" (not preserved:0) — no sourceType lookup needed, since nothing gets written either way', async () => {
+    const { handler, client } = setup();
+    // Deliberately no secrets at all in the existing state: with an empty
+    // payload and existingSecretsCount === 0, neither the DB PUT nor the
+    // .env/raw PUT will fire (see willFireDbPutPreGit) — the sourceType
+    // lookup is genuinely unnecessary here, unlike the sibling scenario
+    // where an existing secret would need "re-affirming" through the DB PUT.
+    wireGet(client, {
+      structured: { variables: [
+        { key: 'A', value: 'a', isSecret: false },
+        { key: 'B', value: 'b', isSecret: false },
+      ] },
+      sources: { 'my-git-stack': { sourceType: 'git' } },
+    });
+
+    const res = await handler({
+      environmentId: 1,
+      name: 'my-git-stack',
+      variables: [],
+    });
+
+    // No write at all -> no reason to ask which stack type this is.
+    expect(sourcesGet(client)).toBeUndefined();
+    expect(client.put).not.toHaveBeenCalled();
+
+    const out = jsonOut(res);
+    expect(out.summary).toEqual({ added: 0, updated: 0, preserved: 2, removed: 0 });
+  });
+
+  it('git stack, empty merge payload, WITH an existing secret: the DB PUT re-affirms it, so the sourceType lookup DOES still happen (regression guard, distinguishes this from the no-write case above)', async () => {
+    const { handler, client } = setup();
+    wireGet(client, {
+      structured: { variables: [
+        { key: 'A', value: 'a', isSecret: false },
+        { key: 'SECRET_B', value: 's', isSecret: true },
+      ] },
+      sources: { 'my-git-stack': { sourceType: 'git' } },
+    });
+
+    const res = await handler({
+      environmentId: 1,
+      name: 'my-git-stack',
+      variables: [],
+    });
+
+    expect(sourcesGet(client)).toBeDefined();
+    expect(envPut(client)?.[1]).toEqual({
+      variables: [
+        { key: 'A', value: 'a', isSecret: false },
+        { key: 'SECRET_B', value: 's', isSecret: true },
+      ],
+    });
+
+    const out = jsonOut(res);
+    expect(out.summary).toEqual({ added: 0, updated: 0, preserved: 2, removed: 0 });
+  });
+});
+
+describe('update_stack_env — GET /api/stacks/sources malformed source record (#231, Fix-Runde 5, Codex P2a)', () => {
+  it('a PRESENT record with no recognizable sourceType (e.g. {}) THROWS — never silently treated as non-git (would route a git stack\'s non-secret into the dead /env/raw)', async () => {
+    const { handler, client } = setup();
+    wireGet(client, {
+      structured: { variables: [] },
+      // The record for 'my-stack' exists but carries no sourceType at all.
+      sources: { 'my-stack': {} as unknown as { sourceType: string } },
+    });
+
+    const res = await handler({
+      environmentId: 1,
+      name: 'my-stack',
+      variables: [{ key: 'NEW_VAR', value: 'v', isSecret: false }],
+    });
+
+    expect(rawPut(client)).toBeUndefined();
+    expect(envPut(client)).toBeUndefined();
+
+    const out = jsonOut(res);
+    expect(typeof out.error).toBe('string');
+    expect(String(out.error)).toContain('my-stack');
+    expect(String(out.error)).toMatch(/sourceType/i);
+  });
+
+  it('a PRESENT record with an unrecognized sourceType value THROWS too (schema drift, not a documented internal|git|external value)', async () => {
+    const { handler, client } = setup();
+    wireGet(client, {
+      structured: { variables: [] },
+      sources: { 'my-stack': { sourceType: 'quantum' } },
+    });
+
+    const res = await handler({
+      environmentId: 1,
+      name: 'my-stack',
+      variables: [{ key: 'NEW_VAR', value: 'v', isSecret: false }],
+    });
+
+    const out = jsonOut(res);
+    expect(typeof out.error).toBe('string');
+    expect(rawPut(client)).toBeUndefined();
+  });
+
+  it('an ABSENT record (stack has no source row at all) is treated as non-git, same as Dockhand\'s own GET /env fallback — regression guard', async () => {
+    const { handler, client } = setup();
+    wireGet(client, {
+      structured: { variables: [] },
+      raw: '',
+      sources: {}, // no entry for 'my-stack' at all
+    });
+
+    const res = await handler({
+      environmentId: 1,
+      name: 'my-stack',
+      variables: [{ key: 'NEW_VAR', value: 'v', isSecret: false }],
+    });
+
+    expect(rawPut(client)?.[1]).toEqual({ content: 'NEW_VAR=v' });
+    const out = jsonOut(res);
+    expect(out.success).toBe(true);
+  });
+
+  it('external and internal sourceType values still resolve correctly (regression guard)', async () => {
+    for (const sourceType of ['external', 'internal']) {
+      const { handler, client } = setup();
+      wireGet(client, {
+        structured: { variables: [] },
+        raw: '',
+        sources: { 'my-stack': { sourceType } },
+      });
+
+      await handler({
+        environmentId: 1,
+        name: 'my-stack',
+        variables: [{ key: 'NEW_VAR', value: 'v', isSecret: false }],
+      });
+
+      expect(rawPut(client)?.[1]).toEqual({ content: 'NEW_VAR=v' });
+    }
+  });
 });
