@@ -186,6 +186,11 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       let existingSecretsCount = 0;
       let promotedKeys: string[] = [];
       let toMigrate: EnvVariable[] = [];
+      // #231: true only in merge mode, once the stack's source type has been
+      // resolved as 'git'. Declared here (not inside the merge branch) so the
+      // .env/raw block further down can skip itself entirely for a git
+      // stack — its .env file is not a store this tool manages at all.
+      let isGitStack = false;
 
       if (mode === 'merge') {
         // GET is load-bearing here: a failure must NOT issue any write (no data loss).
@@ -199,9 +204,10 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         existingSecrets = existingVars.filter((v) => v.isSecret === true);
         existingSecretsCount = existingSecrets.length;
         // Orphaned DB rows: non-secret entries sitting in the DB-backed
-        // structured store. These should never exist going forward (non-secrets
-        // belong in .env) but may be left over from before this fix, or from a
-        // git-stack import. Critical 3: they must not be silently dropped.
+        // structured store. On an INTERNAL/adopted stack these should never
+        // exist going forward (non-secrets belong in .env) but may be left
+        // over from before this fix. Critical 3: they must not be silently
+        // dropped. On a GIT stack these are NOT orphaned — see #231 below.
         const existingDbNonSecrets = existingVars.filter((v) => v.isSecret !== true);
 
         const mergedByKey = new Map<string, EnvVariable>();
@@ -219,12 +225,60 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         }
         const finalVariables: EnvVariable[] = Array.from(mergedByKey.values());
 
-        secrets = finalVariables.filter((v) => v.isSecret);
-        // Only the payload's own non-secret entries are upserted into .env —
-        // pre-existing .env keys the caller did not touch stay untouched.
-        payloadNonSecrets = variables
+        // #231: on a GIT stack the DB is the canonical store for EVERY
+        // variable, secret or not (Ground Truth: GET /api/stacks/[name]/env,
+        // v1.0.46 handler — "For a GIT stack, ALL variables ... come from
+        // the database"; PUT /env/raw is never consulted for a git stack on
+        // read). PUT /env is a DELETE-all-for-this-stack + INSERT of exactly
+        // the sent list (setStackEnvVars) — so on a git stack that list MUST
+        // be the full finalVariables set (every existing row this call did
+        // not touch, plus what it changed), not just the isSecret:true ones.
+        // Sending only the payload's new non-secret alongside the isSecret
+        // filter (an earlier version of this fix did exactly that) silently
+        // deletes every OTHER existing git-DB row the call did not mention.
+        //
+        // Resolve the stack's source type whenever a DB PUT might actually
+        // fire — either because the payload has a non-secret to route, or
+        // because there is/will be at least one secret (the pre-existing
+        // "willFireDbPut" condition from Critical 1/3 below, evaluated here
+        // against the isSecret-only filter before any git-routing changes
+        // it). A payload that touches nothing this call (no secrets now or
+        // before, no non-secrets) never issues a DB PUT at all, so there is
+        // nothing to lose and no need to resolve the source type.
+        //
+        // NOTE: if GET /api/stacks/sources cannot be resolved into a usable
+        // map, this THROWS (propagates) and aborts the whole call — no
+        // partial write, same fail-safe contract as the structured GET
+        // above (Issue #196 lesson: unexpected shape on a write path must
+        // never silently default). A resolvable-but-unlisted stack falls
+        // back to the pre-existing internal/adopted routing below, which is
+        // the long-standing production behavior, not a new regression.
+        const isSecretOnly = (v: EnvVariable) => v.isSecret;
+        const preGitSecrets = finalVariables.filter(isSecretOnly);
+        const preGitPayloadNonSecrets = variables
           .map((v) => mergedByKey.get(v.key))
           .filter((v): v is EnvVariable => !!v && !v.isSecret);
+        const willFireDbPutPreGit = preGitSecrets.length > 0 || existingSecretsCount > 0;
+
+        if (preGitPayloadNonSecrets.length > 0 || willFireDbPutPreGit) {
+          const sources = await client.get<Record<string, { sourceType?: string }>>(
+            '/api/stacks/sources', { env: environmentId });
+          if (sources === undefined || sources === null || typeof sources !== 'object' || Array.isArray(sources)) {
+            throw new Error(
+              `update_stack_env: GET /api/stacks/sources returned an unexpected response shape — refusing to route variable(s) for stack "${name}" without a resolved source type.`);
+          }
+          isGitStack = sources[name]?.sourceType === 'git';
+        }
+
+        // Git: the DB PUT payload is the ENTIRE merged set (preserves every
+        // untouched existing row, secret or not). Internal/adopted: unchanged
+        // — only isSecret:true entries go to the DB, non-secrets go to .env.
+        secrets = isGitStack ? finalVariables : preGitSecrets;
+        // Only the payload's own non-secret entries are upserted into .env —
+        // pre-existing .env keys the caller did not touch stay untouched.
+        // On a git stack there is no .env store to upsert into (its
+        // non-secrets already went into `secrets` above via finalVariables).
+        payloadNonSecrets = isGitStack ? [] : preGitPayloadNonSecrets;
 
         // Critical 2: a key the caller explicitly promotes to isSecret:true
         // this call must be scrubbed from .env — otherwise the plaintext copy
@@ -237,8 +291,10 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         // 0 and the stale encrypted row would never be flushed). And when it
         // fires, any orphaned non-secret DB row the caller did not touch this
         // call would silently vanish — migrate its value into .env instead.
+        // #231: skip this for a git stack — its DB non-secrets are the
+        // canonical values, not leftovers, so there is nothing to migrate out.
         const willFireDbPut = secrets.length > 0 || existingSecretsCount > 0;
-        if (willFireDbPut) {
+        if (willFireDbPut && !isGitStack) {
           const payloadKeys = new Set(variables.map((v) => v.key));
           toMigrate = existingDbNonSecrets.filter((v) => !payloadKeys.has(v.key));
         }
@@ -266,11 +322,16 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       // GET-raw + upsert + PUT (merge) or a full rebuild (replace) are treated
       // as one step — any failure inside it is reported as a partial success,
       // it never undoes the DB write above.
+      // #231: a GIT stack never touches this store at all — its .env file is
+      // not read by GET/deploy, and every one of its variables (secret or
+      // not) already went into the DB PUT above. Without this guard a
+      // resent-as-secret key (promotedKeys) would still trigger a pointless
+      // (if harmless) raw GET+PUT for a file nothing reads.
       let envNonSecretsWritten = 0;
       let envError: string | undefined;
       let envPutResult: unknown;
       let rawStr: string | undefined;
-      if (mode === 'replace' || payloadNonSecrets.length > 0 || promotedKeys.length > 0 || toMigrate.length > 0) {
+      if (!isGitStack && (mode === 'replace' || payloadNonSecrets.length > 0 || promotedKeys.length > 0 || toMigrate.length > 0)) {
         try {
           let newContent: string;
           if (mode === 'merge') {

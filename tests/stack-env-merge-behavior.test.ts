@@ -118,8 +118,13 @@ describe('update_stack_env — merge auto-routing (mocked client)', () => {
       variables: [{ key: 'TOKEN', value: 'x', isSecret: true }],
     });
 
-    // structured GET, then a raw GET to scrub the (brand-new) promoted key from .env — see Critical 2
-    expect(client.get).toHaveBeenCalledTimes(2);
+    // structured GET, then #231's GET /api/stacks/sources (a DB PUT is about
+    // to fire — existingSecretsCount/secrets.length>0 — so the source type
+    // must be resolved to know whether existing DB non-secrets need
+    // preserving; here it resolves to non-git via the generic structured
+    // mock, so routing is unaffected), then a raw GET to scrub the
+    // (brand-new) promoted key from .env — see Critical 2
+    expect(client.get).toHaveBeenCalledTimes(3);
     expect(envPut(client)?.[1]).toEqual({ variables: [{ key: 'TOKEN', value: 'x', isSecret: true }] });
     // .env content is unchanged (TOKEN was never there), but the scrub PUT still fires
     expect(rawPut(client)?.[1]).toEqual({ content: '' });
