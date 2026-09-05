@@ -39,9 +39,12 @@ function setup() {
 }
 
 describe('validate_stack_compose (#230)', () => {
-  it('GEGENVERSUCH: the tool does not exist yet', () => {
-    // This test documents the pre-fix state and must fail once the tool is
-    // registered — it is the mandated red/green marker for TDD Step 2.
+  // Registration smoke test. The mandated red/green TDD Step 2 marker ran
+  // once, before implementation (`validate_stack_compose` did not exist
+  // yet) — that red run is not preserved as a committed assertion, it was
+  // the manual gegenversuch. What is committed and green here is the
+  // post-implementation check: the tool is, in fact, registered.
+  it('the tool is registered', () => {
     const handlers = new Map<string, ToolHandler>();
     const server = { tool: (n: string, _d: string, _s: unknown, cb: ToolHandler) => handlers.set(n, cb) };
     const client = { get: vi.fn(), post: vi.fn() };

@@ -92,10 +92,18 @@ describe('update_stack_env — merge-semantic implementation', () => {
   });
 
   describe('replace path — splits the payload by isSecret without a merge GET', () => {
-    it('derives secrets and non-secrets directly from the payload in replace mode', () => {
-      // replace branch: secrets = variables.filter(...), payloadNonSecrets = variables.filter(...)
-      expect(block).toMatch(/secrets\s*=\s*variables\.filter/);
-      expect(block).toMatch(/payloadNonSecrets\s*=\s*variables\.filter/);
+    it('derives replaceSecrets/replaceNonSecrets directly from the payload in replace mode', () => {
+      // #231 (Fix-Runde 2): the replace branch now also routes a git stack's
+      // non-secrets into the DB PUT (isGitStack-gated — see
+      // tests/stack-env-git-routing.test.ts for that BEHAVIOR coverage,
+      // which this source-text guard cannot exercise). What it still
+      // guards is the base split every replace call computes before any
+      // git-routing decision: replaceSecrets = variables.filter(...),
+      // replaceNonSecrets = variables.filter(...). It cannot distinguish
+      // these identifiers appearing in a comment from the real assignment —
+      // that's a limitation of grepping source text, not of the code.
+      expect(block).toMatch(/replaceSecrets\s*=\s*variables\.filter/);
+      expect(block).toMatch(/replaceNonSecrets\s*=\s*variables\.filter/);
     });
   });
 

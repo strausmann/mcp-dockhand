@@ -180,17 +180,42 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         rawVariables.reduce((map, v) => map.set(v.key, v), new Map<string, EnvVariable>()).values(),
       );
 
+      // #231: resolves this stack's source type via GET /api/stacks/sources
+      // (the same endpoint get_stack_sources wraps) and reports whether it
+      // is a git stack. Shared by both merge and replace mode below — each
+      // calls it only when a routing decision actually depends on the
+      // answer (see call sites). Issue-#196 lesson: an unresolvable/
+      // malformed response THROWS and aborts the whole call rather than
+      // silently defaulting — a wrong default here would misroute a write.
+      async function resolveIsGitStack(): Promise<boolean> {
+        const sources = await client.get<Record<string, { sourceType?: string }>>(
+          '/api/stacks/sources', { env: environmentId });
+        if (sources === undefined || sources === null || typeof sources !== 'object' || Array.isArray(sources)) {
+          throw new Error(
+            `update_stack_env: GET /api/stacks/sources returned an unexpected response shape — refusing to route variable(s) for stack "${name}" without a resolved source type.`);
+        }
+        return sources[name]?.sourceType === 'git';
+      }
+
       let secrets: EnvVariable[];
       let payloadNonSecrets: EnvVariable[];
       let existingSecrets: EnvVariable[] = [];
       let existingSecretsCount = 0;
       let promotedKeys: string[] = [];
       let toMigrate: EnvVariable[] = [];
-      // #231: true only in merge mode, once the stack's source type has been
-      // resolved as 'git'. Declared here (not inside the merge branch) so the
-      // .env/raw block further down can skip itself entirely for a git
-      // stack — its .env file is not a store this tool manages at all.
+      // #231: whether this stack resolved to a git source type — resolved in
+      // EITHER mode below, whenever a routing decision needs it (declared
+      // here, not inside a branch, so the shared .env/raw block and the
+      // summary baseline further down can both read it).
       let isGitStack = false;
+      // #231 (Codex P2, Fix-Runde 2): the full pre-merge DB variable set for
+      // a git stack (secrets AND non-secrets — GET /env returns both for
+      // git). Used as the merge-summary baseline instead of the
+      // secrets-only + parsed-.env baseline, which for a git stack has no
+      // .env keys at all and would misreport every touched existing
+      // non-secret as "added" instead of "updated", and every untouched one
+      // as missing instead of "preserved".
+      let existingVarsForBaseline: EnvVariable[] = [];
 
       if (mode === 'merge') {
         // GET is load-bearing here: a failure must NOT issue any write (no data loss).
@@ -201,6 +226,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
           ? existingVarsRaw.filter((v): v is EnvVariable => !!v && typeof v.key === 'string')
           : [];
 
+        existingVarsForBaseline = existingVars;
         existingSecrets = existingVars.filter((v) => v.isSecret === true);
         existingSecretsCount = existingSecrets.length;
         // Orphaned DB rows: non-secret entries sitting in the DB-backed
@@ -247,7 +273,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         // nothing to lose and no need to resolve the source type.
         //
         // NOTE: if GET /api/stacks/sources cannot be resolved into a usable
-        // map, this THROWS (propagates) and aborts the whole call — no
+        // map, resolveIsGitStack() THROWS and aborts the whole call — no
         // partial write, same fail-safe contract as the structured GET
         // above (Issue #196 lesson: unexpected shape on a write path must
         // never silently default). A resolvable-but-unlisted stack falls
@@ -261,13 +287,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         const willFireDbPutPreGit = preGitSecrets.length > 0 || existingSecretsCount > 0;
 
         if (preGitPayloadNonSecrets.length > 0 || willFireDbPutPreGit) {
-          const sources = await client.get<Record<string, { sourceType?: string }>>(
-            '/api/stacks/sources', { env: environmentId });
-          if (sources === undefined || sources === null || typeof sources !== 'object' || Array.isArray(sources)) {
-            throw new Error(
-              `update_stack_env: GET /api/stacks/sources returned an unexpected response shape — refusing to route variable(s) for stack "${name}" without a resolved source type.`);
-          }
-          isGitStack = sources[name]?.sourceType === 'git';
+          isGitStack = await resolveIsGitStack();
         }
 
         // Git: the DB PUT payload is the ENTIRE merged set (preserves every
@@ -300,10 +320,56 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         }
       } else {
         // replace: wipe-and-set exactly the provided list, split by isSecret.
-        // No GET, no summary — Critical 4: matches the original #105 contract.
-        // replace is a deliberate full wipe of both stores, not a preview.
-        secrets = variables.filter((v) => v.isSecret);
-        payloadNonSecrets = variables.filter((v) => !v.isSecret);
+        // No structured GET, no summary — Critical 4: matches the original
+        // #105 contract for the case that never needs a routing decision.
+        //
+        // #231 (Fix-Runde 2 — Copilot finding, replace mode had the same
+        // git-stack data-loss bug as merge mode): on a git stack every
+        // variable belongs in the DB (same Ground Truth as merge mode
+        // above), so `secrets` here must be the ENTIRE provided list, not
+        // just the isSecret:true subset, and none of it goes to /env/raw.
+        // Resolving the source type costs a GET this mode otherwise never
+        // makes (Critical 4) — so it only happens when the payload actually
+        // has a non-secret to route; a pure-secret (or empty) replace
+        // payload never needs the answer and keeps the original "no GET at
+        // all" contract intact.
+        const replaceSecrets = variables.filter((v) => v.isSecret);
+        const replaceNonSecrets = variables.filter((v) => !v.isSecret);
+        if (replaceNonSecrets.length > 0) {
+          isGitStack = await resolveIsGitStack();
+        }
+        if (isGitStack) {
+          // #231 (Fix-Runde 2, security-audit MEDIUM — credential-loss
+          // variant): a caller resending an EXISTING secret through replace
+          // without isSecret:true (e.g. after a get_stack_env round-trip
+          // that returned it masked as '***', then simply forwarding that
+          // value back) would otherwise be silently demoted to a plaintext
+          // non-secret — and because a git stack's DB PUT is DELETE-all +
+          // INSERT of exactly this list, the old encrypted row is gone the
+          // instant this call completes, with `success:true`. Preserve the
+          // existing isSecret flag for any key the caller's payload omits
+          // it on, mirroring merge mode's identical protection above
+          // ("Preserve the existing isSecret flag when the caller omits
+          // it"). A brand-new key (no existing row) defaults to false, same
+          // as the pre-#231 replace contract. This is a DELIBERATE, narrow
+          // exception to Critical 4's "no GET at all" for replace: it costs
+          // one extra GET, and only for a git stack that already needed the
+          // sources lookup (i.e. only when replaceNonSecrets is non-empty).
+          const existingForReplace = await client.get<StackEnv>(envPath, { env: environmentId });
+          const existingVarsRaw = existingForReplace?.variables;
+          const existingIsSecretByKey = new Map(
+            (Array.isArray(existingVarsRaw) ? existingVarsRaw : [])
+              .filter((v): v is EnvVariable => !!v && typeof v.key === 'string')
+              .map((v) => [v.key, v.isSecret === true]),
+          );
+          secrets = variables.map((v) => ({
+            ...v,
+            isSecret: v.isSecret !== undefined ? v.isSecret : (existingIsSecretByKey.get(v.key) ?? false),
+          }));
+        } else {
+          secrets = replaceSecrets;
+        }
+        payloadNonSecrets = isGitStack ? [] : replaceNonSecrets;
       }
 
       // DB store: fires when there is at least one secret to persist, or when
@@ -312,7 +378,13 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       let dbPutResult: unknown;
       if (mode === 'replace' || secrets.length > 0 || existingSecretsCount > 0) {
         dbPutResult = await client.put(envPath, { variables: secrets }, { env: environmentId });
-        dbSecretsWritten = secrets.length;
+        // #231 (Fix-Runde 2 — Codex P2): on a git stack `secrets` is the
+        // FULL merged/replace set (secrets AND non-secrets — the DB PUT
+        // payload must carry both, see above), so `secrets.length` counts
+        // non-secrets too. The reported count must reflect only the
+        // ACTUAL secrets sent, or a non-secret gets misreported as a
+        // written secret.
+        dbSecretsWritten = secrets.filter((v) => v.isSecret).length;
       }
 
       // .env store: touched when the payload has non-secrets to upsert, when a
@@ -359,19 +431,29 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       }
 
       // Summary: merge-only (Critical 4 — replace has no GET, no preview).
-      // Important 5: the baseline combines BOTH real stores — DB secrets and
-      // .env keys (parsed from the raw GET above, when it happened) — so a
-      // key already tracked in .env and changed this call is reported as
-      // `updated`, not `added`; a key left out is `preserved`. Critical 3:
-      // orphaned DB non-secret rows are deliberately excluded from the
-      // baseline — they are migrated into .env above, not "preserved" in DB.
+      // Important 5: for an INTERNAL/adopted stack the baseline combines
+      // BOTH real stores — DB secrets and .env keys (parsed from the raw
+      // GET above, when it happened) — so a key already tracked in .env and
+      // changed this call is reported as `updated`, not `added`; a key left
+      // out is `preserved`. Critical 3: orphaned DB non-secret rows are
+      // deliberately excluded from the baseline — they are migrated into
+      // .env above, not "preserved" in DB.
+      // #231 (Fix-Runde 2 — Codex P2): for a GIT stack there is no .env
+      // baseline at all (raw GET never happens, non-secrets never lived
+      // there) — the baseline is instead the FULL pre-merge DB variable set
+      // (existingVarsForBaseline, secrets AND non-secrets). Without this, a
+      // changed existing non-secret was misreported as "added" (it isn't in
+      // existingSecrets, which only holds secrets) and every untouched
+      // existing non-secret was missing from "preserved" entirely.
       let diff: EnvDiff | undefined;
       if (mode === 'merge') {
-        const envBaselineKeys = rawStr !== undefined ? parseDotEnvKeys(rawStr) : [];
-        const baseline: EnvVariable[] = [
-          ...existingSecrets,
-          ...envBaselineKeys.map((key) => ({ key, value: '', isSecret: false })),
-        ];
+        const baseline: EnvVariable[] = isGitStack
+          ? existingVarsForBaseline
+          : [
+              ...existingSecrets,
+              ...(rawStr !== undefined ? parseDotEnvKeys(rawStr) : [])
+                .map((key) => ({ key, value: '', isSecret: false })),
+            ];
         diff = diffEnvVars(baseline, variables, 'merge');
       }
 

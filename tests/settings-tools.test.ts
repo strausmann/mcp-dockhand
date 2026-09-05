@@ -49,7 +49,12 @@ function setup() {
 }
 
 describe('get_semver_settings / update_semver_settings (#227)', () => {
-  it('GEGENVERSUCH: neither tool exists yet', () => {
+  // Registration smoke test. The actual TDD gegenversuch ran once, before
+  // implementation (`registerSettingsTools` did not exist / neither tool was
+  // registered) — that red run is not preserved as a committed assertion, it
+  // was the manual red step of TDD Step 2. What is committed and green here
+  // is the post-implementation check: both tools are, in fact, registered.
+  it('both tools are registered', () => {
     const handlers = new Map<string, ToolHandler>();
     const server = { tool: (n: string, _d: string, _s: unknown, cb: ToolHandler) => handlers.set(n, cb) };
     const client = { get: vi.fn(), post: vi.fn() };

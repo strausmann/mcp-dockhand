@@ -162,7 +162,12 @@ describe('update_stack_env — merge mode routes non-secrets by resolved stack s
     expect(client.get.mock.calls.some((c) => String(c[0]).endsWith('/env/raw'))).toBe(false);
 
     const out = jsonOut(res);
-    expect(out.db).toEqual({ secretsWritten: 2 });
+    // Fix-Runde 2 / Codex P2: the DB PUT payload for a git stack carries
+    // BOTH types (DELETE-all+INSERT needs the full set), but the reported
+    // count must reflect only the ACTUAL secrets in it (1: SECRET_A) — not
+    // the 2 entries actually sent to the endpoint. Counting the raw payload
+    // length here would misreport a non-secret as a written secret.
+    expect(out.db).toEqual({ secretsWritten: 1 });
     expect(out.env).toEqual({ nonSecretsWritten: 0 });
     expect(out.success).toBe(true);
   });
@@ -238,5 +243,156 @@ describe('update_stack_env — merge mode routes non-secrets by resolved stack s
 
     const out = jsonOut(res);
     expect(out.success).toBe(true);
+  });
+
+  it('git stack: dbSecretsWritten counts only the ACTUAL secrets sent, not the non-secrets riding along in the same DB PUT', async () => {
+    const { handler, client } = setup();
+    wireGet(client, {
+      structured: { variables: [] },
+      sources: { 'my-git-stack': { sourceType: 'git' } },
+    });
+
+    const res = await handler({
+      environmentId: 1,
+      name: 'my-git-stack',
+      variables: [
+        { key: 'ONE_SECRET', value: 's', isSecret: true },
+        { key: 'ONE_NONSECRET', value: 'v', isSecret: false },
+      ],
+    });
+
+    const body = envPut(client)?.[1] as { variables: EnvVariable[] } | undefined;
+    expect(body?.variables).toHaveLength(2); // both go to the DB PUT...
+
+    const out = jsonOut(res);
+    expect(out.db).toEqual({ secretsWritten: 1 }); // ...but only 1 is actually a secret
+  });
+});
+
+describe('update_stack_env — replace mode routes non-secrets by resolved stack source type (#231, Fix-Runde 2)', () => {
+  it('git stack, mode=replace: (a) non-secrets land in the DB PUT together with the secrets, never in /env/raw, AND (b) an existing secret resent WITHOUT isSecret keeps its isSecret:true (not silently demoted+dropped)', async () => {
+    const { handler, client } = setup();
+    wireGet(client, {
+      // EXISTING_SECRET is a pre-existing git-DB secret. The replace payload
+      // below resends it WITHOUT isSecret — a plausible caller mistake after
+      // a get_stack_env round-trip that returned it masked as '***'.
+      structured: { variables: [{ key: 'EXISTING_SECRET', value: 'old-secret-value', isSecret: true }] },
+      sources: { 'my-git-stack': { sourceType: 'git' } },
+    });
+
+    const res = await handler({
+      environmentId: 4,
+      name: 'my-git-stack',
+      mode: 'replace',
+      variables: [
+        { key: 'EXISTING_SECRET', value: 'old-secret-value' }, // isSecret omitted!
+        { key: 'PLAIN', value: 'p', isSecret: false },
+      ],
+    });
+
+    expect(sourcesGet(client)).toBeDefined();
+    expect(rawPut(client)).toBeUndefined();
+    expect(client.get.mock.calls.some((c) => String(c[0]).endsWith('/env/raw'))).toBe(false);
+
+    const body = envPut(client)?.[1] as { variables: EnvVariable[] } | undefined;
+    expect(body?.variables).toEqual(
+      expect.arrayContaining([
+        // (b): isSecret preserved as true — not demoted to a plaintext non-secret.
+        { key: 'EXISTING_SECRET', value: 'old-secret-value', isSecret: true },
+        // (a): the plain non-secret rides along in the SAME DB PUT.
+        { key: 'PLAIN', value: 'p', isSecret: false },
+      ]),
+    );
+    expect(body?.variables).toHaveLength(2);
+
+    const out = jsonOut(res);
+    // Only EXISTING_SECRET is an actual secret — PLAIN must not inflate the count.
+    expect(out.db).toEqual({ secretsWritten: 1 });
+  });
+
+  it('git stack, mode=replace: a brand-new key with omitted isSecret defaults to false (no existing row to preserve from)', async () => {
+    const { handler, client } = setup();
+    wireGet(client, {
+      structured: { variables: [] },
+      sources: { 'my-git-stack': { sourceType: 'git' } },
+    });
+
+    const res = await handler({
+      environmentId: 4,
+      name: 'my-git-stack',
+      mode: 'replace',
+      variables: [
+        { key: 'BRAND_NEW', value: 'v' }, // isSecret omitted, no existing row
+        { key: 'PLAIN', value: 'p', isSecret: false },
+      ],
+    });
+
+    const body = envPut(client)?.[1] as { variables: EnvVariable[] } | undefined;
+    expect(body?.variables).toEqual(
+      expect.arrayContaining([{ key: 'BRAND_NEW', value: 'v', isSecret: false }]),
+    );
+
+    const out = jsonOut(res);
+    expect(out.db).toEqual({ secretsWritten: 0 });
+  });
+
+  it('internal stack, mode=replace: non-secrets STILL go to /env/raw, only secrets to the DB (regression guard)', async () => {
+    const { handler, client } = setup();
+    wireGet(client, {
+      structured: { variables: [] },
+      sources: { 'my-internal-stack': { sourceType: 'internal' } },
+    });
+
+    const res = await handler({
+      environmentId: 4,
+      name: 'my-internal-stack',
+      mode: 'replace',
+      variables: [
+        { key: 'SECRET', value: 's', isSecret: true },
+        { key: 'PLAIN', value: 'p', isSecret: false },
+      ],
+    });
+
+    expect(sourcesGet(client)).toBeDefined();
+    expect(envPut(client)?.[1]).toEqual({ variables: [{ key: 'SECRET', value: 's', isSecret: true }] });
+    expect(rawPut(client)?.[1]).toEqual({ content: 'PLAIN=p' });
+
+    const out = jsonOut(res);
+    expect(out.db).toEqual({ secretsWritten: 1 });
+  });
+
+  it('mode=replace, pure-secret payload: still issues NO GET at all (no routing decision needed — Critical 4 preserved)', async () => {
+    const { handler, client } = setup();
+
+    await handler({
+      environmentId: 4,
+      name: 's',
+      mode: 'replace',
+      variables: [{ key: 'SECRET', value: 's', isSecret: true }],
+    });
+
+    expect(client.get).not.toHaveBeenCalled();
+  });
+});
+
+describe('update_stack_env — merge summary baseline on a git stack (#231, Fix-Runde 2, Codex P2)', () => {
+  it('git stack: changing an existing non-secret reports it as "updated", an untouched existing non-secret as "preserved" (not added/missing)', async () => {
+    const { handler, client } = setup();
+    wireGet(client, {
+      structured: { variables: [
+        { key: 'A', value: 'old-a', isSecret: false },
+        { key: 'B', value: 'keep-b', isSecret: false },
+      ] },
+      sources: { 'my-git-stack': { sourceType: 'git' } },
+    });
+
+    const res = await handler({
+      environmentId: 1,
+      name: 'my-git-stack',
+      variables: [{ key: 'A', value: 'new-a', isSecret: false }],
+    });
+
+    const out = jsonOut(res);
+    expect(out.summary).toEqual({ added: 0, updated: 1, preserved: 1, removed: 0 });
   });
 });
