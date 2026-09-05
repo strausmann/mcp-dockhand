@@ -105,8 +105,13 @@ describe('describeTool', () => {
       // tools the spec operation's summary actually describes — they must keep getting the
       // plain derived text (no override entry for them).
       expect(describeTool('update_stack_env_raw')).toMatch(/write raw \.env file/i);
-      // 1.0.42 reworded this summary and now also mentions the provider-injected keys.
-      expect(describeTool('get_stack_env')).toMatch(/env vars .*secrets masked/i);
+      // 1.0.42 reworded this summary to mention the provider-injected keys; 1.0.44 dropped
+      // the "secrets masked" phrase from the summary entirely (it now only appears in the
+      // operation's `description` prose, which deriveToolDescription() does not surface —
+      // see derive-description.ts's file header). Verified against the 1.0.46 handler
+      // (`src/routes/api/stacks/[name]/env/+server.ts`, `@openapi summary:`): the real
+      // summary is "Get a stack's env vars plus injected provider keys".
+      expect(describeTool('get_stack_env')).toMatch(/env vars plus injected provider keys/i);
       expect(describeTool('remove_user_role')).toMatch(/remove a role assignment/i);
       expect(describeTool('trigger_git_webhook')).toMatch(
         /secret passed as the `secret` query parameter/i,

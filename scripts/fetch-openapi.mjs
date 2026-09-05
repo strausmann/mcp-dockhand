@@ -52,7 +52,7 @@ const PROJECT_ROOT = resolve(__dirname, '..');
 // Schritt, nicht "immer der aktuelle Branch-Head".
 const SOURCE_REPO = 'https://github.com/Finsys/dockhand.git';
 const SOURCE_BRANCH = 'main';
-const SOURCE_COMMIT = 'da26f7f764563a35dacc970cc0196e6aa7828384';
+const SOURCE_COMMIT = '049221ceff6223ff10fae49c0cb9757368c565bf';
 
 // Die vom Maintainer MITGELIEFERTE Spec -- nicht mehr selbst generiert.
 //
