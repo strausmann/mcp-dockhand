@@ -10,14 +10,14 @@
 > hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-Issue) — hier weiterhin nur
 > zur Übersicht gelistet. Die übrigen drei Typen bleiben vollständig advisory.
 
-**Erzeugt:** 2026-08-26T08:56:14.633Z
+**Erzeugt:** 2026-09-05T19:30:10.747Z
 
 ## Zusammenfassung
 
 | Typ | Anzahl | Bedeutung |
 |-----|--------|-----------|
 | BODY_PARAM_UNKNOWN | 11 | Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Ausschluss der Query-/Path-Parameter der Operation). |
-| UNTYPED_PASSTHROUGH | 46 | Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar. |
+| UNTYPED_PASSTHROUGH | 47 | Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar. |
 | BODY_CONTRACT_UNRESOLVED | 35 | Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork). |
 
 ## BODY_PARAM_UNKNOWN (11)
@@ -27,18 +27,18 @@ Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Aussch
 | Tool | HTTP | Pfad | Feld | Datei |
 |------|------|------|------|-------|
 | `activate_license` | POST | `/api/license` | `licenseKey` | system.ts:179 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `name` | stacks.ts:494 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `composePath` | stacks.ts:494 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `envPath` | stacks.ts:494 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `sourceDir` | stacks.ts:494 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `name` | stacks.ts:555 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `composePath` | stacks.ts:555 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `envPath` | stacks.ts:555 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `sourceDir` | stacks.ts:555 |
 | `create_environment` | POST | `/api/environments` | `url` | environments.ts:157 |
 | `create_user` | POST | `/api/users` | `roles` | users.ts:33 |
-| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env` | `keys` | stacks.ts:419 |
-| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env/raw` | `keys` | stacks.ts:427 |
+| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env` | `keys` | stacks.ts:480 |
+| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env/raw` | `keys` | stacks.ts:488 |
 | `set_container_auto_update` | POST | `/api/auto-update/{containerName}` | `policy` | auto-update.ts:37 |
 | `test_environment_connection` | POST | `/api/environments/test` | `url` | environments.ts:225 |
 
-## UNTYPED_PASSTHROUGH (46)
+## UNTYPED_PASSTHROUGH (47)
 
 Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar.
 
@@ -90,6 +90,7 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `update_secret_provider` | PUT | `/api/secret-providers/{id}` | - | secret-providers.ts:83 |
 | `update_template_source` | PUT | `/api/templates/sources` | `id` | templates.ts:52 |
 | `update_user` | PUT | `/api/users/{userId}` | - | users.ts:50 |
+| `validate_stack_compose` | POST | `/api/stacks/{name}/validate` | `compose` | stacks.ts:687 |
 
 ## BODY_CONTRACT_UNRESOLVED (35)
 

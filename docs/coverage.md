@@ -4,18 +4,18 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-08-27T16:02:51.056Z
+**Erzeugt:** 2026-09-05T19:30:05.635Z
 **Dockhand-Upstream-Commit:** `a9b1998aad9549aa9ac0a1e44f438f809283f101`
 **Schema-Endpunkte gesamt:** 254
 
 ## Coverage
 
-**86.0%** (295/343 in-Scope-Endpunkte haben ein MCP-Tool)
+**86.9%** (298/343 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
-| COVERED | 295 |
-| MISSING_TOOL | 48 |
+| COVERED | 298 |
+| MISSING_TOOL | 45 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -102,21 +102,13 @@ ersten Pfad-Segment nach `/api/`:
 |------|------|----------------|
 | POST | `/api/images/load` | - |
 
-### settings (2)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/api/settings/semver` | - |
-| POST | `/api/settings/semver` | - |
-
-### stacks (4)
+### stacks (3)
 
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
 | DELETE | `/api/stacks/{name}/icon` | name |
 | GET | `/api/stacks/{name}/icon` | name |
 | POST | `/api/stacks/{name}/icon` | name |
-| POST | `/api/stacks/{name}/validate` | name |
 
 ## Deliberately omitted (with reason)
 
