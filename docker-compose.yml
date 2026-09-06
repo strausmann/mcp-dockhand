@@ -10,6 +10,10 @@ services:
       - DOCKHAND_USERNAME=${DOCKHAND_USERNAME}
       - DOCKHAND_PASSWORD=${DOCKHAND_PASSWORD}
       - MCP_PORT=8080
+      # Optional /mcp request-body cap (bytes). Unset -> blank -> 100 MB default
+      # (getRequestBodyLimitConfig treats "" as unset). Raise it so load_image can
+      # accept larger base64-inflated tars. See README / .env.example.
+      - MCP_MAX_REQUEST_BODY_BYTES=${MCP_MAX_REQUEST_BODY_BYTES:-}
     healthcheck:
       # 127.0.0.1, not localhost: avoids the IPv6-loopback resolution issue
       # on Alpine/musl (see Dockerfile HEALTHCHECK comment, fixes #92, #84).
