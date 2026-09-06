@@ -11,8 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * (Issue #164, points 1-2). Every request shape below is ground-truthed
  * against the real SvelteKit handlers in `Finsys/dockhand` v1.0.41
  * (commit 905c4a0) — see the PR description for the file:line evidence per
- * endpoint. NOT against docs/dockhand-api-schema.json or any prior
- * mcp-dockhand doc.
+ * endpoint. NOT against any prior mcp-dockhand doc or generated schema.
  */
 
 function readSource(file: string): string {

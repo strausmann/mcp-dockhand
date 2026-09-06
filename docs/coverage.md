@@ -2,20 +2,20 @@
 
 > **Auto-generiert** von `scripts/generate-coverage-doc.mjs` — nicht von Hand editieren.
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
-> Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
+> Änderung committet. Grundlage: `docs/dockhand-openapi.json` (via `deriveRoutesFromOpenapi()`).
 
-**Erzeugt:** 2026-09-06T09:21:30.940Z
-**Dockhand-Upstream-Commit:** `14f75845edd4ee221bc1df7c0d65f3e341188149`
-**Schema-Endpunkte gesamt:** 254
+**Erzeugt:** 2026-09-06T12:08:56.744Z
+**Dockhand-Upstream-Commit:** `049221ceff6223ff10fae49c0cb9757368c565bf`
+**Schema-Endpunkte gesamt:** 257
 
 ## Coverage
 
-**95.6%** (328/343 in-Scope-Endpunkte haben ein MCP-Tool)
+**95.1%** (329/346 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
-| COVERED | 328 |
-| MISSING_TOOL | 15 |
+| COVERED | 329 |
+| MISSING_TOOL | 17 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -24,6 +24,18 @@
 
 Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
 ersten Pfad-Segment nach `/api/`:
+
+### /audit (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/audit` | - |
+
+### /audit/users (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/audit/users` | - |
 
 ### container-icons (4)
 

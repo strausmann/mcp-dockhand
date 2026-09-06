@@ -10,9 +10,9 @@
  * second time and hands the result to `buildTrackerBody()`
  * (scripts/lib/coverage-tracker.mjs, unit-tested in tests/coverage-tracker.test.ts).
  *
- * Run this AFTER `node scripts/extract-dockhand-api.mjs` in the workflow (same
- * precondition `generate-coverage-doc.mjs` has: a fresh `docs/dockhand-api-schema.json`
- * on disk) — see api-schema-sync.yml step ordering.
+ * Run this AFTER `node scripts/fetch-openapi.mjs` in the workflow (same precondition
+ * `generate-coverage-doc.mjs` has: the pinned `docs/dockhand-openapi.json` on disk) —
+ * see api-schema-sync.yml step ordering.
  *
  * Writes two GitHub Actions step outputs to `$GITHUB_OUTPUT` (a later `github-script`
  * step reads `steps.coverage-tracker.outputs.missing_count` /
