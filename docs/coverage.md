@@ -4,18 +4,18 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-09-05T19:30:05.635Z
-**Dockhand-Upstream-Commit:** `a9b1998aad9549aa9ac0a1e44f438f809283f101`
+**Erzeugt:** 2026-09-06T09:21:30.940Z
+**Dockhand-Upstream-Commit:** `14f75845edd4ee221bc1df7c0d65f3e341188149`
 **Schema-Endpunkte gesamt:** 254
 
 ## Coverage
 
-**86.9%** (298/343 in-Scope-Endpunkte haben ein MCP-Tool)
+**95.6%** (328/343 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
-| COVERED | 298 |
-| MISSING_TOOL | 45 |
+| COVERED | 328 |
+| MISSING_TOOL | 15 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -24,41 +24,6 @@
 
 Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
 ersten Pfad-Segment nach `/api/`:
-
-### backup (30)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/api/backup/configs` | - |
-| POST | `/api/backup/configs` | - |
-| DELETE | `/api/backup/configs/{id}` | id |
-| GET | `/api/backup/configs/{id}` | id |
-| PUT | `/api/backup/configs/{id}` | id |
-| POST | `/api/backup/configs/{id}/run` | id |
-| POST | `/api/backup/configs/{id}/stop` | id |
-| GET | `/api/backup/destinations` | - |
-| POST | `/api/backup/destinations` | - |
-| DELETE | `/api/backup/destinations/{id}` | id |
-| GET | `/api/backup/destinations/{id}` | id |
-| PUT | `/api/backup/destinations/{id}` | id |
-| POST | `/api/backup/destinations/{id}/init` | id |
-| POST | `/api/backup/destinations/{id}/rotate-key` | id |
-| POST | `/api/backup/destinations/{id}/task` | id |
-| POST | `/api/backup/destinations/{id}/test` | id |
-| POST | `/api/backup/destinations/{id}/verify` | id |
-| POST | `/api/backup/destinations/test` | - |
-| GET | `/api/backup/instance` | - |
-| POST | `/api/backup/restore` | - |
-| POST | `/api/backup/restore/preview` | - |
-| POST | `/api/backup/restore/stop` | - |
-| GET | `/api/backup/snapshots` | - |
-| DELETE | `/api/backup/snapshots/{id}` | id |
-| GET | `/api/backup/snapshots/{id}/browse` | id |
-| GET | `/api/backup/snapshots/{id}/dump` | id |
-| GET | `/api/backup/snapshots/{id}/metadata` | id |
-| GET | `/api/backup/snapshots/diff` | - |
-| GET | `/api/backup/stack-dir-listing` | - |
-| GET | `/api/backup/stack-path` | - |
 
 ### container-icons (4)
 
