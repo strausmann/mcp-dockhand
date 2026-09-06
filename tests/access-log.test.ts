@@ -32,6 +32,15 @@ function quotedFields(line: string): { request: string; referer: string; userAge
   return { request: pieces[1], referer: pieces[3], userAgent: pieces[5] };
 }
 
+// The unquoted " status bytes " segment between the request and referer fields — the
+// only place status/bytes can appear, so a check against it names those two fields
+// instead of sweeping the whole line (Issue #224).
+function statusBytesSegment(line: string): string {
+  const pieces = line.split('"');
+  expect(pieces).toHaveLength(7);
+  return pieces[2];
+}
+
 function lineWith(overrides: Partial<Parameters<typeof formatAccessLine>[0]>): string {
   return formatAccessLine({
     ip: '203.0.113.9', time: AT, method: 'GET', path: '/health', httpVersion: '1.1',
@@ -136,9 +145,13 @@ describe('formatAccessLine', () => {
       httpVersion: '1.1', status: 200, bytes: 1,
     });
 
-    expect(line).not.toContain('hunter2');
-    expect(line).not.toContain('secret');
-    expect(line).toContain('"POST /mcp HTTP/1.1"');
+    // Field-scoped (Issue #224): the query only ever could have survived in the
+    // "request" field (method + path + version) — that is the field this check names,
+    // not the whole line, which also carries ip/time/status/bytes and could in
+    // principle contain either substring by coincidence.
+    expect(quotedFields(line).request).not.toContain('hunter2');
+    expect(quotedFields(line).request).not.toContain('secret');
+    expect(quotedFields(line).request).toBe('POST /mcp HTTP/1.1');
   });
 
   it('cannot be used to forge a second log line', () => {
@@ -244,6 +257,9 @@ describe('formatAccessLine', () => {
   it('never prints NaN for status or bytes', () => {
     const line = lineWith({ status: Number.NaN, bytes: Number.NaN });
 
-    expect(line).not.toContain('NaN');
+    // Field-scoped (Issue #224): status/bytes only ever render into this segment —
+    // naming it instead of the whole line rules out a coincidental "NaN" elsewhere
+    // (a timestamp or identifier) masquerading as a real finding either way.
+    expect(statusBytesSegment(line)).not.toContain('NaN');
   });
 });

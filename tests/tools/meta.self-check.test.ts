@@ -2,6 +2,22 @@ import { describe, it, expect } from 'vitest';
 import { runSelfCheck } from '../../src/tools/meta.js';
 import type { SelfCheckEnvironment } from '../../src/tools/meta.js';
 
+/**
+ * Walks an arbitrary JSON-like value and yields a dotted path for every key/leaf it
+ * contains (Issue #224). Lets a check name the exact field it denies instead of
+ * regex-sweeping a `JSON.stringify()` of the whole thing — where a match against an
+ * unrelated field's name or value would fail the test for the wrong reason.
+ */
+function walkEntries(value: unknown, path = 'result'): Array<[string, unknown]> {
+  const entries: Array<[string, unknown]> = [[path, value]];
+  if (value !== null && typeof value === 'object') {
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      entries.push(...walkEntries(child, `${path}.${key}`));
+    }
+  }
+  return entries;
+}
+
 describe('runSelfCheck', () => {
   it('reports ok when Dockhand is reachable, auth is valid, and all environments are reachable', async () => {
     const result = await runSelfCheck({
@@ -96,10 +112,17 @@ describe('runSelfCheck', () => {
       listEnvironments: async () => [{ id: 1, name: 'production', reachable: true, hawserConnected: true }],
     });
 
-    const serialized = JSON.stringify(result);
-    expect(serialized).not.toMatch(/token/i);
-    expect(serialized).not.toMatch(/secret/i);
-    expect(serialized).not.toMatch(/password/i);
+    // Field-scoped (Issue #224): walk the actual result shape and name the offending
+    // field/value on failure. A blind `JSON.stringify(result)` sweep would fail for
+    // the wrong reason the day a legitimate, non-secret field name happens to contain
+    // one of these words (e.g. "authTokenPresent: boolean") — this still catches an
+    // unexpected new field anywhere in the tree, but says exactly which one.
+    for (const [path, value] of walkEntries(result)) {
+      expect(path, `field name "${path}"`).not.toMatch(/token|secret|password/i);
+      if (typeof value === 'string') {
+        expect(value, `value of "${path}"`).not.toMatch(/token|secret|password/i);
+      }
+    }
   });
 
   it('degrades gracefully (does not throw) if the environments probe itself fails', async () => {
