@@ -194,3 +194,49 @@ describe('analyzeQueryParams', () => {
     expect(analyzeQueryParams(body)).toEqual([{ name: 'name', required: true }]);
   });
 });
+
+/**
+ * Regression (#202, cluster C): the real Finsys/dockhand v1.0.46
+ * src/routes/api/backup/snapshots/[id]/dump/+server.ts handler contains
+ * `const sanitizeFilename = (name) => name.replace(/["\\\x00-\x1f]/g, '_');` further down
+ * in its GET body — a regex literal whose character class holds exactly one `"`. Before
+ * findMatchingClose() (js-scan.mjs) gained regex-literal awareness, that stray `"` was
+ * misread as opening a STRING literal, which silently swallowed the rest of the file
+ * (including the handler's own closing `}`) looking for a second `"` to close it —
+ * extractHandlerBlocks() found ZERO blocks in the whole file as a result, so
+ * `destinationId`/`path`/`type` never made it into docs/dockhand-api-schema.json for
+ * this endpoint even though the handler unambiguously reads all three via
+ * `url.searchParams.get(...)`. Reproduced here with the handler's real shape (guard +
+ * the regex literal + a second read afterwards) rather than the whole real file, so this
+ * test doesn't depend on Finsys/dockhand's source staying byte-identical.
+ */
+describe('extractHandlerBlocks + analyzeQueryParams — regex-literal regression (#202)', () => {
+  it('still finds the GET block and every query param when the body contains a regex literal with a quote inside its character class', () => {
+    const source = `
+import { json } from '@sveltejs/kit';
+export const GET: RequestHandler = async ({ params, url, cookies, request }) => {
+	const destIdParam = url.searchParams.get('destinationId');
+	if (!destIdParam) return json({ error: 'destinationId parameter is required' }, { status: 400 });
+
+	const path = url.searchParams.get('path');
+	if (!path) return json({ error: 'path parameter is required' }, { status: 400 });
+
+	const isDir = url.searchParams.get('type') === 'directory';
+
+	const sanitizeFilename = (name) => name.replace(/["\\\\\\x00-\\x1f]/g, '_');
+
+	return json({ ok: true, isDir, sanitizeFilename: sanitizeFilename('x') });
+};
+`;
+    const blocks = extractHandlerBlocks(source);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].method).toBe('GET');
+
+    const params = analyzeQueryParams(blocks[0].body);
+    expect(params).toEqual([
+      { name: 'destinationId', required: true },
+      { name: 'path', required: true },
+      { name: 'type', required: false },
+    ]);
+  });
+});

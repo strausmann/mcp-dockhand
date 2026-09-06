@@ -30,6 +30,7 @@ import { registerMetaTools } from './meta.js';
 import { registerBackupConfigTools } from './backup-configs.js';
 import { registerBackupDestinationTools } from './backup-destinations.js';
 import { registerBackupProbeTools } from './backup-probes.js';
+import { registerBackupSnapshotTools } from './backup-snapshots.js';
 import { logger } from '../utils/logger.js';
 
 export function registerAllTools(server: McpServer, client: DockhandClient): void {
@@ -59,6 +60,7 @@ export function registerAllTools(server: McpServer, client: DockhandClient): voi
   registerBackupConfigTools(server, client);
   registerBackupDestinationTools(server, client);
   registerBackupProbeTools(server, client);
+  registerBackupSnapshotTools(server, client);
 
   logger.info({ component: 'tools' }, 'all Dockhand tools registered');
 }

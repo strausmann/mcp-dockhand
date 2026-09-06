@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-27T16:02:46.404Z",
+  "generatedAt": "2026-09-06T09:02:46.534Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "a9b1998aad9549aa9ac0a1e44f438f809283f101",
+  "sourceCommit": "14f75845edd4ee221bc1df7c0d65f3e341188149",
   "endpointCount": 254,
   "endpoints": [
     {
@@ -563,7 +563,27 @@
       ],
       "pathParams": [
         "id"
-      ]
+      ],
+      "queryParamsByMethod": {
+        "GET": [
+          {
+            "name": "destinationId",
+            "required": true
+          },
+          {
+            "name": "download",
+            "required": false
+          },
+          {
+            "name": "path",
+            "required": true
+          },
+          {
+            "name": "type",
+            "required": false
+          }
+        ]
+      }
     },
     {
       "path": "/api/backup/snapshots/{id}/metadata",

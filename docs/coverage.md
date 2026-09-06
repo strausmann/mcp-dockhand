@@ -4,18 +4,18 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-09-06T08:38:40.512Z
-**Dockhand-Upstream-Commit:** `a9b1998aad9549aa9ac0a1e44f438f809283f101`
+**Erzeugt:** 2026-09-06T09:03:40.013Z
+**Dockhand-Upstream-Commit:** `14f75845edd4ee221bc1df7c0d65f3e341188149`
 **Schema-Endpunkte gesamt:** 254
 
 ## Coverage
 
-**92.7%** (318/343 in-Scope-Endpunkte haben ein MCP-Tool)
+**94.8%** (325/343 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
-| COVERED | 318 |
-| MISSING_TOOL | 25 |
+| COVERED | 325 |
+| MISSING_TOOL | 18 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -25,20 +25,13 @@
 Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
 ersten Pfad-Segment nach `/api/`:
 
-### backup (10)
+### backup (3)
 
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
-| GET | `/api/backup/instance` | - |
 | POST | `/api/backup/restore` | - |
 | POST | `/api/backup/restore/preview` | - |
 | POST | `/api/backup/restore/stop` | - |
-| GET | `/api/backup/snapshots` | - |
-| DELETE | `/api/backup/snapshots/{id}` | id |
-| GET | `/api/backup/snapshots/{id}/browse` | id |
-| GET | `/api/backup/snapshots/{id}/dump` | id |
-| GET | `/api/backup/snapshots/{id}/metadata` | id |
-| GET | `/api/backup/snapshots/diff` | - |
 
 ### container-icons (4)
 

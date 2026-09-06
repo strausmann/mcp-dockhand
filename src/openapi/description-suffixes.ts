@@ -136,6 +136,26 @@ const BACKUP_DESTINATION_TASK_DESTRUCTIVE =
   'not just the caller. "unlock", "check" and "stats" are read-only/non-destructive. Before ' +
   'running prune or a repair task, ask the operator explicitly whether to proceed.';
 
+/**
+ * `dump_backup_snapshot_file` (src/routes/api/backup/snapshots/[id]/dump/+server.ts,
+ * inline-preview-only wrapper, src/tools/backup-snapshots.ts) reads a file's content
+ * straight out of a restic snapshot. Anything under `/volumes/*` is the backed-up
+ * application's own data, byte-for-byte — the endpoint applies NO redaction there,
+ * unlike `/metadata/metadata.json`, which the same handler always returns through a
+ * redacting layout parser instead of raw. A caller who only holds `backups:view` (a
+ * read-only-sounding permission) can therefore pull real secrets — passwords, API keys,
+ * private keys, credentialed config files — out of any backed-up volume this way.
+ */
+const BACKUP_SNAPSHOT_DUMP_MAY_EXPOSE_VOLUME_SECRETS =
+  'This tool returns only the inline/redacted preview — it never sets the endpoint\'s raw ' +
+  '`download=1` tar/byte-stream flag (a separate, not-yet-wrapped follow-up). SECURITY: ' +
+  'dumping a path under /volumes/* returns that backed-up file\'s content completely ' +
+  'unredacted — backed-up application data can contain real secrets (passwords, API keys, ' +
+  'private keys, credentialed config files) that will appear verbatim in the response. Do ' +
+  'not log or print the dumped content. The one path this endpoint DOES redact is ' +
+  '/metadata/metadata.json (returned as a parsed, redacted layout, never the raw file) — for ' +
+  'a snapshot\'s full metadata layout, prefer get_backup_snapshot_metadata instead.';
+
 export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
   exec_container: EXEC_RETURNS_NO_OUTPUT,
   get_stack_env_raw: RETURNS_THE_FILE_VERBATIM,
@@ -149,4 +169,5 @@ export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
   rotate_backup_destination_key: BACKUP_DESTINATION_ROTATE_PASSWORDS,
   get_backup_destination: BACKUP_DESTINATION_RETURNS_DECRYPTED_CREDS,
   run_backup_destination_task: BACKUP_DESTINATION_TASK_DESTRUCTIVE,
+  dump_backup_snapshot_file: BACKUP_SNAPSHOT_DUMP_MAY_EXPOSE_VOLUME_SECRETS,
 };
