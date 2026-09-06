@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
-import { registerTool, jsonResponse, errorResponse } from '../utils/tool-helper.js';
+import { registerTool, jsonResponse } from '../utils/tool-helper.js';
 import { encodePath } from '../utils/encode-path.js';
 
 /**
@@ -220,7 +220,12 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       // truth this mirrors.
       const parsed = listGitRemoteBranchesBodySchema.safeParse(args);
       if (!parsed.success) {
-        return errorResponse(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
+        // Codex review (PR #251, P2): THROW rather than return an error response.
+        // registerTool's wrapper logs a returned value as `ok` and never calls
+        // recordError, so a returned isError would make get_runtime_stats report
+        // zero errors for these failed calls. Throwing routes it through the
+        // wrapper's catch (recordError + failed log), same as the icon setters.
+        throw new Error(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
       }
       const { repositoryId, url, credentialId } = parsed.data;
       const body: Record<string, unknown> = {};

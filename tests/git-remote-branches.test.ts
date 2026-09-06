@@ -12,6 +12,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import { registerGitStackTools, listGitRemoteBranchesBodySchema } from '../src/tools/git-stacks.js';
+import { getStatsSnapshot, __resetStats } from '../src/utils/runtime-stats.js';
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 type ZodShape = Record<string, z.ZodTypeAny>;
@@ -123,6 +124,23 @@ describe('list_git_remote_branches', () => {
     client.post.mockRejectedValueOnce(new Error('ECONNREFUSED'));
     const result = await handlers.get('list_git_remote_branches')!({ repositoryId: 5 });
     expectToolError(result, 'ECONNREFUSED');
+  });
+
+  it('Codex P2: a validation failure routes through the error path — recordError fires, not logged as ok', async () => {
+    __resetStats();
+    const { handlers, client } = setup();
+    // both repositoryId AND url → the cross-field contract rejects it before any request
+    const result = await handlers.get('list_git_remote_branches')!({
+      repositoryId: 5,
+      url: 'https://github.com/example/repo.git',
+    });
+    expectToolError(result, 'url');
+    expect(client.post).not.toHaveBeenCalled();
+    // The whole point of the fix: this counts as an error, not a silent ok. A returned
+    // errorResponse (the pre-fix behaviour) would leave errorCount at 0.
+    const snap = getStatsSnapshot();
+    expect(snap.errorCount).toBe(1);
+    expect(snap.perTool['list_git_remote_branches']?.errors).toBe(1);
   });
 });
 
