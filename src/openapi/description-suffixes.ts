@@ -175,13 +175,30 @@ const RESTORE_IN_PLACE_DESTRUCTIVE =
  */
 const BACKUP_SNAPSHOT_DUMP_MAY_EXPOSE_VOLUME_SECRETS =
   'This tool returns only the inline/redacted preview — it never sets the endpoint\'s raw ' +
-  '`download=1` tar/byte-stream flag (a separate, not-yet-wrapped follow-up). SECURITY: ' +
-  'dumping a path under /volumes/* returns that backed-up file\'s content completely ' +
-  'unredacted — backed-up application data can contain real secrets (passwords, API keys, ' +
-  'private keys, credentialed config files) that will appear verbatim in the response. Do ' +
-  'not log or print the dumped content. The one path this endpoint DOES redact is ' +
+  '`download=1` tar/byte-stream flag. For the raw binary tar/byte-stream variant of this ' +
+  'same endpoint, use download_backup_snapshot_file instead. SECURITY: dumping a path under ' +
+  '/volumes/* returns that backed-up file\'s content completely unredacted — backed-up ' +
+  'application data can contain real secrets (passwords, API keys, private keys, ' +
+  'credentialed config files) that will appear verbatim in the response. Do not log or ' +
+  'print the dumped content. The one path this endpoint DOES redact is ' +
   '/metadata/metadata.json (returned as a parsed, redacted layout, never the raw file) — for ' +
   'a snapshot\'s full metadata layout, prefer get_backup_snapshot_metadata instead.';
+
+/**
+ * `download_backup_snapshot_file` (same endpoint as dump_backup_snapshot_file above, but
+ * with `download=1` set — src/tools/backup-snapshots.ts, #247) returns the RAW binary
+ * tar/byte stream (base64-framed), not a redacted or inline preview. Everything the
+ * suffix above warns about for /volumes/* applies here too, plus the content is now the
+ * actual unredacted bytes rather than a text preview.
+ */
+const BACKUP_SNAPSHOT_DOWNLOAD_RETURNS_RAW_BYTES =
+  'Returns the raw file/directory content as base64-encoded bytes (prefixed "base64:"), ' +
+  'not a preview. SECURITY: a path under /volumes/* is the backed-up application\'s own ' +
+  'data, byte-for-byte and completely unredacted — it can contain real secrets (passwords, ' +
+  'API keys, private keys, credentialed config files). Do not log or print the returned ' +
+  'content. A raw /metadata/metadata.json download is refused by the server with 403 (it ' +
+  'would bypass redaction) — use get_backup_snapshot_metadata for that path instead. For a ' +
+  'redacted/inline text preview instead of raw bytes, use dump_backup_snapshot_file.';
 
 export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
   exec_container: EXEC_RETURNS_NO_OUTPUT,
@@ -198,4 +215,5 @@ export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
   run_backup_destination_task: BACKUP_DESTINATION_TASK_DESTRUCTIVE,
   run_backup_restore: RESTORE_IN_PLACE_DESTRUCTIVE,
   dump_backup_snapshot_file: BACKUP_SNAPSHOT_DUMP_MAY_EXPOSE_VOLUME_SECRETS,
+  download_backup_snapshot_file: BACKUP_SNAPSHOT_DOWNLOAD_RETURNS_RAW_BYTES,
 };

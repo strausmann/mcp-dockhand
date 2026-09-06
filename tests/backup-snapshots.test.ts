@@ -48,6 +48,7 @@ interface MockClient {
   post: ReturnType<typeof vi.fn>;
   put: ReturnType<typeof vi.fn>;
   delete: ReturnType<typeof vi.fn>;
+  getRaw: ReturnType<typeof vi.fn>;
 }
 
 function jsonOut(res: unknown): unknown {
@@ -68,6 +69,7 @@ function setup(): { handlers: Map<string, ToolHandler>; schemas: Map<string, Zod
     post: vi.fn().mockResolvedValue({ ok: true }),
     put: vi.fn().mockResolvedValue({ ok: true }),
     delete: vi.fn().mockResolvedValue({ ok: true }),
+    getRaw: vi.fn().mockResolvedValue(Buffer.from('raw-bytes')),
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   registerBackupSnapshotTools(server as any, client as any);
@@ -90,13 +92,14 @@ function expectToolError(result: unknown, contains: string) {
 }
 
 describe('backup snapshot tools — registration', () => {
-  it('registers all seven operations', () => {
+  it('registers all eight operations', () => {
     const { handlers } = setup();
 
     expect([...handlers.keys()].sort()).toEqual([
       'browse_backup_snapshot',
       'delete_backup_snapshot',
       'diff_backup_snapshots',
+      'download_backup_snapshot_file',
       'dump_backup_snapshot_file',
       'get_backup_instance_id',
       'get_backup_snapshot_metadata',
@@ -449,6 +452,160 @@ describe('dump_backup_snapshot_file', () => {
     const description = describeTool('dump_backup_snapshot_file');
     expect(description.toLowerCase()).toContain('volumes');
     expect(description.toLowerCase()).toMatch(/secret|sensitive/);
+  });
+});
+
+describe('download_backup_snapshot_file (#247 — binary download=1 variant of dump)', () => {
+  it('happy path: directory download — calls client.getRaw with type=directory and download=1, base64-frames the raw bytes', async () => {
+    const { handlers, client } = setup();
+    client.getRaw.mockResolvedValueOnce(Buffer.from('fake-tar-bytes'));
+    const result = await handlers.get('download_backup_snapshot_file')!({
+      snapshotId: 'abc123',
+      destinationId: 3,
+      path: '/volumes/data',
+      type: 'directory',
+    });
+    expect(client.getRaw).toHaveBeenCalledWith('/api/backup/snapshots/abc123/dump', {
+      destinationId: 3,
+      path: '/volumes/data',
+      type: 'directory',
+      download: '1',
+    });
+    const r = result as { content: { type: string; text: string }[] };
+    expect(r.content[0]!.text).toBe(`base64:${Buffer.from('fake-tar-bytes').toString('base64')}`);
+  });
+
+  it('happy path: single-file download — type omitted, download=1 still sent', async () => {
+    const { client } = await call('download_backup_snapshot_file', {
+      snapshotId: 'abc123',
+      destinationId: 3,
+      path: '/volumes/data/config.json',
+    });
+    expect(client.getRaw).toHaveBeenCalledWith('/api/backup/snapshots/abc123/dump', {
+      destinationId: 3,
+      path: '/volumes/data/config.json',
+      type: undefined,
+      download: '1',
+    });
+  });
+
+  it('URL-encodes a snapshot id that needs it', async () => {
+    const { client } = await call('download_backup_snapshot_file', {
+      snapshotId: 'a/b c',
+      destinationId: 3,
+      path: '/volumes/x',
+    });
+    expect(client.getRaw).toHaveBeenCalledWith('/api/backup/snapshots/a%2Fb%20c/dump', {
+      destinationId: 3,
+      path: '/volumes/x',
+      type: undefined,
+      download: '1',
+    });
+  });
+
+  it('uses client.getRaw, not client.get — the binary variant needs the raw-bytes path, not the JSON one', async () => {
+    const spyClient = {
+      get: vi.fn().mockRejectedValue(new Error('client.get should never be called for download_backup_snapshot_file')),
+      post: vi.fn().mockRejectedValue(new Error('client.post should never be called for download_backup_snapshot_file')),
+      put: vi.fn().mockRejectedValue(new Error('client.put should never be called for download_backup_snapshot_file')),
+      delete: vi.fn().mockRejectedValue(new Error('client.delete should never be called for download_backup_snapshot_file')),
+      getRaw: vi.fn().mockResolvedValue(Buffer.from('bytes')),
+    };
+    const handlersMap = new Map<string, ToolHandler>();
+    const server = {
+      tool: (name: string, _d: string, _s: ZodShape, cb: ToolHandler) => { handlersMap.set(name, cb); },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    registerBackupSnapshotTools(server as any, spyClient as any);
+    const result = await handlersMap.get('download_backup_snapshot_file')!({
+      snapshotId: 'abc123',
+      destinationId: 3,
+      path: '/volumes/x',
+    });
+    expect(spyClient.get).not.toHaveBeenCalled();
+    expect(spyClient.post).not.toHaveBeenCalled();
+    expect(spyClient.put).not.toHaveBeenCalled();
+    expect(spyClient.delete).not.toHaveBeenCalled();
+    expect(spyClient.getRaw).toHaveBeenCalledWith('/api/backup/snapshots/abc123/dump', {
+      destinationId: 3,
+      path: '/volumes/x',
+      type: undefined,
+      download: '1',
+    });
+    const r = result as { content: { text: string }[] };
+    expect(r.content[0]!.text).toBe(`base64:${Buffer.from('bytes').toString('base64')}`);
+  });
+
+  it('GEGENVERSUCH: ALWAYS sends download="1" — unlike dump_backup_snapshot_file (the preview tool), which NEVER sends it. Manually verified by temporarily deleting the `download: \'1\'` line from download_backup_snapshot_file in src/tools/backup-snapshots.ts and rerunning this test: it went red (missing key vs. the exact object below), for the right reason, then reverted — see task report.', async () => {
+    const { client } = await call('download_backup_snapshot_file', {
+      snapshotId: 'abc123',
+      destinationId: 3,
+      path: '/metadata',
+      type: 'directory',
+    });
+    const sentParams = client.getRaw.mock.calls[0]![1] as Record<string, unknown>;
+    expect(Object.prototype.hasOwnProperty.call(sentParams, 'download')).toBe(true);
+    expect(sentParams).toEqual({ destinationId: 3, path: '/metadata', type: 'directory', download: '1' });
+  });
+
+  it('requires path — the tool schema rejects a call missing it (the handler 400s without it)', () => {
+    const { schemas } = setup();
+    const schema = z.object(schemas.get('download_backup_snapshot_file')!);
+    const result = schema.safeParse({ snapshotId: 'abc123', destinationId: 3 });
+    expect(result.success).toBe(false);
+  });
+
+  it('requires destinationId — the tool schema rejects a call missing it', () => {
+    const { schemas } = setup();
+    const schema = z.object(schemas.get('download_backup_snapshot_file')!);
+    const result = schema.safeParse({ snapshotId: 'abc123', path: '/volumes/x' });
+    expect(result.success).toBe(false);
+  });
+
+  it('error path: backend 403 (a raw /metadata/metadata.json download is refused server-side) is a structured tool error', async () => {
+    const { handlers, client } = setup();
+    client.getRaw.mockRejectedValueOnce(new Error('403 metadata.json cannot be downloaded raw; use the snapshot metadata endpoint (secrets are redacted there)'));
+    const result = await handlers.get('download_backup_snapshot_file')!({
+      snapshotId: 'abc123',
+      destinationId: 3,
+      path: '/metadata/metadata.json',
+    });
+    expectToolError(result, 'metadata.json cannot be downloaded raw');
+  });
+
+  it('error path: backend 400 (missing/invalid destinationId or path) is a structured tool error', async () => {
+    const { handlers, client } = setup();
+    client.getRaw.mockRejectedValueOnce(new Error('400 path parameter is required'));
+    const result = await handlers.get('download_backup_snapshot_file')!({ snapshotId: 'abc123', destinationId: 3, path: '/volumes/x' });
+    expectToolError(result, 'path parameter is required');
+  });
+
+  it('error path: backend 500 (restic dump failed) is a structured tool error', async () => {
+    const { handlers, client } = setup();
+    client.getRaw.mockRejectedValueOnce(new Error('500 restic dump failed'));
+    const result = await handlers.get('download_backup_snapshot_file')!({ snapshotId: 'abc123', destinationId: 3, path: '/volumes/x' });
+    expectToolError(result, 'restic dump failed');
+  });
+
+  it('network error propagates as a structured tool error', async () => {
+    const { handlers, client } = setup();
+    client.getRaw.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    const result = await handlers.get('download_backup_snapshot_file')!({ snapshotId: 'abc123', destinationId: 3, path: '/volumes/x' });
+    expectToolError(result, 'ECONNREFUSED');
+  });
+
+  it('the tool description warns about raw/unredacted secret exposure AND points at dump_backup_snapshot_file for a preview', () => {
+    setup();
+    const description = describeTool('download_backup_snapshot_file');
+    expect(description.toLowerCase()).toContain('volumes');
+    expect(description.toLowerCase()).toMatch(/secret|sensitive/);
+    expect(description).toContain('dump_backup_snapshot_file');
+  });
+
+  it('the dump_backup_snapshot_file description now points at download_backup_snapshot_file for the binary variant (no longer "not-yet-wrapped")', () => {
+    setup();
+    const description = describeTool('dump_backup_snapshot_file');
+    expect(description).toContain('download_backup_snapshot_file');
   });
 });
 

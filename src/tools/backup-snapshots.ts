@@ -7,7 +7,8 @@
  * src/routes/api/backup/snapshots/diff/+server.ts           GET (diff)
  * src/routes/api/backup/snapshots/[id]/+server.ts           DELETE (forget/prune)
  * src/routes/api/backup/snapshots/[id]/browse/+server.ts    GET (browse)
- * src/routes/api/backup/snapshots/[id]/dump/+server.ts      GET (dump — preview only here)
+ * src/routes/api/backup/snapshots/[id]/dump/+server.ts      GET (dump — preview AND
+ *                                                                  binary download, #247)
  * src/routes/api/backup/snapshots/[id]/metadata/+server.ts  GET (metadata, server-redacted)
  * src/routes/api/backup/instance/+server.ts                 GET (this install's instance id)
  *
@@ -65,17 +66,16 @@
  * `env` above).
  *
  * dump_backup_snapshot_file — PREVIEW ONLY, deliberately incomplete vs. the full
- * endpoint contract (tracked as a #202 follow-up):
+ * endpoint contract (was a #202 follow-up; the binary variant below closes it, #247):
  *   - The real endpoint has THREE response shapes: an inline text/JSON preview (the
  *     default), a raw binary tar/byte stream when `download=1` is set (window.open-style
  *     navigation, can't be JSON-wrapped, needs `client.getRaw()` + base64 to model over
- *     MCP), and a 403 refusal of a raw `metadata.json` download specifically (to force
- *     that one path through the redacting metadata endpoint instead).
+ *     MCP — see download_backup_snapshot_file below), and a 403 refusal of a raw
+ *     `metadata.json` download specifically (to force that one path through the
+ *     redacting metadata endpoint instead).
  *   - This tool's schema has NO `download` field at all, and the query object built
  *     below never includes that key — so it can only ever reach the inline-preview
- *     branch. The binary-download variant is a deferred follow-up (needs a distinct
- *     tool wrapping client.getRaw(), since the response shape — raw bytes vs. JSON — is
- *     fundamentally different, not just a flag on this one).
+ *     branch.
  *   - `path`/`type` select between a directory-listing preview (`type: 'directory'`)
  *     and a single-file preview (`type` omitted or anything else) — modeled as
  *     `z.enum(['directory']).optional()` since that literal is the only value the
@@ -90,10 +90,35 @@
  *     path the endpoint itself redacts before returning (never raw) — surfaced in the
  *     same suffix, pointing callers at get_backup_snapshot_metadata instead for that.
  *
+ * download_backup_snapshot_file (#247, the binary-download follow-up to #202) — the
+ * SAME endpoint (`GET .../dump`) as dump_backup_snapshot_file, called with `download`
+ * hardcoded to `'1'` (never a caller-facing field, matching how dump_backup_snapshot_file
+ * hardcodes its ABSENCE) and `client.getRaw()` instead of `client.get()`:
+ *   - `type: 'directory'` streams the whole directory as a tar (`application/x-tar`
+ *     server-side); omitted/any other value streams a single file's raw bytes
+ *     (`application/octet-stream` server-side). `client.getRaw()` doesn't care which —
+ *     it just returns the raw `Buffer` either way (verified against
+ *     src/client/dockhand-client.ts's `getRaw()`: `Buffer.from(await
+ *     response.arrayBuffer())`, no content-type branching) — mirrors
+ *     download_container_file (src/tools/containers.ts), which frames its own
+ *     `client.getRaw()` result the same way for a single-file download.
+ *   - Response framing: `textResponse(`base64:${buffer.toString('base64')}`)` — same
+ *     literal pattern as download_container_file, chosen there (not jsonResponse) because
+ *     the payload is raw bytes, not JSON; a UTF-8 round-trip would corrupt any non-ASCII
+ *     byte in a tar or binary file (the handler's own comment on the archive branch says
+ *     the same: "a UTF-8 round-trip would corrupt any non-ASCII byte in the archive").
+ *   - The server's own `/metadata/metadata.json` raw-download refusal (403, "cannot be
+ *     downloaded raw; use the snapshot metadata endpoint") applies unchanged here — this
+ *     tool does nothing client-side to special-case that path; the 403 surfaces as a
+ *     normal `requestRaw()`-thrown Error, same as any other non-ok response.
+ *   - SECURITY: same /volumes/* real-secrets exposure as dump_backup_snapshot_file, PLUS
+ *     the returned content is now the actual raw bytes (base64-framed), not a redacted
+ *     preview string — surfaced via its own TOOL_DESCRIPTION_SUFFIXES entry.
+ *
  * get_backup_snapshot_metadata: no further query params beyond destinationId — the
  * response is already redacted server-side (stack secrets + container Config.Env/Labels
  * stripped by redactSnapshotLayout()) before it leaves the process, so this tool is safe
- * to log/print unlike dump_backup_snapshot_file.
+ * to log/print unlike dump_backup_snapshot_file/download_backup_snapshot_file.
  *
  * get_backup_instance_id: no path, no query at all.
  *
@@ -111,7 +136,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
-import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { registerTool, jsonResponse, textResponse } from '../utils/tool-helper.js';
 import { encodePath } from '../utils/encode-path.js';
 
 export function registerBackupSnapshotTools(server: McpServer, client: DockhandClient): void {
@@ -185,6 +210,24 @@ export function registerBackupSnapshotTools(server: McpServer, client: DockhandC
         path,
         type,
       }));
+    }
+  );
+
+  registerTool(server, 'download_backup_snapshot_file',
+    {
+      snapshotId: z.string().describe('The restic snapshot id to download a file/directory from (from list_backup_snapshots)'),
+      destinationId: z.number().describe('Destination the snapshot lives in (from list_backup_destinations)'),
+      path: z.string().describe('Path inside the snapshot to download (must resolve under /volumes or /metadata; a raw /metadata/metadata.json download is refused with 403 — use get_backup_snapshot_metadata instead)'),
+      type: z.enum(['directory']).optional().describe('Set to "directory" to download the whole directory as a tar; omit to download a single file\'s raw bytes'),
+    },
+    async ({ snapshotId, destinationId, path, type }) => {
+      const buffer = await client.getRaw(`/api/backup/snapshots/${encodePath(snapshotId)}/dump`, {
+        destinationId,
+        path,
+        type,
+        download: '1',
+      });
+      return textResponse(`base64:${buffer.toString('base64')}`);
     }
   );
 
