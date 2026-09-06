@@ -137,6 +137,27 @@ const BACKUP_DESTINATION_TASK_DESTRUCTIVE =
   'running prune or a repair task, ask the operator explicitly whether to proceed.';
 
 /**
+ * `run_backup_restore` (src/routes/api/backup/restore/+server.ts, src/tools/backup-restore.ts)
+ * takes a `mode` enum where one of two values, `mode:"in-place"`, OVERWRITES the live
+ * containers/volumes of the target — irreversibly. Same rationale as
+ * BACKUP_DESTINATION_TASK_DESTRUCTIVE just above: a generically-named tool hides the
+ * destructive branch inside one enum value, and the endpoint's OpenAPI `summary` field
+ * (the only part deriveToolDescription() surfaces — see derive-description.ts) says only
+ * "Restore a backup snapshot in-place or to a new location, streaming progress as a
+ * Server-Sent Events job", never singling out which of the two modes is destructive. The
+ * actual warning sentence ("An in-place restore is destructive and requires
+ * confirmOverwrite:true") lives in the operation's `description` prose instead, which
+ * deriveToolDescription() deliberately never surfaces (only curated cross-refs extracted
+ * from it) — so without this suffix the derived text would carry no warning at all.
+ */
+const RESTORE_IN_PLACE_DESTRUCTIVE =
+  'WARNING: mode="in-place" OVERWRITES the live containers/volumes of the target and is ' +
+  'IRREVERSIBLE — the server rejects it without confirmOverwrite:true. mode="new-location" ' +
+  '(the default when mode is omitted) restores into a separate path/volume and touches ' +
+  'nothing live; it does not need confirmOverwrite. Before calling this with ' +
+  'mode="in-place", ask the operator explicitly whether to proceed.';
+
+/**
  * `dump_backup_snapshot_file` (src/routes/api/backup/snapshots/[id]/dump/+server.ts,
  * inline-preview-only wrapper, src/tools/backup-snapshots.ts) reads a file's content
  * straight out of a restic snapshot. Anything under `/volumes/*` is the backed-up
@@ -169,5 +190,6 @@ export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
   rotate_backup_destination_key: BACKUP_DESTINATION_ROTATE_PASSWORDS,
   get_backup_destination: BACKUP_DESTINATION_RETURNS_DECRYPTED_CREDS,
   run_backup_destination_task: BACKUP_DESTINATION_TASK_DESTRUCTIVE,
+  run_backup_restore: RESTORE_IN_PLACE_DESTRUCTIVE,
   dump_backup_snapshot_file: BACKUP_SNAPSHOT_DUMP_MAY_EXPOSE_VOLUME_SECRETS,
 };

@@ -4,18 +4,18 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-09-06T09:03:40.013Z
+**Erzeugt:** 2026-09-06T09:21:30.940Z
 **Dockhand-Upstream-Commit:** `14f75845edd4ee221bc1df7c0d65f3e341188149`
 **Schema-Endpunkte gesamt:** 254
 
 ## Coverage
 
-**94.8%** (325/343 in-Scope-Endpunkte haben ein MCP-Tool)
+**95.6%** (328/343 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
-| COVERED | 325 |
-| MISSING_TOOL | 18 |
+| COVERED | 328 |
+| MISSING_TOOL | 15 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -24,14 +24,6 @@
 
 Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
 ersten Pfad-Segment nach `/api/`:
-
-### backup (3)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| POST | `/api/backup/restore` | - |
-| POST | `/api/backup/restore/preview` | - |
-| POST | `/api/backup/restore/stop` | - |
 
 ### container-icons (4)
 

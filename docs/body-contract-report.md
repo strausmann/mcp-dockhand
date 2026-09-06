@@ -10,17 +10,17 @@
 > hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-Issue) — hier weiterhin nur
 > zur Übersicht gelistet. Die übrigen drei Typen bleiben vollständig advisory.
 
-**Erzeugt:** 2026-09-06T08:38:45.557Z
+**Erzeugt:** 2026-09-06T09:21:35.032Z
 
 ## Zusammenfassung
 
 | Typ | Anzahl | Bedeutung |
 |-----|--------|-----------|
-| BODY_PARAM_UNKNOWN | 11 | Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Ausschluss der Query-/Path-Parameter der Operation). |
+| BODY_PARAM_UNKNOWN | 21 | Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Ausschluss der Query-/Path-Parameter der Operation). |
 | UNTYPED_PASSTHROUGH | 52 | Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar. |
 | BODY_CONTRACT_UNRESOLVED | 39 | Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork). |
 
-## BODY_PARAM_UNKNOWN (11)
+## BODY_PARAM_UNKNOWN (21)
 
 Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Ausschluss der Query-/Path-Parameter der Operation).
 
@@ -33,8 +33,18 @@ Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Aussch
 | `adopt_stack` | POST | `/api/stacks/adopt` | `sourceDir` | stacks.ts:747 |
 | `create_environment` | POST | `/api/environments` | `url` | environments.ts:157 |
 | `create_user` | POST | `/api/users` | `roles` | users.ts:33 |
+| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `mode` | backup-restore.ts:205 |
+| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `targetType` | backup-restore.ts:205 |
+| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `targetName` | backup-restore.ts:205 |
+| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `targetPath` | backup-restore.ts:205 |
+| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `volumeDestinations` | backup-restore.ts:205 |
+| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `skipStackFiles` | backup-restore.ts:205 |
+| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `mergeStackFiles` | backup-restore.ts:205 |
+| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `volumes` | backup-restore.ts:205 |
 | `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env` | `keys` | stacks.ts:672 |
 | `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env/raw` | `keys` | stacks.ts:680 |
+| `run_backup_restore` | POST | `/api/backup/restore` | `restoreSecrets` | backup-restore.ts:237 |
+| `run_backup_restore` | POST | `/api/backup/restore` | `skipStackFiles` | backup-restore.ts:237 |
 | `set_container_auto_update` | POST | `/api/auto-update/{containerName}` | `policy` | auto-update.ts:37 |
 | `test_environment_connection` | POST | `/api/environments/test` | `url` | environments.ts:225 |
 
