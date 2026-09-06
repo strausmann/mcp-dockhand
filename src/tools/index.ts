@@ -28,6 +28,7 @@ import { registerSecretProviderTools } from './secret-providers.js';
 import { registerSettingsTools } from './settings.js';
 import { registerMetaTools } from './meta.js';
 import { registerBackupDestinationTools } from './backup-destinations.js';
+import { registerBackupProbeTools } from './backup-probes.js';
 import { logger } from '../utils/logger.js';
 
 export function registerAllTools(server: McpServer, client: DockhandClient): void {
@@ -55,6 +56,7 @@ export function registerAllTools(server: McpServer, client: DockhandClient): voi
   registerSettingsTools(server, client);
   registerMetaTools(server, client);
   registerBackupDestinationTools(server, client);
+  registerBackupProbeTools(server, client);
 
   logger.info({ component: 'tools' }, 'all Dockhand tools registered');
 }

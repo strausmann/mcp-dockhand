@@ -223,6 +223,8 @@ export const TOOL_ENDPOINT_MAP: Readonly<Record<string, ToolEndpointEntry>> = {
   "list_vulnerabilities": { method: "GET", path: "/api/vulnerabilities" },
   "logout": { method: "POST", path: "/api/auth/logout" },
   "pause_container": { method: "POST", path: "/api/containers/{id}/pause" },
+  "preview_backup_stack_path": { method: "GET", path: "/api/backup/stack-path" },
+  "probe_backup_stack_dir": { method: "GET", path: "/api/backup/stack-dir-listing" },
   "probe_secret_provider": { method: "POST", path: "/api/secret-providers/{id}/probe" },
   "prune_all": { method: "POST", path: "/api/prune/all" },
   "prune_containers": { method: "POST", path: "/api/prune/containers" },
