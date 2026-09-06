@@ -145,6 +145,30 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
     }
   );
 
+  registerTool(server, 'get_container_compose',
+    {
+      environmentId: z.number().optional().describe('Environment ID (omit for the local/default Docker host)'),
+      containerId: z.string().describe('Container ID or name'),
+    },
+    async ({ environmentId, containerId }) => {
+      return jsonResponse(await client.get(`/api/containers/${encodePath(containerId)}/compose`, { env: environmentId }));
+    }
+  );
+
+  registerTool(server, 'get_container_version_notes',
+    {
+      environmentId: z.number().optional().describe('Environment ID (omit for the local/default Docker host)'),
+      containerId: z.string().describe('Container ID or name'),
+      versions: z.string().describe('Comma-separated version tags to fetch notes for (target + skipped), e.g. "16.3-alpine,16.4-alpine"'),
+    },
+    async ({ environmentId, containerId, versions }) => {
+      return jsonResponse(await client.get(`/api/containers/${encodePath(containerId)}/version-notes`, {
+        env: environmentId,
+        versions,
+      }));
+    }
+  );
+
   registerTool(server, 'start_container',
     {
       environmentId: z.number().describe('Environment ID'),
