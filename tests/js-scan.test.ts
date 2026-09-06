@@ -146,4 +146,31 @@ describe('findMatchingClose', () => {
     const text = "{ const y = `${x.replace(/[{]/g,'_')}`; return y; }";
     expect(findMatchingClose(text, 0)).toBe(text.length - 1);
   });
+
+  /*
+   * Codex #246 P2: a `/` after a POSTFIX `++`/`--` is division, but the char immediately
+   * before it is `+`/`-` (not an identifier/`)`/`]`), so canRegexStartAt() classified it as
+   * a regex start and skipRegex() then swallowed the rest of the line — including the real
+   * closing `}`. Gegenversuch: reverting the postfix guard makes both of these return -1
+   * (verified: `count++ / total` and `count-- / total` both desync pre-fix). A single `+`/`-`
+   * must stay a regex start (`a + /re/.source` is valid), so the guard checks only the
+   * doubled form.
+   */
+  it('does not desync on division after a postfix ++ (#246 Codex P2)', () => {
+    const text = '{ const x = count++ / total; return x; }';
+    expect(findMatchingClose(text, 0)).toBe(text.length - 1);
+  });
+
+  it('does not desync on division after a postfix -- (#246 Codex P2)', () => {
+    const text = '{ const x = count-- / total; return x; }';
+    expect(findMatchingClose(text, 0)).toBe(text.length - 1);
+  });
+
+  it('still treats a regex after a single + as a regex, not division (#246 Codex P2 boundary)', () => {
+    // A lone `+` is a binary/unary operator that can precede a regex operand; the guard
+    // must NOT misfire here. The regex contains a `}` in its class, which would desync
+    // depth-counting if it were mistaken for division.
+    const text = "{ const x = a + /[}]/.source; return x; }";
+    expect(findMatchingClose(text, 0)).toBe(text.length - 1);
+  });
 });

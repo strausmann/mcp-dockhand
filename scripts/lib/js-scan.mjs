@@ -144,6 +144,10 @@ function canRegexStartAt(text, i) {
     }
     return false;
   }
+  // Postfix `++`/`--` ends a value → a following `/` is division, not a regex.
+  // Only the DOUBLED form counts: a single `+`/`-` is a binary/unary operator that can
+  // legitimately precede a regex operand (`a + /re/.source`), so it must stay a regex start.
+  if ((prevChar === '+' || prevChar === '-') && text[j - 1] === prevChar) return false;
   return true;
 }
 
