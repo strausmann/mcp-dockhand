@@ -114,6 +114,37 @@ export class DockhandClient {
   }
 
   /**
+   * Make an authenticated POST request with a raw (non-JSON, non-multipart) binary
+   * body — currently only `load_image` (POST /api/images/load), whose body IS the raw
+   * image tar (`Content-Type: application/x-tar`), streamed straight through to the
+   * daemon server-side rather than parsed as JSON. `requestRaw()` already accepts a
+   * `Buffer` body and custom headers (used by nothing else yet), so this is a thin
+   * wrapper rather than new plumbing — response parsing mirrors postMultipart() above:
+   * the endpoint always replies with JSON, but the content-type check is kept for the
+   * same defensive reason (a proxy/error path could still hand back plain text).
+   */
+  async postRawBody<T = unknown>(
+    path: string,
+    body: Buffer,
+    contentType: string,
+    params?: Record<string, string | number | undefined>,
+  ): Promise<T> {
+    const url = this.buildUrl(path, params);
+    const response = await this.requestRaw('POST', url, body, {
+      'Content-Type': contentType,
+      'Accept': 'application/json',
+    });
+
+    const responseContentType = response.headers.get('content-type') ?? '';
+    if (responseContentType.includes('application/json')) {
+      return (await response.json()) as T;
+    }
+
+    const text = await response.text();
+    return text as unknown as T;
+  }
+
+  /**
    * Make a POST request that returns SSE (Server-Sent Events).
    * Used for deploy, start, stop, down, restart operations.
    */
