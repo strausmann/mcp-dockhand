@@ -10,7 +10,7 @@
 > hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-Issue) — hier weiterhin nur
 > zur Übersicht gelistet. Die übrigen drei Typen bleiben vollständig advisory.
 
-**Erzeugt:** 2026-09-06T13:21:04.801Z
+**Erzeugt:** 2026-09-06T13:43:52.902Z
 
 ## Zusammenfassung
 
@@ -59,8 +59,8 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `create_config_set` | POST | `/api/config-sets` | `name` | users.ts:281 |
 | `create_container` | POST | `/api/containers` | `name`, `image` | containers.ts:308 |
 | `create_environment_notification` | POST | `/api/environments/{environmentId}/notifications` | `notificationId` | environments.ts:317 |
-| `create_git_credential` | POST | `/api/git/credentials` | `name` | git-stacks.ts:98 |
-| `create_git_stack` | POST | `/api/git/stacks` | `stackName` | git-stacks.ts:256 |
+| `create_git_credential` | POST | `/api/git/credentials` | `name` | git-stacks.ts:156 |
+| `create_git_stack` | POST | `/api/git/stacks` | `stackName` | git-stacks.ts:319 |
 | `create_ldap_provider` | POST | `/api/auth/ldap` | `name`, `serverUrl`, `baseDn` | auth.ts:65 |
 | `create_network` | POST | `/api/networks` | `name` | networks.ts:60 |
 | `create_notification` | POST | `/api/notifications` | `type`, `name` | notifications.ts:25 |
@@ -90,9 +90,9 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `update_environment` | PUT | `/api/environments/{environmentId}` | - | environments.ts:197 |
 | `update_environment_notification` | PUT | `/api/environments/{environmentId}/notifications/{notificationId}` | - | environments.ts:348 |
 | `update_general_settings` | POST | `/api/settings/general` | - | system.ts:112 |
-| `update_git_credential` | PUT | `/api/git/credentials/{credentialId}` | - | git-stacks.ts:129 |
-| `update_git_repository` | PUT | `/api/git/repositories/{repositoryId}` | - | git-stacks.ts:302 |
-| `update_git_stack` | PUT | `/api/git/stacks/{stackId}` | - | git-stacks.ts:269 |
+| `update_git_credential` | PUT | `/api/git/credentials/{credentialId}` | - | git-stacks.ts:187 |
+| `update_git_repository` | PUT | `/api/git/repositories/{repositoryId}` | - | git-stacks.ts:365 |
+| `update_git_stack` | PUT | `/api/git/stacks/{stackId}` | - | git-stacks.ts:332 |
 | `update_ldap_provider` | PUT | `/api/auth/ldap/{providerId}` | - | auth.ts:155 |
 | `update_notification` | PUT | `/api/notifications/{notificationId}` | - | notifications.ts:42 |
 | `update_oidc_provider` | PUT | `/api/auth/oidc/{providerId}` | - | auth.ts:179 |
@@ -114,11 +114,11 @@ Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehl
 | Tool | HTTP | Pfad | Feld | Datei |
 |------|------|------|------|-------|
 | `check_container_updates` | POST | `/api/containers/check-updates` | - | containers.ts:445 |
-| `deploy_git_repository` | POST | `/api/git/repositories/{repositoryId}/deploy` | - | git-stacks.ts:196 |
-| `deploy_git_stack` | POST | `/api/git/stacks/{stackId}/deploy` | - | git-stacks.ts:30 |
-| `deploy_git_stack_stream` | POST | `/api/git/stacks/{stackId}/deploy-stream` | - | git-stacks.ts:283 |
+| `deploy_git_repository` | POST | `/api/git/repositories/{repositoryId}/deploy` | - | git-stacks.ts:259 |
+| `deploy_git_stack` | POST | `/api/git/stacks/{stackId}/deploy` | - | git-stacks.ts:88 |
+| `deploy_git_stack_stream` | POST | `/api/git/stacks/{stackId}/deploy-stream` | - | git-stacks.ts:346 |
 | `init_backup_destination` | POST | `/api/backup/destinations/{destinationId}/init` | - | backup-destinations.ts:132 |
-| `load_image` | POST | `/api/images/load` | - | images.ts:33 |
+| `load_image` | POST | `/api/images/load` | - | images.ts:40 |
 | `logout` | POST | `/api/auth/logout` | - | auth.ts:210 |
 | `pause_container` | POST | `/api/containers/{containerId}/pause` | - | containers.ts:208 |
 | `prune_all` | POST | `/api/prune/all` | - | system.ts:212 |
@@ -126,7 +126,7 @@ Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehl
 | `prune_images` | POST | `/api/prune/images` | - | system.ts:226 |
 | `prune_networks` | POST | `/api/prune/networks` | - | system.ts:233 |
 | `prune_volumes` | POST | `/api/prune/volumes` | - | system.ts:240 |
-| `receive_git_webhook` | POST | `/api/git/webhook/{webhookId}` | - | git-stacks.ts:326 |
+| `receive_git_webhook` | POST | `/api/git/webhook/{webhookId}` | - | git-stacks.ts:389 |
 | `release_volume_browse` | POST | `/api/volumes/{volumeName}/browse/release` | - | volumes.ts:75 |
 | `restart_container` | POST | `/api/containers/{containerId}/restart` | - | containers.ts:198 |
 | `restart_stack` | POST | `/api/stacks/{name}/restart` | - | stacks.ts:78 |
@@ -139,12 +139,12 @@ Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehl
 | `stop_backup_config` | POST | `/api/backup/configs/{configId}/stop` | - | backup-configs.ts:159 |
 | `stop_container` | POST | `/api/containers/{containerId}/stop` | - | containers.ts:188 |
 | `stop_stack` | POST | `/api/stacks/{name}/stop` | - | stacks.ts:68 |
-| `sync_git_repository` | POST | `/api/git/repositories/{repositoryId}/sync` | - | git-stacks.ts:203 |
-| `sync_git_stack` | POST | `/api/git/stacks/{stackId}/sync` | - | git-stacks.ts:37 |
+| `sync_git_repository` | POST | `/api/git/repositories/{repositoryId}/sync` | - | git-stacks.ts:266 |
+| `sync_git_stack` | POST | `/api/git/stacks/{stackId}/sync` | - | git-stacks.ts:95 |
 | `test_backup_destination` | POST | `/api/backup/destinations/{destinationId}/test` | - | backup-destinations.ts:166 |
 | `test_environment` | POST | `/api/environments/{environmentId}/test` | - | environments.ts:211 |
-| `test_git_repository` | POST | `/api/git/repositories/{repositoryId}/test` | - | git-stacks.ts:210 |
-| `test_git_stack` | POST | `/api/git/stacks/{stackId}/test` | - | git-stacks.ts:44 |
+| `test_git_repository` | POST | `/api/git/repositories/{repositoryId}/test` | - | git-stacks.ts:273 |
+| `test_git_stack` | POST | `/api/git/stacks/{stackId}/test` | - | git-stacks.ts:102 |
 | `test_ldap_provider` | POST | `/api/auth/ldap/{providerId}/test` | - | auth.ts:79 |
 | `test_notification` | POST | `/api/notifications/{notificationId}/test` | - | notifications.ts:56 |
 | `test_oidc_provider` | POST | `/api/auth/oidc/{providerId}/test` | - | auth.ts:51 |

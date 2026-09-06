@@ -11,7 +11,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
-import { registerGitStackTools } from '../src/tools/git-stacks.js';
+import { registerGitStackTools, listGitRemoteBranchesBodySchema } from '../src/tools/git-stacks.js';
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 type ZodShape = Record<string, z.ZodTypeAny>;
@@ -123,5 +123,90 @@ describe('list_git_remote_branches', () => {
     client.post.mockRejectedValueOnce(new Error('ECONNREFUSED'));
     const result = await handlers.get('list_git_remote_branches')!({ repositoryId: 5 });
     expectToolError(result, 'ECONNREFUSED');
+  });
+});
+
+// Cross-field repositoryId/url contract (Copilot review, PR #251): the real handler
+// (src/routes/api/git/branches/+server.ts, pinned commit
+// 049221ceff6223ff10fae49c0cb9757368c565bf) is `if (repositoryId) {...} else if (url)
+// {...} else { 400 }` — repositoryId always wins when both are sent, url/credentialId
+// are silently ignored. This schema is deliberately STRICTER than that: it rejects the
+// ambiguous "both" cases client-side instead of letting the server quietly drop half
+// of what was sent.
+describe('listGitRemoteBranchesBodySchema — repositoryId/url contract', () => {
+  it('neither repositoryId nor url is rejected', () => {
+    const result = listGitRemoteBranchesBodySchema.safeParse({});
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.join('.') === 'repositoryId')).toBe(true);
+    }
+  });
+
+  it('both repositoryId and url is rejected', () => {
+    const result = listGitRemoteBranchesBodySchema.safeParse({
+      repositoryId: 5,
+      url: 'https://github.com/example/repo.git',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.join('.') === 'url')).toBe(true);
+    }
+  });
+
+  it('credentialId together with repositoryId is rejected', () => {
+    const result = listGitRemoteBranchesBodySchema.safeParse({
+      repositoryId: 5,
+      credentialId: 2,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.join('.') === 'credentialId')).toBe(true);
+    }
+  });
+
+  it('GEGENVERSUCH: repositoryId alone passes', () => {
+    expect(listGitRemoteBranchesBodySchema.safeParse({ repositoryId: 5 }).success).toBe(true);
+  });
+
+  it('GEGENVERSUCH: url alone passes', () => {
+    expect(
+      listGitRemoteBranchesBodySchema.safeParse({ url: 'https://github.com/example/repo.git' }).success,
+    ).toBe(true);
+  });
+
+  it('GEGENVERSUCH: url with credentialId passes', () => {
+    expect(
+      listGitRemoteBranchesBodySchema.safeParse({
+        url: 'https://github.com/example/repo.git',
+        credentialId: 2,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('handler: rejects neither repositoryId nor url before reaching client.post', async () => {
+    const { handlers, client } = setup();
+    const result = await handlers.get('list_git_remote_branches')!({});
+    expect(client.post).not.toHaveBeenCalled();
+    expectToolError(result, 'repositoryId or url is required');
+  });
+
+  it('handler: rejects repositoryId + url before reaching client.post', async () => {
+    const { handlers, client } = setup();
+    const result = await handlers.get('list_git_remote_branches')!({
+      repositoryId: 5,
+      url: 'https://github.com/example/repo.git',
+    });
+    expect(client.post).not.toHaveBeenCalled();
+    expectToolError(result, 'mutually exclusive');
+  });
+
+  it('handler: rejects repositoryId + credentialId before reaching client.post', async () => {
+    const { handlers, client } = setup();
+    const result = await handlers.get('list_git_remote_branches')!({
+      repositoryId: 5,
+      credentialId: 2,
+    });
+    expect(client.post).not.toHaveBeenCalled();
+    expectToolError(result, 'silently ignored');
   });
 });

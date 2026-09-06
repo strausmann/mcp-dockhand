@@ -5,8 +5,66 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DockhandClient } from '../client/dockhand-client.js';
-import { registerTool, jsonResponse } from '../utils/tool-helper.js';
+import { registerTool, jsonResponse, errorResponse } from '../utils/tool-helper.js';
 import { encodePath } from '../utils/encode-path.js';
+
+/**
+ * Shared field definitions for `list_git_remote_branches` — used BOTH as the MCP
+ * tool's flat registration shape (per-field JSON schema, no cross-field constraint
+ * possible there) AND, wrapped in `z.object(...).superRefine(...)` below, as the
+ * schema the handler re-parses to enforce the repositoryId/url contract before the
+ * request ever reaches the server.
+ *
+ * Ground truth: Finsys/dockhand, src/routes/api/git/branches/+server.ts (pinned
+ * commit 049221ceff6223ff10fae49c0cb9757368c565bf — see src/openapi/pinned.ts):
+ *   if (repositoryId) { ...use stored repo... }
+ *   else if (url) { ...use url + credentialId... }
+ *   else { 400 'repositoryId or url is required' }
+ * The real handler is actually LENIENT about "both": a truthy repositoryId always
+ * wins the `if`, so a request sending both repositoryId AND url/credentialId does
+ * NOT 400 server-side — url and credentialId are simply, silently ignored. That is
+ * exactly the ambiguity worth rejecting client-side (Copilot review, PR #251): a
+ * caller who thinks credentialId took effect alongside repositoryId is wrong, and
+ * would never find out from the server. This schema is intentionally STRICTER than
+ * the server: neither combination is useful, both are almost certainly a caller
+ * mistake, and failing fast with a clear message beats a response that silently
+ * used only half of what was sent.
+ */
+const listGitRemoteBranchesShape = {
+  repositoryId: z.number().optional().describe('Existing repository ID (uses its stored URL and credential); use this OR url, never both'),
+  url: z.string().optional().describe('A new repository URL to list branches for; use this OR repositoryId, never both'),
+  credentialId: z.number().optional().describe('Credential ID to use when url is given; meaningless (and rejected) together with repositoryId, whose OWN stored credential is used instead'),
+};
+
+/**
+ * Full request schema for `list_git_remote_branches`, INCLUDING the cross-field
+ * repositoryId/url contract that a flat MCP tool shape cannot express. Exported so
+ * it can be exercised directly (`.safeParse(...)`) without going through the
+ * registered tool handler.
+ */
+export const listGitRemoteBranchesBodySchema = z.object(listGitRemoteBranchesShape).superRefine((val, ctx) => {
+  if (val.repositoryId === undefined && val.url === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['repositoryId'],
+      message: 'either repositoryId or url is required',
+    });
+  }
+  if (val.repositoryId !== undefined && val.url !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['url'],
+      message: 'repositoryId and url are mutually exclusive — use repositoryId (existing repository) OR url (+ optional credentialId) for a new one, never both',
+    });
+  }
+  if (val.repositoryId !== undefined && val.credentialId !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['credentialId'],
+      message: 'credentialId is only used together with url — an existing repository (repositoryId) already has its own stored credential, so credentialId here would be silently ignored server-side',
+    });
+  }
+});
 
 export function registerGitStackTools(server: McpServer, client: DockhandClient): void {
 
@@ -154,12 +212,17 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
   // short commit SHAs. POST is used here only because the body can carry a
   // credentialId, not because it mutates anything server-side.
   registerTool(server, 'list_git_remote_branches',
-    {
-      repositoryId: z.number().optional().describe('Existing repository ID (uses its stored URL and credential); use this OR url'),
-      url: z.string().optional().describe('A new repository URL to list branches for; use this OR repositoryId'),
-      credentialId: z.number().optional().describe('Credential ID to use when url is given'),
-    },
-    async ({ repositoryId, url, credentialId }) => {
+    listGitRemoteBranchesShape,
+    async (args) => {
+      // Re-parse with the full schema (INCLUDING the superRefine) — the flat shape
+      // above only gives the MCP client per-field types, it cannot express the
+      // cross-field repositoryId/url contract. See the file header for the ground
+      // truth this mirrors.
+      const parsed = listGitRemoteBranchesBodySchema.safeParse(args);
+      if (!parsed.success) {
+        return errorResponse(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
+      }
+      const { repositoryId, url, credentialId } = parsed.data;
       const body: Record<string, unknown> = {};
       if (repositoryId !== undefined) body.repositoryId = repositoryId;
       if (url !== undefined) body.url = url;
