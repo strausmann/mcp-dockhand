@@ -69,7 +69,9 @@ describe('partitionMissingTools', () => {
   });
 
   it('behandelt eine leere Missing-Liste als Nicht-Fund', () => {
-    expect(partitionMissingTools([], [{ method: 'GET', path: '/api/x' }])).toEqual({
+    expect(
+      partitionMissingTools([], [{ method: 'GET', path: '/api/x', reason: 'Test fixture, content irrelevant here.' }]),
+    ).toEqual({
       realGaps: [],
       deliberatelyOmitted: [],
     });

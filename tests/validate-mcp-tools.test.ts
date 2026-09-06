@@ -108,8 +108,8 @@ describe('diffQueryParams', () => {
   // Schema-Query-Params sind seit der queryParamsByMethod-Umstellung required-aware:
   // `{ name, required }` statt eines nackten `string[]`. `req`/`opt` sind Kurzformen für
   // lesbarere Test-Fixtures.
-  const req = (name) => ({ name, required: true });
-  const opt = (name) => ({ name, required: false });
+  const req = (name: string) => ({ name, required: true });
+  const opt = (name: string) => ({ name, required: false });
 
   it('flags a sent key the schema does not know as unknown', () => {
     const { unknown, missingRequired } = diffQueryParams(
@@ -255,7 +255,7 @@ registerTool(server, 'search_registry', 'desc',
     ];
 
     const buggyCall = extractToolCallsFromSource('registries.ts', buggySource)[0];
-    const buggyDiff = diffQueryParams(buggyCall.queryParamKeys, searchSchemaParams, {
+    const buggyDiff = diffQueryParams(buggyCall.queryParamKeys!, searchSchemaParams, {
       checkMissing: true,
     });
     expect(buggyDiff.unknown).toEqual(['q']);
@@ -273,7 +273,7 @@ registerTool(server, 'search_registry', 'desc',
 );
 `;
     const fixedCall = extractToolCallsFromSource('registries.ts', fixedSource)[0];
-    const fixedDiff = diffQueryParams(fixedCall.queryParamKeys, searchSchemaParams, {
+    const fixedDiff = diffQueryParams(fixedCall.queryParamKeys!, searchSchemaParams, {
       checkMissing: true,
     });
     expect(fixedDiff.unknown).toEqual([]);
@@ -317,7 +317,7 @@ registerTool(server, 'get_registry_catalog', 'desc',
     expect(call.queryParamKeys).toEqual(['env']);
 
     const diff = diffQueryParams(
-      call.queryParamKeys,
+      call.queryParamKeys!,
       [
         { name: 'registry', required: true },
         { name: 'last', required: false },
@@ -344,7 +344,7 @@ registerTool(server, 'reset_scanner_settings', 'desc', {}, async () => {
     // No params argument at all is a definite fact: sends nothing — not "unknown".
     expect(call.queryParamKeys).toEqual([]);
 
-    const diff = diffQueryParams(call.queryParamKeys, [{ name: 'removeImages', required: true }], {
+    const diff = diffQueryParams(call.queryParamKeys!, [{ name: 'removeImages', required: true }], {
       checkMissing: true,
     });
     expect(diff.missingRequired).toEqual(['removeImages']);

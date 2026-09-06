@@ -74,7 +74,7 @@ DOCKHAND_URL=https://your-server.com DOCKHAND_USERNAME=admin DOCKHAND_PASSWORD=s
 | `MCP_ALLOWED_HOSTS` | No | *(unset — Host check disabled)* | Comma-separated `Host` header allowlist for `/mcp` (DNS-rebinding protection). **Opt-in**: unset means no Host check at all (pre-existing behavior, so existing deployments aren't broken by an update). Recommended once you set it up — see [Securing the transport](#securing-the-transport) |
 | `MCP_ALLOWED_ORIGINS` | No | *(unset — Origin check disabled)* | Comma-separated `Origin` header allowlist for `/mcp`. Opt-in, same as above. Only enforced when a caller actually sends an `Origin` header at all (non-browser MCP clients typically don't) |
 | `MCP_AUTH_TOKEN` | No | *(unset — endpoint unauthenticated)* | Shared secret required as `Authorization: Bearer <token>` on every `/mcp` request. Opt-in; recommended once the endpoint is reachable beyond your own loopback — see [Securing the transport](#securing-the-transport) |
-| `LOG_LEVEL` | No | `info` | `error`, `warn`, `info` or `debug`. `debug` adds one line per Dockhand request (method, endpoint template, status, duration) — never a path segment or a parameter value. An unrecognised value warns and falls back to `info`. |
+| `LOG_LEVEL` | No | `info` | `error`, `warn`, `info` or `debug`. `debug` adds one line per Dockhand request (method, endpoint template, status, duration). For requests through the client the duration spans the full response body and a `bytes` body-size field is added; the login and self-check probes (which bootstrap the client and so can't route through it) log time-to-headers without a `bytes` field. Never a path segment or a parameter value. An unrecognised value warns and falls back to `info`. |
 | `TRUSTED_PROXIES` | No | _(empty)_ | Comma-separated addresses or CIDRs allowed to set `X-Forwarded-For` / `X-Real-IP`, e.g. `10.0.0.0/8, 100.64.0.0/10`. Empty means the headers are ignored and the peer address is used. |
 
 ### Securing the transport
@@ -615,12 +615,20 @@ The server uses session-based cookie authentication. It automatically:
 ### Troubleshooting
 
 Start with `LOG_LEVEL=debug`. Every Dockhand request then appears with its endpoint,
-status code and duration, and every line of a single call shares one `call`
-identifier — `grep` for it to get the whole sequence. The `req` identifier ties those
-lines back to the access line that started them, and `sid` covers everything one
-client did across its whole session. A failed Dockhand request additionally logs a
+status code and duration, and every line of a single call shares one
+`call` identifier — `grep` for it to get the whole sequence. The `req` identifier
+ties those lines back to the access line that started them, and `sid` covers
+everything one client did across its whole session. For requests through the client, `ms` is the full request
+duration — it spans the response body being read, not just the time until the
+response headers arrived, so it reflects what a slow or stalled streamed
+response (e.g. a deploy's SSE output) actually cost — and `bytes` is the size of the
+body that was actually read. (The login and self-check probes bootstrap the client and can't route through it, so their lines log time-to-headers without a `bytes` field.) A failed Dockhand request additionally logs a
 `warn` line carrying `errType` — the exception name (e.g. `TimeoutError`, `TypeError`),
-a bounded vocabulary rather than free text — so you can filter failures by error type.
+a bounded vocabulary rather than free text — so you can filter failures by error
+type. That warn line fires both when the request itself failed before any
+response arrived, and when a response body's read failed partway through (e.g.
+an SSE stream hitting its timeout mid-stream) — either way `ms` reflects how
+long it took to fail.
 
 ## Development
 
@@ -643,13 +651,16 @@ npm run dev
 
 ### Linting
 
-There is currently no `npm run lint` script. `typescript-eslint` (the only maintained
-ESLint/TypeScript integration) does not yet support the pinned `typescript@^7.0.2`
-devDependency — it refuses to run at all against TS 7.0 (hard runtime error, not just a
-peer-dependency warning): see
-[typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940).
-Re-add `eslint` + `typescript-eslint` as devDependencies once that's resolved upstream —
-`tsc --noEmit` (via `npm run typecheck`) is the only static check enforced today.
+`npm run lint` lints `src/` and `tests/` with two rules: `no-unused-vars` and
+`no-explicit-any`. Because `typescript-eslint` does not support the pinned
+`typescript@^7.0.2` compiler — it hard-throws on TS 7.0, not just a peer warning: see
+[typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940)
+— the lint runs inside a throwaway `node:22` container with pinned TypeScript 5 (the
+language is identical across TS 5/6/7; only the compiler differs). It mounts `src/`,
+`tests/` and `eslint.config.js` read-only, so **Docker is required** to run it. The same
+script runs as a hard gate in CI. Unused imports/locals are additionally caught natively on
+TS 7 by `tsc` (`noUnusedLocals`/`noUnusedParameters` in `tsconfig.tests.json`, via
+`npm run typecheck:tests`).
 
 ## License
 

@@ -25,7 +25,13 @@ import { registerTemplateTools } from './templates.js';
 import { registerLabelTools } from './labels.js';
 import { registerPreferenceTools } from './preferences.js';
 import { registerSecretProviderTools } from './secret-providers.js';
+import { registerSettingsTools } from './settings.js';
 import { registerMetaTools } from './meta.js';
+import { registerBackupConfigTools } from './backup-configs.js';
+import { registerBackupDestinationTools } from './backup-destinations.js';
+import { registerBackupProbeTools } from './backup-probes.js';
+import { registerBackupRestoreTools } from './backup-restore.js';
+import { registerBackupSnapshotTools } from './backup-snapshots.js';
 import { logger } from '../utils/logger.js';
 
 export function registerAllTools(server: McpServer, client: DockhandClient): void {
@@ -50,7 +56,13 @@ export function registerAllTools(server: McpServer, client: DockhandClient): voi
   registerLabelTools(server, client);
   registerPreferenceTools(server, client);
   registerSecretProviderTools(server, client);
+  registerSettingsTools(server, client);
   registerMetaTools(server, client);
+  registerBackupConfigTools(server, client);
+  registerBackupDestinationTools(server, client);
+  registerBackupProbeTools(server, client);
+  registerBackupRestoreTools(server, client);
+  registerBackupSnapshotTools(server, client);
 
   logger.info({ component: 'tools' }, 'all Dockhand tools registered');
 }

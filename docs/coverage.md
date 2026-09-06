@@ -4,18 +4,18 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-api-schema.json`.
 
-**Erzeugt:** 2026-08-18T05:09:04.615Z
-**Dockhand-Upstream-Commit:** `5c0fa6aa912e66ea4c2a55c9047aab61a5fe3720`
-**Schema-Endpunkte gesamt:** 244
+**Erzeugt:** 2026-09-06T09:21:30.940Z
+**Dockhand-Upstream-Commit:** `14f75845edd4ee221bc1df7c0d65f3e341188149`
+**Schema-Endpunkte gesamt:** 254
 
 ## Coverage
 
-**89.9%** (295/328 in-Scope-Endpunkte haben ein MCP-Tool)
+**95.6%** (328/343 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
-| COVERED | 295 |
-| MISSING_TOOL | 33 |
+| COVERED | 328 |
+| MISSING_TOOL | 15 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
@@ -25,45 +25,20 @@
 Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
 ersten Pfad-Segment nach `/api/`:
 
-### backup (30)
+### container-icons (4)
 
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
-| GET | `/api/backup/configs` | - |
-| POST | `/api/backup/configs` | - |
-| DELETE | `/api/backup/configs/{id}` | id |
-| GET | `/api/backup/configs/{id}` | id |
-| PUT | `/api/backup/configs/{id}` | id |
-| POST | `/api/backup/configs/{id}/run` | id |
-| POST | `/api/backup/configs/{id}/stop` | id |
-| GET | `/api/backup/destinations` | - |
-| POST | `/api/backup/destinations` | - |
-| DELETE | `/api/backup/destinations/{id}` | id |
-| GET | `/api/backup/destinations/{id}` | id |
-| PUT | `/api/backup/destinations/{id}` | id |
-| POST | `/api/backup/destinations/{id}/init` | id |
-| POST | `/api/backup/destinations/{id}/rotate-key` | id |
-| POST | `/api/backup/destinations/{id}/task` | id |
-| POST | `/api/backup/destinations/{id}/test` | id |
-| POST | `/api/backup/destinations/{id}/verify` | id |
-| POST | `/api/backup/destinations/test` | - |
-| GET | `/api/backup/instance` | - |
-| POST | `/api/backup/restore` | - |
-| POST | `/api/backup/restore/preview` | - |
-| POST | `/api/backup/restore/stop` | - |
-| GET | `/api/backup/snapshots` | - |
-| DELETE | `/api/backup/snapshots/{id}` | id |
-| GET | `/api/backup/snapshots/{id}/browse` | id |
-| GET | `/api/backup/snapshots/{id}/dump` | id |
-| GET | `/api/backup/snapshots/{id}/metadata` | id |
-| GET | `/api/backup/snapshots/diff` | - |
-| GET | `/api/backup/stack-dir-listing` | - |
-| GET | `/api/backup/stack-path` | - |
+| GET | `/api/container-icons` | - |
+| DELETE | `/api/container-icons/{name}` | name |
+| GET | `/api/container-icons/{name}` | name |
+| POST | `/api/container-icons/{name}` | name |
 
-### containers (1)
+### containers (2)
 
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
+| GET | `/api/containers/{id}/compose` | id |
 | GET | `/api/containers/{id}/version-notes` | id |
 
 ### docs (1)
@@ -72,11 +47,33 @@ ersten Pfad-Segment nach `/api/`:
 |------|------|----------------|
 | GET | `/api/docs` | - |
 
+### git (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| POST | `/api/git/branches` | - |
+
+### icons (3)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/icons/selfhst-manifest` | - |
+| GET | `/api/icons/selfhst/{ref}` | ref |
+| POST | `/api/icons/selfhst/batch` | - |
+
 ### images (1)
 
 | HTTP | Pfad | Path-Parameter |
 |------|------|----------------|
 | POST | `/api/images/load` | - |
+
+### stacks (3)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| DELETE | `/api/stacks/{name}/icon` | name |
+| GET | `/api/stacks/{name}/icon` | name |
+| POST | `/api/stacks/{name}/icon` | name |
 
 ## Deliberately omitted (with reason)
 

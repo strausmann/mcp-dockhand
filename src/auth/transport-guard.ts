@@ -76,7 +76,7 @@ function parseCommaList(value: string | undefined): string[] {
  * unauthenticated (pre-existing behavior).
  */
 export function getTransportSecurityConfig(
-  port: number,
+  _port: number,
   env: NodeJS.ProcessEnv = process.env,
 ): TransportSecurityConfig {
   const allowedHosts = parseCommaList(env['MCP_ALLOWED_HOSTS']);

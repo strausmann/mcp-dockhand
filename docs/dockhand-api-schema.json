@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-18T05:08:59.828Z",
+  "generatedAt": "2026-09-06T09:02:46.534Z",
   "sourceRepo": "finsys/dockhand",
-  "sourceCommit": "5c0fa6aa912e66ea4c2a55c9047aab61a5fe3720",
-  "endpointCount": 244,
+  "sourceCommit": "14f75845edd4ee221bc1df7c0d65f3e341188149",
+  "endpointCount": 254,
   "endpoints": [
     {
       "path": "/api/activity",
@@ -563,7 +563,27 @@
       ],
       "pathParams": [
         "id"
-      ]
+      ],
+      "queryParamsByMethod": {
+        "GET": [
+          {
+            "name": "destinationId",
+            "required": true
+          },
+          {
+            "name": "download",
+            "required": false
+          },
+          {
+            "name": "path",
+            "required": true
+          },
+          {
+            "name": "type",
+            "required": false
+          }
+        ]
+      }
     },
     {
       "path": "/api/backup/snapshots/{id}/metadata",
@@ -663,6 +683,23 @@
       ]
     },
     {
+      "path": "/api/container-icons",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/container-icons/{name}",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST"
+      ],
+      "pathParams": [
+        "name"
+      ]
+    },
+    {
       "path": "/api/containers",
       "methods": [
         "GET",
@@ -694,6 +731,15 @@
           }
         ]
       }
+    },
+    {
+      "path": "/api/containers/{id}/compose",
+      "methods": [
+        "GET"
+      ],
+      "pathParams": [
+        "id"
+      ]
     },
     {
       "path": "/api/containers/{id}/exec",
@@ -1249,6 +1295,12 @@
       ]
     },
     {
+      "path": "/api/git/branches",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
       "path": "/api/git/credentials",
       "methods": [
         "GET",
@@ -1463,6 +1515,27 @@
       "path": "/api/host",
       "methods": [
         "GET"
+      ]
+    },
+    {
+      "path": "/api/icons/selfhst-manifest",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/icons/selfhst/{ref}",
+      "methods": [
+        "GET"
+      ],
+      "pathParams": [
+        "ref"
+      ]
+    },
+    {
+      "path": "/api/icons/selfhst/batch",
+      "methods": [
+        "POST"
       ]
     },
     {
@@ -2248,6 +2321,13 @@
       ]
     },
     {
+      "path": "/api/settings/semver",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
       "path": "/api/settings/theme",
       "methods": [
         "GET"
@@ -2361,6 +2441,17 @@
       ]
     },
     {
+      "path": "/api/stacks/{name}/icon",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST"
+      ],
+      "pathParams": [
+        "name"
+      ]
+    },
+    {
       "path": "/api/stacks/{name}/relocate",
       "methods": [
         "POST"
@@ -2397,6 +2488,15 @@
     },
     {
       "path": "/api/stacks/{name}/stop",
+      "methods": [
+        "POST"
+      ],
+      "pathParams": [
+        "name"
+      ]
+    },
+    {
+      "path": "/api/stacks/{name}/validate",
       "methods": [
         "POST"
       ],

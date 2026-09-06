@@ -5,6 +5,71 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0](https://github.com/strausmann/mcp-dockhand/compare/v1.15.2...v1.16.0) (2026-09-06)
+
+### Features
+
+* **tools:** add get/update semver settings ([#227](https://github.com/strausmann/mcp-dockhand/issues/227)) ([f433b3a](https://github.com/strausmann/mcp-dockhand/commit/f433b3aa6f77b654b2f525c3210f3083b225a9d5)), references [#242](https://github.com/strausmann/mcp-dockhand/issues/242)
+* **tools:** add validate_stack_compose ([#230](https://github.com/strausmann/mcp-dockhand/issues/230)) ([549f82c](https://github.com/strausmann/mcp-dockhand/commit/549f82cb29efaf8c1d21950e3d2168c7ba4ef5f3))
+
+### Bug Fixes
+
+* **stacks:** fix replace-mode git routing, secret count, summary baseline ([#231](https://github.com/strausmann/mcp-dockhand/issues/231)) ([e118649](https://github.com/strausmann/mcp-dockhand/commit/e1186494e9a7d5df477313727d892e321f1a66a8)), references [#243](https://github.com/strausmann/mcp-dockhand/issues/243) [227/#230](https://github.com/strausmann/mcp-dockhand/issues/230)
+* **stacks:** guard malformed env response in merge mode too ([e6a58f1](https://github.com/strausmann/mcp-dockhand/commit/e6a58f1833bb3520d0069603fb40bb0384241b9e))
+* **stacks:** guard malformed GET /env response in replace-mode git routing ([#244](https://github.com/strausmann/mcp-dockhand/issues/244)) ([f298522](https://github.com/strausmann/mcp-dockhand/commit/f2985228dc90aee5a27887a7115f598ef70dd091)), references [Issue-#196](https://github.com/Issue-/issues/196)
+* **stacks:** translate a 403 on GET /api/stacks/sources into an actionable message ([#231](https://github.com/strausmann/mcp-dockhand/issues/231)) ([86837ed](https://github.com/strausmann/mcp-dockhand/commit/86837ed9b4674c0d65fbd5aa2bc1c4f55bab3b73)), references [#243](https://github.com/strausmann/mcp-dockhand/issues/243)
+* **stacks:** update_stack_env preserves ALL untouched DB rows on git stacks ([#231](https://github.com/strausmann/mcp-dockhand/issues/231)) ([9430c89](https://github.com/strausmann/mcp-dockhand/commit/9430c89b656120af51b9fc033798a60ba24496a1))
+* **stacks:** validate sourceType record and fix empty-merge summary on git stacks ([#231](https://github.com/strausmann/mcp-dockhand/issues/231)) ([f6a53fe](https://github.com/strausmann/mcp-dockhand/commit/f6a53fe7a7b0d35d55638e6c11921304e094f728)), references [#243](https://github.com/strausmann/mcp-dockhand/issues/243) [Issue-#196](https://github.com/Issue-/issues/196)
+* **system:** get_prometheus_metrics calls /metrics not stale /api/metrics ([#234](https://github.com/strausmann/mcp-dockhand/issues/234)) ([4976101](https://github.com/strausmann/mcp-dockhand/commit/49761014248ecee29a5b4ab5f0c04cc32d561dc7)), references [#242](https://github.com/strausmann/mcp-dockhand/issues/242)
+
+### Documentation
+
+* **api:** update API coverage report (automated) ([8d1be3d](https://github.com/strausmann/mcp-dockhand/commit/8d1be3daed4a56083042de1bb274664dcfa7b667))
+* **tools:** fix wrong permission claim in update_stack_env description ([#231](https://github.com/strausmann/mcp-dockhand/issues/231)) ([729590b](https://github.com/strausmann/mcp-dockhand/commit/729590be0cd2eda85f50b996ab2e8093a3b4a56e))
+
+### CI/CD
+
+* **api:** auto-track MISSING_TOOL coverage gaps in a self-healing issue ([#227](https://github.com/strausmann/mcp-dockhand/issues/227)) ([6bbc900](https://github.com/strausmann/mcp-dockhand/commit/6bbc90019025a080a6a608aca7544c678860c394)), references [#243](https://github.com/strausmann/mcp-dockhand/issues/243) [#60](https://github.com/strausmann/mcp-dockhand/issues/60) [#165](https://github.com/strausmann/mcp-dockhand/issues/165)
+
+## [1.15.2](https://github.com/strausmann/mcp-dockhand/compare/v1.15.1...v1.15.2) (2026-08-27)
+
+### Bug Fixes
+
+* **environments:** stop leaking hawserToken and tlsKey in environment responses ([#233](https://github.com/strausmann/mcp-dockhand/issues/233)) ([bac0e73](https://github.com/strausmann/mcp-dockhand/commit/bac0e73dfa12c8b76cfeea229026da039e91d6be)), references [#232](https://github.com/strausmann/mcp-dockhand/issues/232)
+
+### Documentation
+
+* **api:** update API coverage report (automated) ([5399c7c](https://github.com/strausmann/mcp-dockhand/commit/5399c7c6c99cacdb7fd282b089e422c31a18b4bb))
+* **api:** update API coverage report (automated) ([f12d4aa](https://github.com/strausmann/mcp-dockhand/commit/f12d4aa892e993baafc792ad168eeced4d043d22))
+* **api:** update API coverage report (automated) ([2c01d4d](https://github.com/strausmann/mcp-dockhand/commit/2c01d4d71afe1299f276b5089f2f75a0008de561))
+
+## [1.15.1](https://github.com/strausmann/mcp-dockhand/compare/v1.15.0...v1.15.1) (2026-08-20)
+
+### Bug Fixes
+
+* **client:** derive each request's own route template in the debug log ([#219](https://github.com/strausmann/mcp-dockhand/issues/219)) ([98629c0](https://github.com/strausmann/mcp-dockhand/commit/98629c0b07aaf691e63715263082a326bc2a9dde)), closes [#214](https://github.com/strausmann/mcp-dockhand/issues/214), references [#214](https://github.com/strausmann/mcp-dockhand/issues/214)
+* **client:** measure ms/bytes at body completion for streamed responses ([#223](https://github.com/strausmann/mcp-dockhand/issues/223)) ([8ee1d5e](https://github.com/strausmann/mcp-dockhand/commit/8ee1d5e5e085325657295c3322054931eec11dcc)), closes [#215](https://github.com/strausmann/mcp-dockhand/issues/215), references [#215](https://github.com/strausmann/mcp-dockhand/issues/215) [#215](https://github.com/strausmann/mcp-dockhand/issues/215) [pre-#215](https://github.com/pre-/issues/215) [#215](https://github.com/strausmann/mcp-dockhand/issues/215)
+
+### Documentation
+
+* **api:** update API coverage report (automated) ([c103740](https://github.com/strausmann/mcp-dockhand/commit/c10374049afec166e83f240a641f4c72e74e705d))
+
+## [1.15.0](https://github.com/strausmann/mcp-dockhand/compare/v1.14.0...v1.15.0) (2026-08-19)
+
+### Features
+
+* make LOG_LEVEL real, add an access log CrowdSec can parse ([#209](https://github.com/strausmann/mcp-dockhand/issues/209)) ([b88cdaa](https://github.com/strausmann/mcp-dockhand/commit/b88cdaaaa3942933d8104cc7918c9a81bca341fb))
+
+### Bug Fixes
+
+* **client:** unify error logging on flat errType, pin the serializer trap ([#218](https://github.com/strausmann/mcp-dockhand/issues/218)) ([6ed596f](https://github.com/strausmann/mcp-dockhand/commit/6ed596ff2130db301b21ae30a44b29460195d0d9)), closes [#212](https://github.com/strausmann/mcp-dockhand/issues/212)
+* **system:** async log destination in production, sync fatal-exit lines ([#216](https://github.com/strausmann/mcp-dockhand/issues/216)) ([e3d785a](https://github.com/strausmann/mcp-dockhand/commit/e3d785a6a49e16af206173c8d21bbd227e861f39)), closes [#210](https://github.com/strausmann/mcp-dockhand/issues/210), references [#210](https://github.com/strausmann/mcp-dockhand/issues/210) [#210](https://github.com/strausmann/mcp-dockhand/issues/210)
+* **system:** make log-context isolation a module invariant ([#217](https://github.com/strausmann/mcp-dockhand/issues/217)) ([75c5d0f](https://github.com/strausmann/mcp-dockhand/commit/75c5d0fd43ebd5879c2beb92a839c2747ac35ed4)), closes [#211](https://github.com/strausmann/mcp-dockhand/issues/211), references [#209](https://github.com/strausmann/mcp-dockhand/issues/209)
+
+### Documentation
+
+* **api:** update API coverage report (automated) ([5cdcf31](https://github.com/strausmann/mcp-dockhand/commit/5cdcf3150798bce0946974816cf1ad60e54854b7))
+
 ## [1.14.0](https://github.com/strausmann/mcp-dockhand/compare/v1.13.2...v1.14.0) (2026-08-18)
 
 ### Features

@@ -700,8 +700,18 @@ function computeValidation(schema, toolCalls, toolBodyShapes = null, registry = 
       const baseKey = endpointKey(call.path, call.httpMethod);
       const streamKey = endpointKey(call.path + '-stream', call.httpMethod);
       if (!schemaEndpoints.has(baseKey) && !schemaEndpoints.has(streamKey)) {
-        // Sonderfall: /api/metrics existiert nicht im Quellcode (Prometheus-Export ist kein SvelteKit-Route)
-        if (!call.path.includes('/api/metrics')) {
+        // Sonderfall: `/metrics` is real (Dockhand v1.0.46, `src/routes/metrics/
+        // +server.ts`, and it now carries an `@openapi` annotation -- see
+        // docs/dockhand-openapi.json) but `docs/dockhand-api-schema.json` (`schema`
+        // above) is extracted by scripts/extract-dockhand-api.mjs, which scans
+        // ONLY `src/routes/api/**` (API_BASE = 'src/routes/api') -- structurally,
+        // regardless of any @openapi annotation. `/metrics` lives outside that
+        // tree by Prometheus convention, so it can never appear in `schema.endpoints`
+        // and would always show up here as a false ORPHANED_TOOL. Not a coverage
+        // gap: the body-contract/cross-ref checks below use
+        // docs/dockhand-openapi.json (a separate, broader extraction) and do cover
+        // it there (Refs #234, #242).
+        if (call.path !== '/metrics') {
           orphanedTool.push(call);
         }
       }
@@ -987,7 +997,17 @@ function validate() {
 }
 
 /**
+ * computeBodyFindingsForCalls()'s return-element shape: the raw `BodyFinding`
+ * (scripts/lib/body-checks.mjs) enriched with the call site, so generateReport() can
+ * render a table row from it.
+ * @typedef {{ type: string, field?: string, expectedRequired?: string[], toolName: string, httpMethod: string, path: string, file: string, line: number }} EnrichedBodyFinding
+ */
+
+/**
  * Generiert den Markdown-Report
+ * @param {object} args
+ * @param {Array<EnrichedBodyFinding>} [args.bodyFindings]
+ * @param {Array<{type: string, tool: string, method: string, path: string}>} [args.crossRefFindings]
  */
 function generateReport({ schema, covered, missingTool, deliberatelyOmitted = [], orphanedTool, paramMismatch, missingEncode, queryParamMissingRequired, queryParamUnknown, bodyFindings = [], crossRefFindings = [] }) {
   const lines = [];

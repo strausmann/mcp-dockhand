@@ -14,7 +14,7 @@ describe('checkCrossRefs (P3 Task 6, advisory)', () => {
   it('meldet NICHTS fuer aufloesbare Verweise', () => {
     const findings = checkCrossRefs(
       [{ tool: 'create_git_stack', refs: [{ method: 'GET', path: '/api/environments' }] }],
-      (m, p) => (p === '/api/environments' ? 'list_environments' : undefined)
+      (_m, p) => (p === '/api/environments' ? 'list_environments' : undefined)
     );
     expect(findings).toHaveLength(0);
   });
@@ -43,7 +43,7 @@ describe('checkCrossRefs (P3 Task 6, advisory)', () => {
           ],
         },
       ],
-      (m, p) => (p === '/api/environments' ? 'list_environments' : undefined)
+      (_m, p) => (p === '/api/environments' ? 'list_environments' : undefined)
     );
     expect(findings).toHaveLength(1);
     expect(findings[0].path).toBe('/api/typo');

@@ -24,8 +24,6 @@ export interface LogContext {
   call?: string;
   /** Name of the tool being invoked. */
   tool?: string;
-  /** OpenAPI path template of the Dockhand endpoint — never a concrete path. */
-  route?: string;
 }
 
 const storage = new AsyncLocalStorage<LogContext>();

@@ -9,6 +9,70 @@ import { registerTool, jsonResponse } from '../utils/tool-helper.js';
 import { encodePath } from '../utils/encode-path.js';
 
 /**
+ * Field names on a Dockhand environment payload that a routine lookup must never hand
+ * back (Issue #232):
+ *   - `hawserToken` — the agent token a node uses to register itself over the Dockhand
+ *     WebSocket. Dedicated tools already own issuing/inspecting it (list_hawser_tokens /
+ *     create_hawser_token / revoke_hawser_token, src/tools/auth.ts).
+ *   - `tlsKey` — the decrypted private TLS client key, for `direct`/`hawser-standard`
+ *     environments configured with mutual TLS. The heavier of the two: a private key,
+ *     not a revocable node token.
+ *
+ * Both are decrypted at the data-access layer and land in the row returned to every
+ * caller — verified against the real upstream code (Finsys/dockhand v1.0.44,
+ * src/lib/server/db.ts): getEnvironments()/getEnvironment()/createEnvironment() all
+ * `decrypt(e.tlsKey)` and `decrypt(e.hawserToken)` before returning, and
+ * updateEnvironment() ends by calling getEnvironment() (same decryption). This is NOT a
+ * deliberate response shape: every sibling credential-bearing endpoint (registries,
+ * LDAP, OIDC) explicitly strips its secret before responding in its own route handler
+ * (`const { password, ...safeRegistry } = registry`, a `sanitized` object for LDAP/OIDC
+ * configs) — only the environments routes spread the row as-is. Whoever reads this in a
+ * year: this list is a fix for an oversight, not curation of an endpoint that answers
+ * this way on purpose.
+ *
+ * Deliberately an explicit list, not a heuristic over field names: a pattern like
+ * /token|secret|key/i would also catch a field like `tokenCount`, and a false positive
+ * here silently drops data a caller needs. The trade-off is that this list is NOT
+ * notified when Dockhand adds a new credential field upstream — extend it here if
+ * one more shows up (checked at the time of writing: tlsCa/tlsCert are the public CA
+ * and client certificate, never encrypted/decrypted in db.ts, so they are not secrets
+ * and are intentionally left out).
+ *
+ * Also applied to create_environment/update_environment: verified against the real
+ * upstream handlers (Finsys/dockhand v1.0.44, src/routes/api/environments/+server.ts
+ * and src/routes/api/environments/[id]/+server.ts) that POST and PUT both respond with
+ * `json(env)` / `{ ...env, ... }` — the same full DB row as GET, both fields included.
+ * test_environment and test_environment_connection do NOT need this: both build a
+ * curated `{ success, info, isEdgeMode, hawser: {...} }` object by hand and never
+ * spread the environment row (verified against the same handlers).
+ */
+const ENVIRONMENT_CREDENTIAL_FIELDS = ['hawserToken', 'tlsKey'] as const;
+
+/**
+ * Returns a shallow copy of a single environment object with every field in
+ * ENVIRONMENT_CREDENTIAL_FIELDS removed. Every other field passes through unchanged.
+ * Non-object input (defensive — the Dockhand API is expected to always answer with an
+ * object here) is returned as-is rather than thrown on.
+ */
+function stripEnvironmentCredentials(env: unknown): unknown {
+  if (typeof env !== 'object' || env === null) return env;
+  const copy = { ...(env as Record<string, unknown>) };
+  for (const field of ENVIRONMENT_CREDENTIAL_FIELDS) {
+    delete copy[field];
+  }
+  return copy;
+}
+
+/**
+ * Applies stripEnvironmentCredentials across a list_environments payload (an array of
+ * environment objects). Non-array input is returned as-is, defensively.
+ */
+function stripEnvironmentListCredentials(payload: unknown): unknown {
+  if (!Array.isArray(payload)) return payload;
+  return payload.map(stripEnvironmentCredentials);
+}
+
+/**
  * Resolve host/port from explicit args or a URL string into the request body.
  * Only applies to hawser-standard connections — other types ignore host/port.
  *
@@ -68,14 +132,14 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
   registerTool(server, 'list_environments',
     {},
     async () => {
-      return jsonResponse(await client.get('/api/environments'));
+      return jsonResponse(stripEnvironmentListCredentials(await client.get('/api/environments')));
     }
   );
 
   registerTool(server, 'get_environment',
     { environmentId: z.number().describe('Environment ID') },
     async ({ environmentId }) => {
-      return jsonResponse(await client.get(`/api/environments/${encodePath(environmentId)}`));
+      return jsonResponse(stripEnvironmentCredentials(await client.get(`/api/environments/${encodePath(environmentId)}`)));
     }
   );
 
@@ -90,7 +154,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
     async ({ name, connectionType, host, port, url }) => {
       const body: Record<string, unknown> = { name, connectionType };
       resolveHostPort(body, { host, port, url }, connectionType, true);
-      return jsonResponse(await client.post('/api/environments', body));
+      return jsonResponse(stripEnvironmentCredentials(await client.post('/api/environments', body)));
     }
   );
 
@@ -130,7 +194,7 @@ export function registerEnvironmentTools(server: McpServer, client: DockhandClie
       if (highlightChanges !== undefined) body.highlightChanges = highlightChanges;
       if (socketPath !== undefined) body.socketPath = socketPath;
       resolveHostPort(body, { host, port, url }, resolvedConnectionType, false);
-      return jsonResponse(await client.put(`/api/environments/${encodePath(environmentId)}`, body));
+      return jsonResponse(stripEnvironmentCredentials(await client.put(`/api/environments/${encodePath(environmentId)}`, body)));
     }
   );
 

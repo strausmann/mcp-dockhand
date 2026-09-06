@@ -167,6 +167,7 @@ describe('createHostOriginGuard', () => {
     const { req, res, next, status, json } = mockReqRes({ host: 'evil.example', origin: 'https://good.example' });
     guard(req, res, next);
     expect(next).not.toHaveBeenCalled();
+    expect(status).toHaveBeenCalledWith(403);
     expect(json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('Invalid Host header') }));
   });
 });

@@ -80,7 +80,10 @@ describe('stableStringify', () => {
   it('produces different output when the actual paths content differs', () => {
     const a = stableStringify(fixtureSpec);
     const changed = structuredClone(fixtureSpec);
-    delete changed.paths['/api/stacks'].post.requestBody;
+    // requestBody is required in the fixture's inferred literal type, but genuinely
+    // optional on a real OpenAPI operation object -- this narrows just enough at the
+    // delete site to express that without loosening `changed`'s type everywhere else.
+    delete (changed.paths['/api/stacks'].post as { requestBody?: unknown }).requestBody;
     const b = stableStringify(changed);
 
     expect(a).not.toBe(b);

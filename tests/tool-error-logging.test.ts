@@ -102,6 +102,10 @@ describe('registerTool error logging', () => {
     // The shape that was actually being emitted, named explicitly so a return to it
     // cannot pass by satisfying the two assertions above through some other route.
     expect(line.err).toBeUndefined();
+    // The failed line must still carry the tool's endpoint (Codex #219): route stopped
+    // being a bound context field and is now added call-time on start/ok/failed — the
+    // catch path must not be the one that gets forgotten.
+    expect(line.route).toBe('/api/stacks');
   });
 
   it('logs "Unknown error" for a thrown non-Error value without crashing', async () => {

@@ -67,6 +67,20 @@ export function skipTemplate(text, i) {
           i = skipTemplate(text, i);
           continue;
         }
+        if (c === '/' && text[i + 1] === '/') {
+          const nl = text.indexOf('\n', i);
+          i = nl === -1 ? text.length : nl;
+          continue;
+        }
+        if (c === '/' && text[i + 1] === '*') {
+          const end = text.indexOf('*/', i);
+          i = end === -1 ? text.length : end + 2;
+          continue;
+        }
+        if (c === '/' && canRegexStartAt(text, i)) {
+          i = skipRegex(text, i);
+          continue;
+        }
         if (c === '{') {
           depth++;
           i++;
@@ -87,8 +101,115 @@ export function skipTemplate(text, i) {
 }
 
 /**
+ * Keywords that are operands, not values — a `/` right after one of these is a regex
+ * literal, never a division, no matter that the keyword itself ends in a letter (which
+ * would otherwise look like "division after an identifier" to the char-class check
+ * below). Whole-word matched only: `myreturn /x/` does NOT count, `return` does.
+ */
+const REGEX_ALLOWED_KEYWORDS = new Set([
+  'return', 'typeof', 'case', 'in', 'of', 'delete', 'void', 'yield', 'do', 'else',
+  'instanceof',
+]);
+
+/**
+ * Ermittelt, ob an Position `i` in `text` ein `/` ein Regex-Literal eröffnen KANN (statt
+ * einer Division). Klassische Tokenizer-Heuristik: eine Division kann nur nach einem
+ * Identifier/Keyword-Ende, einer Zahl, `)`, `]` oder einem schließenden Template-
+ * Backtick stehen — direkt davor scannt diese Funktion zurück (Whitespace übersprungen)
+ * und prüft genau das. Ein `/` nach einem Operator/Interpunktionszeichen (`(`, `,`, `=`,
+ * `!`, `:`, `return`, Zeilenanfang, …) kann dagegen NUR ein Regex-Literal sein — echtes
+ * JS erlaubt an diesen Stellen keine Division ohne linken Operanden.
+ *
+ * Ausnahme von der Zeichenklassen-Heuristik: endet das vorangehende Zeichen zwar
+ * alphanumerisch, ist das GANZE Wort davor aber eines der Operand-Keywords aus
+ * REGEX_ALLOWED_KEYWORDS (`return /re/`, `typeof x` gefolgt von `/re/`, `case /re/`,
+ * `in`, `of`, `delete`, `void`, `yield`, `do`, `else`, `instanceof`), ist es trotzdem ein
+ * Regex-Start — dort steht kein linker Operand, mit dem `/` eine Division bilden könnte.
+ * @param {string} text
+ * @param {number} i Index des `/`
+ * @returns {boolean}
+ */
+function canRegexStartAt(text, i) {
+  let j = i - 1;
+  while (j >= 0 && /\s/.test(text[j])) j--;
+  if (j < 0) return true;
+  const prevChar = text[j];
+  if (/[A-Za-z0-9_$)\]`]/.test(prevChar)) {
+    if (/[A-Za-z0-9_$]/.test(prevChar)) {
+      let wordStart = j;
+      while (wordStart >= 0 && /[A-Za-z0-9_$]/.test(text[wordStart])) wordStart--;
+      wordStart++;
+      const word = text.slice(wordStart, j + 1);
+      if (REGEX_ALLOWED_KEYWORDS.has(word)) return true;
+    }
+    return false;
+  }
+  // Postfix `++`/`--` ends a value → a following `/` is division, not a regex.
+  // Only the DOUBLED form counts: a single `+`/`-` is a binary/unary operator that can
+  // legitimately precede a regex operand (`a + /re/.source`), so it must stay a regex start.
+  if ((prevChar === '+' || prevChar === '-') && text[j - 1] === prevChar) return false;
+  return true;
+}
+
+/**
+ * Überspringt ein Regex-Literal (inkl. Zeichenklasse `[...]`, in der ein `/` NICHT das
+ * Literal schließt) ab dem öffnenden `/`, plus die anschließenden Flag-Buchstaben
+ * (`g`, `i`, `m`, …). Aufruf nur, wenn `canRegexStartAt()` an dieser Position `true`
+ * liefert — sonst würde eine Division fälschlich als Regex-Start behandelt.
+ *
+ * Regression (#202, cluster C): ohne diese Funktion las der Scanner einen `"` INNERHALB
+ * einer Regex-Zeichenklasse (z.B. `/["\\\x00-\x1f]/g` — dem echten
+ * `sanitizeFilename`-Muster aus src/routes/api/backup/snapshots/[id]/dump/+server.ts,
+ * Finsys/dockhand v1.0.46) als String-Öffnung und rief `skipString()` auf, das dann bis
+ * zum nächsten unescapten `"` weiterlas — im echten Handler bis ans Dateiende, ohne
+ * die dazwischenliegenden `{`/`}` mitzuzählen. Ergebnis: `findMatchingClose()` fand die
+ * schließende Klammer der GESAMTEN Handler-Funktion nicht mehr (-1),
+ * `extractHandlerBlocks()` (route-handlers.mjs) fand null Handler-Blöcke in der Datei,
+ * und die generierte docs/dockhand-api-schema.json bekam für
+ * `/api/backup/snapshots/{id}/dump` GAR KEINE Query-Param-Eintraege — obwohl der
+ * Handler destinationId/path/type unzweideutig liest. validate-mcp-tools.mjs markierte
+ * daraufhin jeden dieser (korrekten) Tool-Query-Params als QUERY_PARAM_UNKNOWN, ein
+ * hart gatendes False-Positive gegen ein korrektes Tool.
+ * @param {string} text
+ * @param {number} i Index des öffnenden `/`
+ * @returns {number} Index direkt nach dem Regex-Literal (inkl. Flags)
+ */
+function skipRegex(text, i) {
+  i++;
+  let inClass = false;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === '\\') {
+      i += 2;
+      continue;
+    }
+    if (ch === '\n') {
+      // Ein Regex-Literal kann keine echte Newline enthalten — kein Regex, Abbruch.
+      return i;
+    }
+    if (ch === '[') {
+      inClass = true;
+      i++;
+      continue;
+    }
+    if (ch === ']') {
+      inClass = false;
+      i++;
+      continue;
+    }
+    if (ch === '/' && !inClass) {
+      i++;
+      break;
+    }
+    i++;
+  }
+  while (i < text.length && /[A-Za-z]/.test(text[i])) i++;
+  return i;
+}
+
+/**
  * Findet den Index der zu `content[openIndex]` passenden schließenden Klammer
- * (respektiert Strings, Template-Literale und Kommentare).
+ * (respektiert Strings, Template-Literale, Kommentare und Regex-Literale).
  * @param {string} content
  * @param {number} openIndex Index von `(`, `{` oder `[`
  * @returns {number} Index der passenden schließenden Klammer, oder -1 bei unbalanciertem Input
@@ -119,6 +240,10 @@ export function findMatchingClose(content, openIndex) {
     if (ch === '/' && content[i + 1] === '*') {
       const end = content.indexOf('*/', i);
       i = end === -1 ? content.length : end + 2;
+      continue;
+    }
+    if (ch === '/' && canRegexStartAt(content, i)) {
+      i = skipRegex(content, i);
       continue;
     }
     if (ch === openChar) {
@@ -166,6 +291,10 @@ export function splitTopLevel(text) {
     if (ch === '/' && text[i + 1] === '*') {
       const end = text.indexOf('*/', i);
       i = end === -1 ? text.length : end + 2;
+      continue;
+    }
+    if (ch === '/' && canRegexStartAt(text, i)) {
+      i = skipRegex(text, i);
       continue;
     }
     if ('([{'.includes(ch)) {
@@ -217,6 +346,10 @@ export function extractObjectKey(segment) {
     }
     if (ch === '`') {
       i = skipTemplate(seg, i) - 1;
+      continue;
+    }
+    if (ch === '/' && canRegexStartAt(seg, i)) {
+      i = skipRegex(seg, i) - 1;
       continue;
     }
     if ('([{'.includes(ch)) {
@@ -271,6 +404,10 @@ export function splitTernary(text) {
       i = end === -1 ? text.length : end + 2;
       continue;
     }
+    if (ch === '/' && canRegexStartAt(text, i)) {
+      i = skipRegex(text, i);
+      continue;
+    }
     if ('([{'.includes(ch)) {
       depth++;
       i++;
@@ -320,6 +457,10 @@ export function splitTernary(text) {
     if (ch === '/' && text[i + 1] === '*') {
       const end = text.indexOf('*/', i);
       i = end === -1 ? text.length : end + 2;
+      continue;
+    }
+    if (ch === '/' && canRegexStartAt(text, i)) {
+      i = skipRegex(text, i);
       continue;
     }
     if ('([{'.includes(ch)) {

@@ -77,14 +77,20 @@ describe('get_tool_manifest registration wiring', () => {
     }
   });
 
-  it('reports get_prometheus_metrics with its real, documented endpoint (GET /api/metrics), not null', async () => {
+  // Since Dockhand v1.0.46 gave `/metrics` (the tool's real route, see
+  // src/tools/system.ts) an `@openapi` annotation, get_prometheus_metrics is a regular
+  // TOOL_ENDPOINT_MAP entry — no special merge in the registration wiring any more
+  // (Refs #234). This case is now already covered by the loop below (which iterates
+  // TOOL_ENDPOINT_MAP, and that map includes get_prometheus_metrics), but is kept as an
+  // explicit, named regression guard for this specific tool/endpoint pair.
+  it('reports get_prometheus_metrics with its real, documented endpoint (GET /metrics), not null', async () => {
     const manifest = await invokeGetToolManifest();
 
     const entry = manifest.tools.find((t) => t.name === 'get_prometheus_metrics');
-    expect(entry).toEqual({ name: 'get_prometheus_metrics', method: 'GET', path: '/api/metrics' });
+    expect(entry).toEqual({ name: 'get_prometheus_metrics', method: 'GET', path: '/metrics' });
   });
 
-  it('every non-meta, non-get_prometheus_metrics tool matches its TOOL_ENDPOINT_MAP entry exactly', async () => {
+  it('every non-meta tool (including get_prometheus_metrics) matches its TOOL_ENDPOINT_MAP entry exactly', async () => {
     const manifest = await invokeGetToolManifest();
 
     for (const [name, entry] of Object.entries(TOOL_ENDPOINT_MAP)) {

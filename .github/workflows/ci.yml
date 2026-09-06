@@ -29,6 +29,9 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      - name: Type check tests
+        run: npm run typecheck:tests
+
       - name: Run tests
         run: npm test
 
@@ -97,3 +100,13 @@ jobs:
 
       - name: npm ci in production image (node:22-alpine)
         run: docker run --rm -v "$PWD":/app -w /app node:22-alpine npm ci --no-audit --no-fund
+
+  lint:
+    # ESLint itself is not installed from this repo's devDependencies -- see
+    # scripts/lint-in-container.sh for why (TypeScript 7 vs. typescript-eslint).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Lint (containerized, TypeScript 5)
+        run: bash scripts/lint-in-container.sh

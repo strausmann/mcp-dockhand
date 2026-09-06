@@ -73,10 +73,6 @@ function registerAndCapture(
   return { handlers, client };
 }
 
-function jsonOut(res: Awaited<ReturnType<ToolHandler>>): Record<string, unknown> {
-  return JSON.parse(res.content[0].text) as Record<string, unknown>;
-}
-
 describe('activate_license — POST /api/license requires {name, key} (license/+server.ts:47)', () => {
   it('sends both name and key in the body', async () => {
     const { handlers, client } = registerAndCapture((s, c) => registerSystemTools(s as never, c as never));
