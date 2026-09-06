@@ -146,6 +146,28 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     }
   );
 
+  // NOTE: despite the endpoint's HTTP method (POST) and its position among the
+  // "/api/git/branches" path, this is a READ operation — `git ls-remote`, not branch
+  // creation. Verified against src/routes/api/git/branches/+server.ts: it accepts
+  // EITHER an existing repositoryId OR a fresh url (+ optional credentialId), runs the
+  // repo target through the shared SSRF policy, then lists remote branches with their
+  // short commit SHAs. POST is used here only because the body can carry a
+  // credentialId, not because it mutates anything server-side.
+  registerTool(server, 'list_git_remote_branches',
+    {
+      repositoryId: z.number().optional().describe('Existing repository ID (uses its stored URL and credential); use this OR url'),
+      url: z.string().optional().describe('A new repository URL to list branches for; use this OR repositoryId'),
+      credentialId: z.number().optional().describe('Credential ID to use when url is given'),
+    },
+    async ({ repositoryId, url, credentialId }) => {
+      const body: Record<string, unknown> = {};
+      if (repositoryId !== undefined) body.repositoryId = repositoryId;
+      if (url !== undefined) body.url = url;
+      if (credentialId !== undefined) body.credentialId = credentialId;
+      return jsonResponse(await client.post('/api/git/branches', body));
+    }
+  );
+
   registerTool(server, 'create_git_repository',
     {
       name: z.string().describe('Repository name (required by the real endpoint)'),
