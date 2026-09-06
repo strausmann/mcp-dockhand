@@ -27,6 +27,7 @@ import { registerPreferenceTools } from './preferences.js';
 import { registerSecretProviderTools } from './secret-providers.js';
 import { registerSettingsTools } from './settings.js';
 import { registerMetaTools } from './meta.js';
+import { registerBackupConfigTools } from './backup-configs.js';
 import { registerBackupDestinationTools } from './backup-destinations.js';
 import { registerBackupProbeTools } from './backup-probes.js';
 import { logger } from '../utils/logger.js';
@@ -55,6 +56,7 @@ export function registerAllTools(server: McpServer, client: DockhandClient): voi
   registerSecretProviderTools(server, client);
   registerSettingsTools(server, client);
   registerMetaTools(server, client);
+  registerBackupConfigTools(server, client);
   registerBackupDestinationTools(server, client);
   registerBackupProbeTools(server, client);
 

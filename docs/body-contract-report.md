@@ -10,15 +10,15 @@
 > hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-Issue) — hier weiterhin nur
 > zur Übersicht gelistet. Die übrigen drei Typen bleiben vollständig advisory.
 
-**Erzeugt:** 2026-09-06T08:14:12.403Z
+**Erzeugt:** 2026-09-06T08:38:45.557Z
 
 ## Zusammenfassung
 
 | Typ | Anzahl | Bedeutung |
 |-----|--------|-----------|
 | BODY_PARAM_UNKNOWN | 11 | Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Ausschluss der Query-/Path-Parameter der Operation). |
-| UNTYPED_PASSTHROUGH | 50 | Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar. |
-| BODY_CONTRACT_UNRESOLVED | 37 | Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork). |
+| UNTYPED_PASSTHROUGH | 52 | Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar. |
+| BODY_CONTRACT_UNRESOLVED | 39 | Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork). |
 
 ## BODY_PARAM_UNKNOWN (11)
 
@@ -38,12 +38,13 @@ Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Aussch
 | `set_container_auto_update` | POST | `/api/auto-update/{containerName}` | `policy` | auto-update.ts:37 |
 | `test_environment_connection` | POST | `/api/environments/test` | `url` | environments.ts:225 |
 
-## UNTYPED_PASSTHROUGH (50)
+## UNTYPED_PASSTHROUGH (52)
 
 Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar.
 
 | Tool | HTTP | Pfad | Feld | Datei |
 |------|------|------|------|-------|
+| `create_backup_config` | POST | `/api/backup/configs` | `destinationId`, `targetName` | backup-configs.ts:110 |
 | `create_backup_destination` | POST | `/api/backup/destinations` | `name`, `repository`, `password` | backup-destinations.ts:79 |
 | `create_config_set` | POST | `/api/config-sets` | `name` | users.ts:281 |
 | `create_container` | POST | `/api/containers` | `name`, `image` | containers.ts:284 |
@@ -71,6 +72,7 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `test_secret_provider` | POST | `/api/secret-providers/{id}/test` | - | secret-providers.ts:116 |
 | `test_secret_provider_config` | POST | `/api/secret-providers/test` | `type`, `config` | secret-providers.ts:126 |
 | `update_auth_settings` | PUT | `/api/auth/settings` | - | auth.ts:202 |
+| `update_backup_config` | PUT | `/api/backup/configs/{configId}` | - | backup-configs.ts:138 |
 | `update_backup_destination` | PUT | `/api/backup/destinations/{destinationId}` | - | backup-destinations.ts:118 |
 | `update_config_set` | PUT | `/api/config-sets/{configSetId}` | - | users.ts:298 |
 | `update_container` | POST | `/api/containers/{containerId}/update` | - | containers.ts:255 |
@@ -95,7 +97,7 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `update_user` | PUT | `/api/users/{userId}` | - | users.ts:50 |
 | `validate_stack_compose` | POST | `/api/stacks/{name}/validate` | `compose` | stacks.ts:879 |
 
-## BODY_CONTRACT_UNRESOLVED (37)
+## BODY_CONTRACT_UNRESOLVED (39)
 
 Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork).
 
@@ -117,11 +119,13 @@ Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehl
 | `release_volume_browse` | POST | `/api/volumes/{volumeName}/browse/release` | - | volumes.ts:75 |
 | `restart_container` | POST | `/api/containers/{containerId}/restart` | - | containers.ts:174 |
 | `restart_stack` | POST | `/api/stacks/{name}/restart` | - | stacks.ts:78 |
+| `run_backup_config` | POST | `/api/backup/configs/{configId}/run` | - | backup-configs.ts:152 |
 | `run_schedule_now` | POST | `/api/schedules/{type}/{scheduleId}/run` | - | schedules.ts:56 |
 | `scan_all_vulnerabilities` | POST | `/api/vulnerabilities/scan-all` | - | vulnerabilities.ts:45 |
 | `set_default_registry` | POST | `/api/registries/{registryId}/default` | - | registries.ts:56 |
 | `start_container` | POST | `/api/containers/{containerId}/start` | - | containers.ts:154 |
 | `start_stack` | POST | `/api/stacks/{name}/start` | - | stacks.ts:58 |
+| `stop_backup_config` | POST | `/api/backup/configs/{configId}/stop` | - | backup-configs.ts:159 |
 | `stop_container` | POST | `/api/containers/{containerId}/stop` | - | containers.ts:164 |
 | `stop_stack` | POST | `/api/stacks/{name}/stop` | - | stacks.ts:68 |
 | `sync_git_repository` | POST | `/api/git/repositories/{repositoryId}/sync` | - | git-stacks.ts:181 |
