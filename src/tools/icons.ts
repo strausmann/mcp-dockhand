@@ -90,6 +90,16 @@ export function registerIconTools(server: McpServer, client: DockhandClient): vo
           'set_container_icon: provide either icon (a lucide name or `selfhst:<ref>` reference) or image (a base64-encoded data URL) — neither was supplied.'
         );
       }
+      // Codex review (PR #251, P2): icon and image are alternatives ("use this OR
+      // ...") but the shape permits both. The backend (POST /api/container-icons/
+      // {name}) checks `image` FIRST and only falls back to `icon` — so sending both
+      // makes it silently use image and drop icon. Reject the ambiguous call here
+      // instead of letting a requested value be silently ignored.
+      if (icon !== undefined && image !== undefined) {
+        throw new Error(
+          'set_container_icon: provide either icon or image, not both — the backend uses image and silently ignores icon when both are present.'
+        );
+      }
       const body: Record<string, unknown> = {};
       if (icon !== undefined) body.icon = icon;
       if (image !== undefined) body.image = image;
@@ -137,6 +147,13 @@ export function registerIconTools(server: McpServer, client: DockhandClient): vo
       if (icon === undefined && image === undefined) {
         throw new Error(
           'set_stack_icon: provide either icon (a lucide name or `selfhst:<ref>` reference) or image (a base64-encoded data URL) — neither was supplied.'
+        );
+      }
+      // Codex review (PR #251, P2): same image-wins-silently backend behaviour as
+      // set_container_icon above — reject the ambiguous both-supplied call here.
+      if (icon !== undefined && image !== undefined) {
+        throw new Error(
+          'set_stack_icon: provide either icon or image, not both — the backend uses image and silently ignores icon when both are present.'
         );
       }
       const body: Record<string, unknown> = {};

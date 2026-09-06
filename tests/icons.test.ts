@@ -168,6 +168,17 @@ describe('set_container_icon', () => {
     expect(client.post).not.toHaveBeenCalled();
   });
 
+  it('Codex P2 fix: rejects client-side when BOTH icon and image are supplied — backend would silently drop icon', async () => {
+    const { handlers, client } = setup();
+    const result = await handlers.get('set_container_icon')!({
+      containerName: 'plex',
+      icon: 'selfhst:plex',
+      image: 'data:image/png;base64,AAAA',
+    });
+    expectToolError(result, 'not both');
+    expect(client.post).not.toHaveBeenCalled();
+  });
+
   it('GEGENVERSUCH: with either field present, the same call reaches the backend (icon)', async () => {
     const { client } = await call('set_container_icon', { containerName: 'plex', icon: 'selfhst:plex' });
     expect(client.post).toHaveBeenCalledWith('/api/container-icons/plex', { icon: 'selfhst:plex' }, { env: undefined });
@@ -260,6 +271,17 @@ describe('set_stack_icon', () => {
     const { handlers, client } = setup();
     const result = await handlers.get('set_stack_icon')!({ stackName: 'gitea' });
     expectToolError(result, 'provide either icon');
+    expect(client.post).not.toHaveBeenCalled();
+  });
+
+  it('Codex P2 fix: rejects client-side when BOTH icon and image are supplied — backend would silently drop icon', async () => {
+    const { handlers, client } = setup();
+    const result = await handlers.get('set_stack_icon')!({
+      stackName: 'gitea',
+      icon: 'selfhst:gitea',
+      image: 'data:image/png;base64,AAAA',
+    });
+    expectToolError(result, 'not both');
     expect(client.post).not.toHaveBeenCalled();
   });
 
