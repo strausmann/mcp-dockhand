@@ -17,6 +17,24 @@ export function registerImageTools(server: McpServer, client: DockhandClient): v
     }
   );
 
+  // POST /api/images/load - `docker load` from an uploaded tar, for air-gapped hosts.
+  // The real endpoint's request BODY IS the raw tar bytes (Content-Type
+  // application/x-tar), streamed straight to the daemon - not a JSON body and not
+  // multipart/form-data. Verified against src/routes/api/images/load/+server.ts: local/
+  // socket or direct TCP only (rejects Hawser server-side).
+  registerTool(server, 'load_image',
+    {
+      environmentId: z.number().optional().describe('Target environment ID (omit for the local/default Docker host); rejected server-side if the environment is Hawser-connected'),
+      tarContent: z.string().describe('Base64-encoded Docker image tar, e.g. the output of `docker save`'),
+    },
+    async ({ environmentId, tarContent }) => {
+      const buffer = Buffer.from(tarContent, 'base64');
+      return jsonResponse(
+        await client.postRawBody('/api/images/load', buffer, 'application/x-tar', { env: environmentId })
+      );
+    }
+  );
+
   registerTool(server, 'get_image_history',
     {
       environmentId: z.number().describe('Environment ID'),
