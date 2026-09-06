@@ -91,13 +91,9 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
   // res.on('finish') handler, and a 400 or a 413 produces no access line whatsoever.
   // Malformed-payload probing is exactly what CrowdSec is here to see.
   //
-  // `limit` is explicit and configurable (MCP_MAX_REQUEST_BODY_BYTES, default 100 MB)
-  // rather than left at Express's own 100 KB default — see request-body-limit.ts for
-  // why: the default silently made load_image (whose tarContent argument is a
-  // base64-encoded, ~33%-inflated Docker image tar embedded in this same JSON body)
-  // reject with 413 before the tool ever ran.
-  const requestBodyLimit = getRequestBodyLimitConfig();
-  app.use(express.json({ limit: requestBodyLimit.maxRequestBodyBytes }));
+  // express.json() itself is registered further down, scoped to '/mcp' and AFTER the
+  // Host/Origin and bearer guards — see the comment there (Codex review, PR #251, P1)
+  // for why it must never run ahead of them.
 
   const sessions = new Map<string, SessionEntry>();
   let pendingSessions = 0;
@@ -203,6 +199,33 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
     app.use('/mcp', createHostOriginGuard(security.allowedHosts, security.allowedOrigins));
   }
   app.use('/mcp', createBearerAuthGuard(security.authToken));
+
+  // Body parsing is registered here — scoped to '/mcp' and AFTER both guards above,
+  // never before them (Codex review, PR #251, P1). Both guards inspect only headers
+  // (Host, Origin, Authorization), never the body, so nothing is lost by parsing the
+  // body after they run; what is gained is that a request the guards would reject
+  // never gets its body buffered at all.
+  //
+  // This used to be a single `app.use(express.json(...))` registered ahead of the
+  // guards (and ahead of everything else, right after the access-log middleware).
+  // That ordering meant an UNAUTHENTICATED caller — one with no valid bearer token,
+  // or with a Host/Origin the operator never allowed — could still make this process
+  // buffer up to `requestBodyLimit.maxRequestBodyBytes` (100 MB by default,
+  // operator-raisable via MCP_MAX_REQUEST_BODY_BYTES, see request-body-limit.ts) of
+  // request body before either guard ever ran: express.json() parses (and therefore
+  // fully buffers) the body before calling next(), and next() is what invokes the
+  // next middleware in the chain — which was the guard. A caller with no credentials
+  // at all could repeat that against every reachable connection and exhaust memory —
+  // a DoS available to a fully unauthenticated client, defeating the point of
+  // MCP_AUTH_TOKEN. Registering the parser after the guards (and scoped to only the
+  // path that needs a JSON body — /health is GET, no body) closes that: a request
+  // without a valid token is now rejected by createBearerAuthGuard reading only the
+  // Authorization header, before a single byte of the body is parsed.
+  const requestBodyLimit = getRequestBodyLimitConfig();
+  for (const warning of requestBodyLimit.warnings) {
+    logger.warn({ component: 'config' }, warning);
+  }
+  app.use('/mcp', express.json({ limit: requestBodyLimit.maxRequestBodyBytes }));
 
   app.post('/mcp', async (req: Request, res: Response) => {
     try {
