@@ -671,6 +671,40 @@ script runs as a hard gate in CI. Unused imports/locals are additionally caught 
 TS 7 by `tsc` (`noUnusedLocals`/`noUnusedParameters` in `tsconfig.tests.json`, via
 `npm run typecheck:tests`).
 
+### Testing conventions
+
+These grew out of the test-hardening review of PRs #210–#215 (Issue #224) — several
+tests there passed while proving nothing. Two mechanical rules and one habit came out
+of it, and are enforced or expected repo-wide:
+
+**`noUnusedLocals` / `noUnusedParameters` stay on for tests.** They are set in
+`tsconfig.tests.json` and checked by `npm run typecheck:tests` (part of CI). The
+reason to keep them, spelled out: a value parsed from output into a local that is
+then never asserted on is a *dead assertion* — a test that looks like it checks
+something but doesn't. With these flags on, that is a compile error instead of a
+silently green test. Do not relax them for test files, and do not add a per-file
+tsconfig under `tests/` to opt a file back out.
+
+**A negative assertion must name the field it denies.** `expect(raw).not.toContain('42')`
+over a whole serialized blob is a coincidence waiting to happen — it can also match a
+timestamp, an id, or an unrelated field, so it can fail for the wrong reason (or, for
+a keyword sweep, fail because an unrelated *legitimate* field's name happens to contain
+the word). Real case in #215: `not.toContain('42')` collided with a timestamp. Parse the
+output and assert on the specific field (`obj.route`, `obj.err.type`) instead of the raw
+string. When the whole point of the check is "no *unexpected* field anywhere in the
+tree carries this", walk the object (see `walkEntries()` in
+`tests/tools/meta.self-check.test.ts`, or `quotedFields()` /
+`statusBytesSegment()` in `tests/access-log.test.ts`) and name the offending path in
+the assertion message — do not fall back to `JSON.stringify(value)` plus a blind regex.
+
+**Counter-check every new regression test against the un-fixed code, once.** If a test
+stays green against the version of the code it exists to catch, it proves nothing — a
+fallback path, a duplicate-key dedupe, or an env-driven later failure can all keep a
+test green for the wrong reason (all three happened across #214/#215). Before
+considering a new regression test done: revert the fix (or otherwise reintroduce the
+bug) locally, run the test, confirm it fails **for the reason the test claims to check**,
+then restore the fix.
+
 ## License
 
 [MIT](LICENSE)

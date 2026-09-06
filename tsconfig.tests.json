@@ -5,6 +5,11 @@
     "rootDir": ".",
     "types": ["node"],
     "allowJs": true,
+    // Do not relax these two for test files (Issue #224): a value parsed from output
+    // into a local that is then never asserted on is a dead assertion — a test that
+    // looks like it checks something but doesn't. With these on, that's a compile
+    // error here instead of a silently green test. There is no per-file tsconfig
+    // under tests/, so nothing can opt a single test file back out of this.
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
