@@ -20,14 +20,20 @@
  * function that defaults safely on anything missing or invalid.
  */
 
+import { constants as bufferConstants } from 'node:buffer';
+
 const DEFAULT_MAX_REQUEST_BODY_BYTES = 100 * 1024 * 1024; // 100 MB
 
-// A generous but sane upper bound. Nothing this server does needs a body anywhere
-// close to this — even a very large `docker save` tar, base64-inflated ~33% for
-// load_image, stays well under it — so an operator raising
-// MCP_MAX_REQUEST_BODY_BYTES still hits a wall rather than being able to configure
-// an effectively unbounded body parser (Codex review, PR #251, P2).
-const MAX_REQUEST_BODY_BYTES_CEILING = 1024 * 1024 * 1024; // 1 GiB
+// Ceiling = Node's maximum string length (buffer.constants.MAX_STRING_LENGTH,
+// ~512 MiB on 64-bit). express.json() must decode the ENTIRE request into one
+// JavaScript string before JSON.parse, and Node cannot create a string longer than
+// this — so a body above it fails with ERR_STRING_TOO_LONG (HTTP 500) no matter how
+// high MCP_MAX_REQUEST_BODY_BYTES is set. Capping the ceiling here keeps the whole
+// advertised range one that express.json() can actually accept, instead of promising
+// e.g. a 1 GiB body it would reject anyway (Codex review, PR #251, P2). Nothing this
+// server does needs a body near this — even a very large `docker save` tar,
+// base64-inflated ~33% for load_image, stays well under it.
+const MAX_REQUEST_BODY_BYTES_CEILING = bufferConstants.MAX_STRING_LENGTH;
 
 export interface RequestBodyLimitConfig {
   /** Maximum size, in bytes, `express.json()` accepts for a single `/mcp` request body. */

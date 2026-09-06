@@ -1,7 +1,10 @@
+import { constants as bufferConstants } from 'node:buffer';
 import { describe, expect, it } from 'vitest';
 import { getRequestBodyLimitConfig } from '../src/request-body-limit.js';
 
-const ONE_GIB = 1024 * 1024 * 1024;
+// The ceiling is Node's max string length (~512 MiB), because express.json() has to
+// materialize the whole body as one JS string before parsing (Codex review, PR #251, P2).
+const CEILING = bufferConstants.MAX_STRING_LENGTH;
 const ONE_HUNDRED_MB = 100 * 1024 * 1024;
 
 describe('request-body-limit configuration', () => {
@@ -75,16 +78,16 @@ describe('request-body-limit configuration', () => {
     expect(result.maxRequestBodyBytes).toBe(ONE_HUNDRED_MB);
   });
 
-  it('caps a value above the 1 GiB ceiling instead of leaving the parser effectively unbounded', () => {
-    const result = getRequestBodyLimitConfig({ MCP_MAX_REQUEST_BODY_BYTES: String(ONE_GIB + 1) });
-    expect(result.maxRequestBodyBytes).toBe(ONE_GIB);
+  it('caps a value above the string-length ceiling instead of leaving the parser effectively unbounded', () => {
+    const result = getRequestBodyLimitConfig({ MCP_MAX_REQUEST_BODY_BYTES: String(CEILING + 1) });
+    expect(result.maxRequestBodyBytes).toBe(CEILING);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain('MCP_MAX_REQUEST_BODY_BYTES');
     expect(result.warnings[0]).toContain('ceiling');
   });
 
-  it('GEGENVERSUCH: a value exactly at the 1 GiB ceiling is accepted unchanged, with no warning', () => {
-    const result = getRequestBodyLimitConfig({ MCP_MAX_REQUEST_BODY_BYTES: String(ONE_GIB) });
-    expect(result).toEqual({ maxRequestBodyBytes: ONE_GIB, warnings: [] });
+  it('GEGENVERSUCH: a value exactly at the string-length ceiling is accepted unchanged, with no warning', () => {
+    const result = getRequestBodyLimitConfig({ MCP_MAX_REQUEST_BODY_BYTES: String(CEILING) });
+    expect(result).toEqual({ maxRequestBodyBytes: CEILING, warnings: [] });
   });
 });
