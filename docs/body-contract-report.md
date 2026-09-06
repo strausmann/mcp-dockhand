@@ -10,15 +10,15 @@
 > hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-Issue) — hier weiterhin nur
 > zur Übersicht gelistet. Die übrigen drei Typen bleiben vollständig advisory.
 
-**Erzeugt:** 2026-09-05T21:59:23.338Z
+**Erzeugt:** 2026-09-06T08:14:12.403Z
 
 ## Zusammenfassung
 
 | Typ | Anzahl | Bedeutung |
 |-----|--------|-----------|
 | BODY_PARAM_UNKNOWN | 11 | Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Ausschluss der Query-/Path-Parameter der Operation). |
-| UNTYPED_PASSTHROUGH | 47 | Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar. |
-| BODY_CONTRACT_UNRESOLVED | 35 | Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork). |
+| UNTYPED_PASSTHROUGH | 50 | Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar. |
+| BODY_CONTRACT_UNRESOLVED | 37 | Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork). |
 
 ## BODY_PARAM_UNKNOWN (11)
 
@@ -38,12 +38,13 @@ Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Aussch
 | `set_container_auto_update` | POST | `/api/auto-update/{containerName}` | `policy` | auto-update.ts:37 |
 | `test_environment_connection` | POST | `/api/environments/test` | `url` | environments.ts:225 |
 
-## UNTYPED_PASSTHROUGH (47)
+## UNTYPED_PASSTHROUGH (50)
 
 Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar.
 
 | Tool | HTTP | Pfad | Feld | Datei |
 |------|------|------|------|-------|
+| `create_backup_destination` | POST | `/api/backup/destinations` | `name`, `repository`, `password` | backup-destinations.ts:79 |
 | `create_config_set` | POST | `/api/config-sets` | `name` | users.ts:281 |
 | `create_container` | POST | `/api/containers` | `name`, `image` | containers.ts:284 |
 | `create_environment_notification` | POST | `/api/environments/{environmentId}/notifications` | `notificationId` | environments.ts:317 |
@@ -64,11 +65,13 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `set_environment_update_check` | POST | `/api/environments/{environmentId}/update-check` | - | environments.ts:283 |
 | `set_grid_preferences` | POST | `/api/preferences/grid` | `gridId` | users.ts:263 |
 | `set_sidebar_preferences` | POST | `/api/preferences/sidebar` | `order`, `hidden` | preferences.ts:24 |
+| `test_backup_destination_inline` | POST | `/api/backup/destinations/test` | - | backup-destinations.ts:199 |
 | `test_notification_config` | POST | `/api/notifications/test` | `type` | notifications.ts:65 |
 | `test_registry` | POST | `/api/registries/test` | - | registries.ts:124 |
 | `test_secret_provider` | POST | `/api/secret-providers/{id}/test` | - | secret-providers.ts:116 |
 | `test_secret_provider_config` | POST | `/api/secret-providers/test` | `type`, `config` | secret-providers.ts:126 |
 | `update_auth_settings` | PUT | `/api/auth/settings` | - | auth.ts:202 |
+| `update_backup_destination` | PUT | `/api/backup/destinations/{destinationId}` | - | backup-destinations.ts:118 |
 | `update_config_set` | PUT | `/api/config-sets/{configSetId}` | - | users.ts:298 |
 | `update_container` | POST | `/api/containers/{containerId}/update` | - | containers.ts:255 |
 | `update_container_runtime` | POST | `/api/containers/{containerId}/update-runtime` | - | containers.ts:522 |
@@ -92,7 +95,7 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `update_user` | PUT | `/api/users/{userId}` | - | users.ts:50 |
 | `validate_stack_compose` | POST | `/api/stacks/{name}/validate` | `compose` | stacks.ts:879 |
 
-## BODY_CONTRACT_UNRESOLVED (35)
+## BODY_CONTRACT_UNRESOLVED (37)
 
 Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork).
 
@@ -102,6 +105,7 @@ Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehl
 | `deploy_git_repository` | POST | `/api/git/repositories/{repositoryId}/deploy` | - | git-stacks.ts:174 |
 | `deploy_git_stack` | POST | `/api/git/stacks/{stackId}/deploy` | - | git-stacks.ts:30 |
 | `deploy_git_stack_stream` | POST | `/api/git/stacks/{stackId}/deploy-stream` | - | git-stacks.ts:261 |
+| `init_backup_destination` | POST | `/api/backup/destinations/{destinationId}/init` | - | backup-destinations.ts:132 |
 | `logout` | POST | `/api/auth/logout` | - | auth.ts:210 |
 | `pause_container` | POST | `/api/containers/{containerId}/pause` | - | containers.ts:184 |
 | `prune_all` | POST | `/api/prune/all` | - | system.ts:197 |
@@ -122,6 +126,7 @@ Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehl
 | `stop_stack` | POST | `/api/stacks/{name}/stop` | - | stacks.ts:68 |
 | `sync_git_repository` | POST | `/api/git/repositories/{repositoryId}/sync` | - | git-stacks.ts:181 |
 | `sync_git_stack` | POST | `/api/git/stacks/{stackId}/sync` | - | git-stacks.ts:37 |
+| `test_backup_destination` | POST | `/api/backup/destinations/{destinationId}/test` | - | backup-destinations.ts:166 |
 | `test_environment` | POST | `/api/environments/{environmentId}/test` | - | environments.ts:211 |
 | `test_git_repository` | POST | `/api/git/repositories/{repositoryId}/test` | - | git-stacks.ts:188 |
 | `test_git_stack` | POST | `/api/git/stacks/{stackId}/test` | - | git-stacks.ts:44 |

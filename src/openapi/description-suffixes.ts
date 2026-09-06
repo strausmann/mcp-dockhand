@@ -69,6 +69,73 @@ const EXEC_RETURNS_NO_OUTPUT =
   'get_container_logs; for state on disk use list_container_files and ' +
   'get_container_file_content; for running processes use get_container_top.';
 
+/**
+ * `create_backup_destination`, `update_backup_destination` and
+ * `test_backup_destination_inline` (Finsys/dockhand v1.0.46,
+ * src/routes/api/backup/destinations/{+server.ts,[id]/+server.ts,test/+server.ts}) all
+ * accept the restic repository `password` and cloud-credential `envVars` (AWS/Azure/GCS
+ * keys) directly in the request body — the same "arguments carry credentials" situation
+ * as CONFIG_CARRIES_CREDENTIALS above, just for a different resource.
+ */
+const BACKUP_DESTINATION_BODY_CREDENTIALS =
+  'SECURITY: `password` and `envVars` here are restic repository and cloud-storage ' +
+  'credentials. Unlike the responses — which strip the password and only echo envVars ' +
+  'back to a caller who just supplied them — arguments you pass here are recorded in the ' +
+  'tool call itself, and therefore in transcripts and logs. Before calling this, ask the ' +
+  'operator explicitly whether to proceed and whether they would rather do it in the ' +
+  'Dockhand UI. If they say go ahead, go ahead — this is a supported administrative ' +
+  'operation, not a forbidden one.';
+
+/**
+ * `rotate_backup_destination_key` (src/routes/api/backup/destinations/[id]/rotate-key/
+ * +server.ts) takes `currentPassword`/`newPassword` in the body — same credentials-in-
+ * arguments situation as BACKUP_DESTINATION_BODY_CREDENTIALS, called out separately
+ * because the field names differ and a reader scanning for "password"/"envVars" would
+ * otherwise miss it.
+ */
+const BACKUP_DESTINATION_ROTATE_PASSWORDS =
+  'SECURITY: `currentPassword` and `newPassword` are restic repository passwords. Unlike ' +
+  'the response — which never echoes either value — arguments you pass here are recorded ' +
+  'in the tool call itself, and therefore in transcripts and logs. Before calling this, ' +
+  'ask the operator explicitly whether to proceed and whether they would rather do it in ' +
+  'the Dockhand UI. If they say go ahead, go ahead — this is a supported administrative ' +
+  'operation, not a forbidden one.';
+
+/**
+ * `get_backup_destination` (src/routes/api/backup/destinations/[id]/+server.ts) returns
+ * `envVars` DECRYPTED — in the clear — to any caller who can manage backups, precisely so
+ * the Dockhand edit form can pre-fill cloud-credential fields. The LIST endpoint
+ * (list_backup_destinations) never includes envVars at all; only this single-destination
+ * GET does, and the endpoint's own summary phrases that as a feature ("decrypted
+ * cloud-credential env vars are only included for callers who can manage backups"), not a
+ * warning — indistinguishable, on a skim, from "safe to print".
+ */
+const BACKUP_DESTINATION_RETURNS_DECRYPTED_CREDS =
+  'SECURITY: the response includes `envVars` DECRYPTED — cloud-storage credentials in the ' +
+  'clear (AWS/Azure/GCS keys etc.), if any are set on this destination. list_backup_destinations ' +
+  'never returns them; only this single-destination call does. Do not print or log the ' +
+  'response verbatim — if you only need to know whether credentials are configured, check ' +
+  'for the presence of the envVars keys rather than their values.';
+
+/**
+ * `run_backup_destination_task` (src/routes/api/backup/destinations/[id]/task/+server.ts)
+ * takes a `task` enum where three of six values are destructive against the destination's
+ * restic repository: `prune` permanently discards unreferenced data, `repair-index` and
+ * `repair-snapshots` rewrite repository metadata. Unlike `delete_stack` (whose NAME already
+ * says what it does, the reason "this is destructive" alone does not otherwise qualify for
+ * a suffix per the module doc-comment above), a generically-named `run_backup_destination_task`
+ * call hides the destructive branch inside one enum value among six — the tool name gives no
+ * hint, and the endpoint's own summary lists all six task names without singling any out. The
+ * repository is also shared across every backup config/environment that uses this destination,
+ * so the blast radius is not scoped to whichever caller ran it.
+ */
+const BACKUP_DESTINATION_TASK_DESTRUCTIVE =
+  'WARNING: task="prune" permanently discards unreferenced data, and task="repair-index"/' +
+  '"repair-snapshots" rewrite the repository\'s metadata — all three act on the destination\'s ' +
+  'single shared restic repository, affecting every backup config/environment that uses it, ' +
+  'not just the caller. "unlock", "check" and "stats" are read-only/non-destructive. Before ' +
+  'running prune or a repair task, ask the operator explicitly whether to proceed.';
+
 export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
   exec_container: EXEC_RETURNS_NO_OUTPUT,
   get_stack_env_raw: RETURNS_THE_FILE_VERBATIM,
@@ -76,4 +143,10 @@ export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
   update_secret_provider: CONFIG_CARRIES_CREDENTIALS,
   test_secret_provider: CONFIG_CARRIES_CREDENTIALS,
   test_secret_provider_config: CONFIG_CARRIES_CREDENTIALS,
+  create_backup_destination: BACKUP_DESTINATION_BODY_CREDENTIALS,
+  update_backup_destination: BACKUP_DESTINATION_BODY_CREDENTIALS,
+  test_backup_destination_inline: BACKUP_DESTINATION_BODY_CREDENTIALS,
+  rotate_backup_destination_key: BACKUP_DESTINATION_ROTATE_PASSWORDS,
+  get_backup_destination: BACKUP_DESTINATION_RETURNS_DECRYPTED_CREDS,
+  run_backup_destination_task: BACKUP_DESTINATION_TASK_DESTRUCTIVE,
 };
