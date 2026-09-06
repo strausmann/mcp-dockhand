@@ -67,6 +67,20 @@ export function skipTemplate(text, i) {
           i = skipTemplate(text, i);
           continue;
         }
+        if (c === '/' && text[i + 1] === '/') {
+          const nl = text.indexOf('\n', i);
+          i = nl === -1 ? text.length : nl;
+          continue;
+        }
+        if (c === '/' && text[i + 1] === '*') {
+          const end = text.indexOf('*/', i);
+          i = end === -1 ? text.length : end + 2;
+          continue;
+        }
+        if (c === '/' && canRegexStartAt(text, i)) {
+          i = skipRegex(text, i);
+          continue;
+        }
         if (c === '{') {
           depth++;
           i++;
@@ -87,6 +101,17 @@ export function skipTemplate(text, i) {
 }
 
 /**
+ * Keywords that are operands, not values — a `/` right after one of these is a regex
+ * literal, never a division, no matter that the keyword itself ends in a letter (which
+ * would otherwise look like "division after an identifier" to the char-class check
+ * below). Whole-word matched only: `myreturn /x/` does NOT count, `return` does.
+ */
+const REGEX_ALLOWED_KEYWORDS = new Set([
+  'return', 'typeof', 'case', 'in', 'of', 'delete', 'void', 'yield', 'do', 'else',
+  'instanceof',
+]);
+
+/**
  * Ermittelt, ob an Position `i` in `text` ein `/` ein Regex-Literal eröffnen KANN (statt
  * einer Division). Klassische Tokenizer-Heuristik: eine Division kann nur nach einem
  * Identifier/Keyword-Ende, einer Zahl, `)`, `]` oder einem schließenden Template-
@@ -94,6 +119,12 @@ export function skipTemplate(text, i) {
  * und prüft genau das. Ein `/` nach einem Operator/Interpunktionszeichen (`(`, `,`, `=`,
  * `!`, `:`, `return`, Zeilenanfang, …) kann dagegen NUR ein Regex-Literal sein — echtes
  * JS erlaubt an diesen Stellen keine Division ohne linken Operanden.
+ *
+ * Ausnahme von der Zeichenklassen-Heuristik: endet das vorangehende Zeichen zwar
+ * alphanumerisch, ist das GANZE Wort davor aber eines der Operand-Keywords aus
+ * REGEX_ALLOWED_KEYWORDS (`return /re/`, `typeof x` gefolgt von `/re/`, `case /re/`,
+ * `in`, `of`, `delete`, `void`, `yield`, `do`, `else`, `instanceof`), ist es trotzdem ein
+ * Regex-Start — dort steht kein linker Operand, mit dem `/` eine Division bilden könnte.
  * @param {string} text
  * @param {number} i Index des `/`
  * @returns {boolean}
@@ -103,7 +134,16 @@ function canRegexStartAt(text, i) {
   while (j >= 0 && /\s/.test(text[j])) j--;
   if (j < 0) return true;
   const prevChar = text[j];
-  if (/[A-Za-z0-9_$)\]`]/.test(prevChar)) return false;
+  if (/[A-Za-z0-9_$)\]`]/.test(prevChar)) {
+    if (/[A-Za-z0-9_$]/.test(prevChar)) {
+      let wordStart = j;
+      while (wordStart >= 0 && /[A-Za-z0-9_$]/.test(text[wordStart])) wordStart--;
+      wordStart++;
+      const word = text.slice(wordStart, j + 1);
+      if (REGEX_ALLOWED_KEYWORDS.has(word)) return true;
+    }
+    return false;
+  }
   return true;
 }
 

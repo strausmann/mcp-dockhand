@@ -13,9 +13,15 @@
  * The bar for an entry here is deliberately high. A suffix is warranted only when calling
  * the tool the obvious way has a consequence a caller cannot see from the endpoint's own
  * description. "This is destructive" does not qualify — `delete_stack` says so itself, and
- * every MCP client already gates writes. What qualifies so far is exactly one thing:
- * arguments that carry credentials, because those land in the tool-call arguments and from
- * there in transcripts and logs, which is invisible at the call site and irreversible after.
+ * every MCP client already gates writes. What qualifies falls into three categories:
+ *
+ *   1. Arguments that carry credentials — they land in the tool-call arguments and from
+ *      there in transcripts and logs, invisible at the call site and irreversible after.
+ *   2. A response that returns secrets where the endpoint's own summary reads as safe
+ *      (e.g. BACKUP_DESTINATION_RETURNS_DECRYPTED_CREDS, BACKUP_SNAPSHOT_DUMP_MAY_EXPOSE_VOLUME_SECRETS).
+ *   3. A destructive branch hidden inside one enum value of a generically-named tool, which
+ *      the summary doesn't single out (e.g. BACKUP_DESTINATION_TASK_DESTRUCTIVE's prune/repair
+ *      action, RESTORE_IN_PLACE_DESTRUCTIVE).
  */
 
 /**

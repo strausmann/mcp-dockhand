@@ -107,4 +107,43 @@ describe('findMatchingClose', () => {
   it('returns -1 when the input is genuinely unbalanced', () => {
     expect(findMatchingClose('{ a: 1 ', 0)).toBe(-1);
   });
+
+  /**
+   * Regression (#202, Fix 3a): canRegexStartAt() only looked at the CHARACTER right
+   * before the `/` (skipping whitespace) — an alphanumeric char meant "division". That
+   * misreads a regex right after a keyword OPERAND like `return`, since `return` itself
+   * ends in an alphanumeric char. Without the keyword allowlist, `/` here is (wrongly)
+   * treated as division, so it is never handed to skipRegex() — the `"` inside the
+   * character class is then read as an ordinary string-open by the outer scanner,
+   * which swallows everything after it (including the real `{`/`}` below) looking for
+   * a second `"` that never comes, and findMatchingClose() returns -1.
+   */
+  it('does not desync on a keyword-operand regex containing a quote and a brace (#202 Fix 3a)', () => {
+    const text = '{ function f() { return /["\\{]/g; } const g = () => { return 1; }; }';
+    expect(findMatchingClose(text, 0)).toBe(text.length - 1);
+  });
+
+  /**
+   * Regression (#202, Fix 3b): skipTemplate()'s `${...}` interpolation loop tracked
+   * `{`/`}` depth to find the end of the interpolation, but had no regex-literal
+   * awareness — a `{` inside a regex character class (e.g. `/[{]/g`, a real pattern for
+   * matching a literal opening brace) was counted as an extra nesting level of the
+   * interpolation depth counter, desyncing it from the actual code structure: the real
+   * closing `}` of the interpolation then only brings the (inflated) depth back to 1
+   * instead of 0, so the loop keeps scanning past it, misreads the template's own
+   * closing backtick as the start of a NESTED template literal (there is no matching
+   * closing backtick left for that nested read to find), and consumes the rest of the
+   * text — including the enclosing block's real closing `}` — without ever seeing it.
+   *
+   * NOTE: `/[}]/g` (a closing-brace character class) does NOT reproduce this — by
+   * coincidence its single false depth-decrement still lands the outer scan on the
+   * one real closing backtick afterwards, so it stays green even against the
+   * pre-Fix-3b code. Verified empirically (reverted skipTemplate's regex handling,
+   * ran both fixtures): `/[{]/g` goes red (-1 instead of the real end), `/[}]/g`
+   * does not. Use the open-brace-in-class form for the regression to have teeth.
+   */
+  it('does not desync on a regex-containing template interpolation (#202 Fix 3b)', () => {
+    const text = "{ const y = `${x.replace(/[{]/g,'_')}`; return y; }";
+    expect(findMatchingClose(text, 0)).toBe(text.length - 1);
+  });
 });

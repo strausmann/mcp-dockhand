@@ -53,7 +53,7 @@ const retentionShape = z.object({
   keepWeekly: z.number().optional().describe('Keep one snapshot per week for N weeks'),
   keepMonthly: z.number().optional().describe('Keep one snapshot per month for N months'),
   keepYearly: z.number().optional().describe('Keep one snapshot per year for N years'),
-}).partial();
+});
 
 /**
  * Fields accepted by BOTH create (POST) and update (PUT) — verified against both
