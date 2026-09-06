@@ -4,88 +4,25 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-openapi.json` (via `deriveRoutesFromOpenapi()`).
 
-**Erzeugt:** 2026-09-06T12:08:56.744Z
+**Erzeugt:** 2026-09-06T13:20:56.418Z
 **Dockhand-Upstream-Commit:** `049221ceff6223ff10fae49c0cb9757368c565bf`
 **Schema-Endpunkte gesamt:** 257
 
 ## Coverage
 
-**95.1%** (329/346 in-Scope-Endpunkte haben ein MCP-Tool)
+**100.0%** (346/346 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
-| COVERED | 329 |
-| MISSING_TOOL | 17 |
+| COVERED | 346 |
+| MISSING_TOOL | 0 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
 
-## MISSING_TOOL — nach Bereich
+## MISSING_TOOL
 
-Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
-ersten Pfad-Segment nach `/api/`:
-
-### /audit (1)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/audit` | - |
-
-### /audit/users (1)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/audit/users` | - |
-
-### container-icons (4)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/api/container-icons` | - |
-| DELETE | `/api/container-icons/{name}` | name |
-| GET | `/api/container-icons/{name}` | name |
-| POST | `/api/container-icons/{name}` | name |
-
-### containers (2)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/api/containers/{id}/compose` | id |
-| GET | `/api/containers/{id}/version-notes` | id |
-
-### docs (1)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/api/docs` | - |
-
-### git (1)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| POST | `/api/git/branches` | - |
-
-### icons (3)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| GET | `/api/icons/selfhst-manifest` | - |
-| GET | `/api/icons/selfhst/{ref}` | ref |
-| POST | `/api/icons/selfhst/batch` | - |
-
-### images (1)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| POST | `/api/images/load` | - |
-
-### stacks (3)
-
-| HTTP | Pfad | Path-Parameter |
-|------|------|----------------|
-| DELETE | `/api/stacks/{name}/icon` | name |
-| GET | `/api/stacks/{name}/icon` | name |
-| POST | `/api/stacks/{name}/icon` | name |
+Keine — alle in-Scope-Endpunkte haben ein MCP-Tool.
 
 ## Deliberately omitted (with reason)
 

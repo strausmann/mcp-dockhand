@@ -18,6 +18,21 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
     }
   );
 
+  // GET /api/docs - the CONNECTED Dockhand instance's own generated OpenAPI 3.0
+  // document (unauthenticated, opt-in per instance via FEAT_API_DOCS). Deliberately
+  // orthogonal to this project's build-time pinned contract
+  // (docs/dockhand-openapi.json / src/openapi/pinned.ts, refreshed via
+  // scripts/fetch-openapi.mjs against a specific upstream commit): this tool is
+  // runtime introspection of whatever instance the client is actually configured
+  // against, which may run a different Dockhand version than the pin. Returns 404 if
+  // the instance has API docs disabled.
+  registerTool(server, 'get_openapi_spec',
+    {},
+    async () => {
+      return jsonResponse(await client.get('/api/docs'));
+    }
+  );
+
   registerTool(server, 'health_check_database',
     {},
     async () => {

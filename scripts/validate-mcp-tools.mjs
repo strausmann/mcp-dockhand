@@ -92,6 +92,7 @@ const CLIENT_METHOD_MAP = {
   post: 'POST',
   postSSE: 'POST',
   postMultipart: 'POST',
+  postRawBody: 'POST',
   put: 'PUT',
   putSSE: 'PUT',
   delete: 'DELETE',
@@ -105,6 +106,16 @@ const GET_LIKE_METHODS = new Set(['get', 'getRaw', 'delete']);
 // DockhandClient-Methoden bei denen der Query-Params-Record das 3. Argument ist
 // (nach dem Body): post(path, body?, params?), put(path, body?, params?), ...
 const BODY_LIKE_METHODS = new Set(['post', 'postSSE', 'postMultipart', 'put', 'putSSE', 'patch']);
+
+// DockhandClient-Methoden mit einer ABWEICHENDEN Argument-Position für den
+// Query-Params-Record (weder Index 1 wie GET_LIKE_METHODS noch Index 2 wie
+// BODY_LIKE_METHODS) — bislang nur postRawBody(path, body, contentType, params?), dessen
+// zusätzliches contentType-Argument den Params-Record auf Index 3 verschiebt. Ein eigenes
+// Set statt GET_LIKE/BODY_LIKE zu erweitern, damit eine falsche Positionsannahme nicht
+// still `queryParamKeys: null` (unresolvable, "skip this call" — siehe
+// scripts/lib/query-params.mjs) erzeugt, sondern der Query-Param-Check für diese Methode
+// weiterhin greift.
+const CUSTOM_PARAMS_ARG_INDEX = { postRawBody: 3 };
 
 /**
  * `env` ist der universelle Environment-Scoping-Query-Param, den fast jeder Tool-Call
@@ -182,7 +193,9 @@ function loadOmissionRegistry() {
  */
 function extractCallQueryParamKeys(content, openParenIndex, clientMethod) {
   let paramsIdx;
-  if (GET_LIKE_METHODS.has(clientMethod)) {
+  if (Object.prototype.hasOwnProperty.call(CUSTOM_PARAMS_ARG_INDEX, clientMethod)) {
+    paramsIdx = CUSTOM_PARAMS_ARG_INDEX[clientMethod];
+  } else if (GET_LIKE_METHODS.has(clientMethod)) {
     paramsIdx = 1;
   } else if (BODY_LIKE_METHODS.has(clientMethod)) {
     paramsIdx = 2;

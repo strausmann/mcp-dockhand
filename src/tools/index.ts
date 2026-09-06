@@ -32,6 +32,7 @@ import { registerBackupDestinationTools } from './backup-destinations.js';
 import { registerBackupProbeTools } from './backup-probes.js';
 import { registerBackupRestoreTools } from './backup-restore.js';
 import { registerBackupSnapshotTools } from './backup-snapshots.js';
+import { registerIconTools } from './icons.js';
 import { logger } from '../utils/logger.js';
 
 export function registerAllTools(server: McpServer, client: DockhandClient): void {
@@ -63,6 +64,7 @@ export function registerAllTools(server: McpServer, client: DockhandClient): voi
   registerBackupProbeTools(server, client);
   registerBackupRestoreTools(server, client);
   registerBackupSnapshotTools(server, client);
+  registerIconTools(server, client);
 
   logger.info({ component: 'tools' }, 'all Dockhand tools registered');
 }
