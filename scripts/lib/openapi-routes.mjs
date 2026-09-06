@@ -66,6 +66,15 @@ export function deriveRoutesFromOpenapi(spec) {
       // `.filter((p) => p.name !== 'env')` (see scripts/lib/route-handlers.mjs): it
       // never appeared in that extractor's output, and scripts/validate-mcp-tools.mjs
       // relies on that same invariant via its own `WHITELISTED_QUERY_PARAMS = new Set(['env'])`.
+      // `required` is taken verbatim from the pinned OpenAPI annotation, which is now
+      // the single source of truth for the contract (#222). If an upstream annotation
+      // UNDERSTATES requiredness (marks a query param optional that the handler actually
+      // enforces with a 400), QUERY_PARAM_MISSING_REQUIRED can no longer catch a tool
+      // that omits it — but that is then an upstream ANNOTATION bug to report against
+      // Finsys/dockhand (standing rule: API findings → upstream issue), not something we
+      // paper over by re-scanning handler code here (which would defeat the pinned-source
+      // consolidation). The pin is deterministic and reviewable, so any such discrepancy
+      // is visible in the committed spec (Codex #226).
       const queryParams = parameters
         .filter((p) => p?.in === 'query' && p.name !== 'env')
         .map((p) => ({ name: p.name, required: p.required === true }))

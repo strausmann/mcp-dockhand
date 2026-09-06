@@ -85,7 +85,10 @@ jobs:
           fi
 
       - name: Commit the bump and push the branch
-        if: steps.bump.outputs.changed == 'true'
+        # Skip when a bump PR for this exact SHA is already open — otherwise the weekly
+        # run force-pushes the same branch again, adding churn and re-triggering the open
+        # PR's CI until it is merged (Codex #226). Gated identically to "Open the PR".
+        if: steps.bump.outputs.changed == 'true' && steps.existing-pr.outputs.exists == 'false'
         env:
           BRANCH: ${{ steps.existing-pr.outputs.branch }}
         run: |
