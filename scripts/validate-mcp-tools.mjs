@@ -723,17 +723,14 @@ function computeValidation(schema, toolCalls, toolBodyShapes = null, registry = 
       const baseKey = endpointKey(call.path, call.httpMethod);
       const streamKey = endpointKey(call.path + '-stream', call.httpMethod);
       if (!schemaEndpoints.has(baseKey) && !schemaEndpoints.has(streamKey)) {
-        // Sonderfall: `/metrics` is real (Dockhand v1.0.46, `src/routes/metrics/
-        // +server.ts`, and it now carries an `@openapi` annotation -- see
-        // docs/dockhand-openapi.json) but `docs/dockhand-api-schema.json` (`schema`
-        // above) is extracted by scripts/extract-dockhand-api.mjs, which scans
-        // ONLY `src/routes/api/**` (API_BASE = 'src/routes/api') -- structurally,
-        // regardless of any @openapi annotation. `/metrics` lives outside that
-        // tree by Prometheus convention, so it can never appear in `schema.endpoints`
-        // and would always show up here as a false ORPHANED_TOOL. Not a coverage
-        // gap: the body-contract/cross-ref checks below use
-        // docs/dockhand-openapi.json (a separate, broader extraction) and do cover
-        // it there (Refs #234, #242).
+        // Defensive Sonderfall fuer `/metrics` (Dockhand v1.0.46, `src/routes/metrics/
+        // +server.ts`, Prometheus convention -- lives OUTSIDE `src/routes/api/**`).
+        // Since #226 `schema` derives from the pinned `docs/dockhand-openapi.json`
+        // (deriveRoutesFromOpenapi), where `/metrics` carries an `@openapi` annotation
+        // and IS present -- so it is already COVERED (system.ts get_prometheus_metrics)
+        // and this guard is now a harmless no-op. It is kept as a backstop in case the
+        // route source ever narrows again to an api-only tree, which would otherwise
+        // re-introduce a false ORPHANED_TOOL for `/metrics` (Refs #234, #242).
         if (call.path !== '/metrics') {
           orphanedTool.push(call);
         }
