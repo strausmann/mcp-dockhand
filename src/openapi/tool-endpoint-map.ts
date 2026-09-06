@@ -91,6 +91,7 @@ export const TOOL_ENDPOINT_MAP: Readonly<Record<string, ToolEndpointEntry>> = {
   "disable_user_mfa": { method: "DELETE", path: "/api/users/{id}/mfa" },
   "disconnect_container_from_network": { method: "POST", path: "/api/networks/{id}/disconnect" },
   "down_stack": { method: "POST", path: "/api/stacks/{name}/down" },
+  "download_backup_snapshot_file": { method: "GET", path: "/api/backup/snapshots/{id}/dump" },
   "download_container_file": { method: "GET", path: "/api/containers/{id}/files/download" },
   "dump_backup_snapshot_file": { method: "GET", path: "/api/backup/snapshots/{id}/dump" },
   "enable_user_mfa": { method: "POST", path: "/api/users/{id}/mfa" },
