@@ -27,6 +27,7 @@ import {
   removeSessionEntry,
   selectOldestIdleSession,
 } from './session-lifecycle.js';
+import { getRequestBodyLimitConfig } from './request-body-limit.js';
 import type { DockhandConfig } from './types/dockhand.js';
 import { logger } from './utils/logger.js';
 import { extendLogContext, log } from './utils/log-context.js';
@@ -89,7 +90,14 @@ export async function createServer(config: ServerConfig): Promise<HttpServer> {
   // middleware never runs for such a request at all — so it never attaches its
   // res.on('finish') handler, and a 400 or a 413 produces no access line whatsoever.
   // Malformed-payload probing is exactly what CrowdSec is here to see.
-  app.use(express.json());
+  //
+  // `limit` is explicit and configurable (MCP_MAX_REQUEST_BODY_BYTES, default 100 MB)
+  // rather than left at Express's own 100 KB default — see request-body-limit.ts for
+  // why: the default silently made load_image (whose tarContent argument is a
+  // base64-encoded, ~33%-inflated Docker image tar embedded in this same JSON body)
+  // reject with 413 before the tool ever ran.
+  const requestBodyLimit = getRequestBodyLimitConfig();
+  app.use(express.json({ limit: requestBodyLimit.maxRequestBodyBytes }));
 
   const sessions = new Map<string, SessionEntry>();
   let pendingSessions = 0;
