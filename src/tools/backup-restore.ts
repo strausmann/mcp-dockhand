@@ -8,13 +8,13 @@
  * src/routes/api/backup/restore/+server.ts           POST (run)
  * src/routes/api/backup/restore/stop/+server.ts       POST (stop/cancel)
  *
- * PERMISSION NOTE (Finsys/dockhand#1534, filed upstream): the preview handler's own
- * `@openapi` annotation says its 403 is "needs backups:view", but the handler itself
- * calls `requireBackups(auth, 'manage')` — it actually requires `backups:manage`, same
- * as run and stop. This tool follows the HANDLER, not the (wrong) annotation; the field
- * descriptions below say so explicitly since neither the derived MCP description nor
- * docs/dockhand-openapi.json's response-description text is corrected for this (the
- * bug lives entirely in the upstream repo, not in anything this project generates).
+ * PERMISSION NOTE (Finsys/dockhand#1534, resolved upstream): preview is read-only
+ * (restic ls/dump + read-only host probes, it writes nothing) and gates on
+ * `backups:view`, like every other read-only backup endpoint (snapshots, browse, dump).
+ * It briefly required `manage` and was the odd one out; upstream relaxed the handler to
+ * `view` rather than documenting `manage`, so the handler and its `@openapi` annotation
+ * now agree on `view`. The actual restore (`run`) and `stop` still require
+ * `backups:manage`.
  *
  * Job-polling: all three POST handlers are backed by createJobResponse()
  * (src/lib/server/sse.ts upstream) — preview via the thin `jobResult()` wrapper, run
