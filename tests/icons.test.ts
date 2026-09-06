@@ -161,16 +161,21 @@ describe('set_container_icon', () => {
     expect(client.post).toHaveBeenCalledWith('/api/container-icons/plex', { image: 'data:image/png;base64,AAAA' }, { env: undefined });
   });
 
-  it('sends neither field when both are omitted (mirrors the handler\'s own 400 case)', async () => {
-    const { client } = await call('set_container_icon', { containerName: 'plex' });
-    expect(client.post).toHaveBeenCalledWith('/api/container-icons/plex', {}, { env: undefined });
+  it('Codex P2 fix: rejects client-side when both icon and image are omitted — never reaches the backend', async () => {
+    const { handlers, client } = setup();
+    const result = await handlers.get('set_container_icon')!({ containerName: 'plex' });
+    expectToolError(result, 'provide either icon');
+    expect(client.post).not.toHaveBeenCalled();
   });
 
-  it('error path: backend 400 (neither icon nor image supplied) is a structured tool error', async () => {
-    const { handlers, client } = setup();
-    client.post.mockRejectedValueOnce(new Error('400 Missing icon or image'));
-    const result = await handlers.get('set_container_icon')!({ containerName: 'plex' });
-    expectToolError(result, 'Missing icon or image');
+  it('GEGENVERSUCH: with either field present, the same call reaches the backend (icon)', async () => {
+    const { client } = await call('set_container_icon', { containerName: 'plex', icon: 'selfhst:plex' });
+    expect(client.post).toHaveBeenCalledWith('/api/container-icons/plex', { icon: 'selfhst:plex' }, { env: undefined });
+  });
+
+  it('GEGENVERSUCH: with either field present, the same call reaches the backend (image)', async () => {
+    const { client } = await call('set_container_icon', { containerName: 'plex', image: 'data:image/png;base64,AAAA' });
+    expect(client.post).toHaveBeenCalledWith('/api/container-icons/plex', { image: 'data:image/png;base64,AAAA' }, { env: undefined });
   });
 
   it('error path: backend 403 (permission denied) is a structured tool error', async () => {
@@ -251,11 +256,21 @@ describe('set_stack_icon', () => {
     expect(client.post).toHaveBeenCalledWith('/api/stacks/gitea/icon', { image: 'data:image/png;base64,AAAA' }, { env: undefined });
   });
 
-  it('error path: backend 400 (neither icon nor image supplied) is a structured tool error', async () => {
+  it('Codex P2 fix: rejects client-side when both icon and image are omitted — never reaches the backend', async () => {
     const { handlers, client } = setup();
-    client.post.mockRejectedValueOnce(new Error('400 Missing icon or image'));
     const result = await handlers.get('set_stack_icon')!({ stackName: 'gitea' });
-    expectToolError(result, 'Missing icon or image');
+    expectToolError(result, 'provide either icon');
+    expect(client.post).not.toHaveBeenCalled();
+  });
+
+  it('GEGENVERSUCH: with either field present, the same call reaches the backend (icon)', async () => {
+    const { client } = await call('set_stack_icon', { stackName: 'gitea', icon: 'selfhst:gitea' });
+    expect(client.post).toHaveBeenCalledWith('/api/stacks/gitea/icon', { icon: 'selfhst:gitea' }, { env: undefined });
+  });
+
+  it('GEGENVERSUCH: with either field present, the same call reaches the backend (image)', async () => {
+    const { client } = await call('set_stack_icon', { stackName: 'gitea', image: 'data:image/png;base64,AAAA' });
+    expect(client.post).toHaveBeenCalledWith('/api/stacks/gitea/icon', { image: 'data:image/png;base64,AAAA' }, { env: undefined });
   });
 
   it('network error propagates as a structured tool error', async () => {

@@ -25,6 +25,11 @@
  *     URI keyed by ref; unresolvable/invalid refs are simply omitted from the result
  *     (no per-ref errors).
  *
+ * set_container_icon/set_stack_icon reject a call supplying NEITHER `icon` nor
+ * `image` client-side (Codex review, PR #251, P2) rather than sending an empty `{}`
+ * body and letting the backend's own 400 do the rejecting — see the guard at the top
+ * of each handler below.
+ *
  * The two GET-binary-image endpoints (container/stack custom icon) use client.getRaw()
  * + `textResponse(`base64:${...}`)`, the same framing download_container_file and
  * download_backup_snapshot_file use for their own raw bytes — a UTF-8 round-trip would
@@ -72,6 +77,19 @@ export function registerIconTools(server: McpServer, client: DockhandClient): vo
       image: z.string().optional().describe('A base64-encoded image data URL to upload as a custom icon (~300KB limit); use this OR icon'),
     },
     async ({ containerName, environmentId, icon, image }) => {
+      // Codex review (PR #251, P2): both `icon` and `image` are optional in the zod
+      // shape above (a caller sets EITHER one), which used to mean a call supplying
+      // NEITHER sent an empty `{}` body all the way to Dockhand and made the backend
+      // do the rejecting (400) — a needless round trip for something knowable here.
+      // registerTool's schema is a plain ZodRawShape (not a ZodObject), so a
+      // cross-field `.refine()` isn't available at the schema level; this is the
+      // same "throw new Error(...) for a business-rule validation failure" pattern
+      // used elsewhere in this codebase (e.g. update_stack_env in stacks.ts).
+      if (icon === undefined && image === undefined) {
+        throw new Error(
+          'set_container_icon: provide either icon (a lucide name or `selfhst:<ref>` reference) or image (a base64-encoded data URL) — neither was supplied.'
+        );
+      }
       const body: Record<string, unknown> = {};
       if (icon !== undefined) body.icon = icon;
       if (image !== undefined) body.image = image;
@@ -114,6 +132,13 @@ export function registerIconTools(server: McpServer, client: DockhandClient): vo
       image: z.string().optional().describe('A base64-encoded image data URL to upload as a custom icon (~300KB limit); use this OR icon'),
     },
     async ({ stackName, environmentId, icon, image }) => {
+      // Same client-side "require a payload" guard as set_container_icon above
+      // (Codex review, PR #251, P2) — see that comment for the full rationale.
+      if (icon === undefined && image === undefined) {
+        throw new Error(
+          'set_stack_icon: provide either icon (a lucide name or `selfhst:<ref>` reference) or image (a base64-encoded data URL) — neither was supplied.'
+        );
+      }
       const body: Record<string, unknown> = {};
       if (icon !== undefined) body.icon = icon;
       if (image !== undefined) body.image = image;
