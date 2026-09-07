@@ -5,6 +5,57 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0](https://github.com/strausmann/mcp-dockhand/compare/v1.16.0...v1.17.0) (2026-09-07)
+
+### Features
+
+* **api:** derive routes/query from the single openapi spec ([c3e4973](https://github.com/strausmann/mcp-dockhand/commit/c3e49733508be190ecd3ffa2e81ed55e265cd675))
+* **client:** add postRawBody for raw binary POST request bodies ([2dd7354](https://github.com/strausmann/mcp-dockhand/commit/2dd7354a3ad3bd6b55fce045f69cde405c6a88b1))
+* **tools:** add download_backup_snapshot_file (binary download=1 variant of dump) ([0fe4695](https://github.com/strausmann/mcp-dockhand/commit/0fe4695379ad5be14a2b978e814c504c9728ba4e)), references [#247](https://github.com/strausmann/mcp-dockhand/issues/247)
+* **tools:** add icon management tools ([bd94d2f](https://github.com/strausmann/mcp-dockhand/commit/bd94d2f83f0eb1144c61ebcdcad3169619a1bc25))
+* **tools:** wrap audit log and container introspection endpoints ([ff5607a](https://github.com/strausmann/mcp-dockhand/commit/ff5607a6fa66ca1526aa0e065b928741a1627914))
+* **tools:** wrap backup config endpoints ([#202](https://github.com/strausmann/mcp-dockhand/issues/202)) ([16c2708](https://github.com/strausmann/mcp-dockhand/commit/16c2708f83c61459b9a9377ff48fe0adc3be1960))
+* **tools:** wrap backup destination endpoints ([#202](https://github.com/strausmann/mcp-dockhand/issues/202)) ([2e8537e](https://github.com/strausmann/mcp-dockhand/commit/2e8537ef0d49fd811bd656bc02e2d09d970c490c))
+* **tools:** wrap backup restore endpoints ([#202](https://github.com/strausmann/mcp-dockhand/issues/202)) ([0607273](https://github.com/strausmann/mcp-dockhand/commit/060727376035f88e1658e7ed76278c29e8764aa8))
+* **tools:** wrap backup snapshot + instance endpoints ([#202](https://github.com/strausmann/mcp-dockhand/issues/202)) ([9542fe0](https://github.com/strausmann/mcp-dockhand/commit/9542fe0150ab586fc42568dbaa3d84136bc84f8d))
+* **tools:** wrap backup stack-path probes ([#202](https://github.com/strausmann/mcp-dockhand/issues/202)) ([a9d4489](https://github.com/strausmann/mcp-dockhand/commit/a9d44893c68b1e32ca84108b5d557985a95d4af1))
+* **tools:** wrap git remote branch listing and openapi spec endpoints ([b6eedbb](https://github.com/strausmann/mcp-dockhand/commit/b6eedbbaeabc05e0a4ed7adb0feb8accf8aad346))
+* **tools:** wrap load_image using the raw-body POST client method ([9a47f7c](https://github.com/strausmann/mcp-dockhand/commit/9a47f7ce05a3d7ab7d3816183529dc0d4a4cb43b))
+
+### Bug Fixes
+
+* **api:** bound and make the /mcp JSON body limit configurable ([b95fdb2](https://github.com/strausmann/mcp-dockhand/commit/b95fdb28a464f69733028273fcba47b7aa820736)), references [#251](https://github.com/strausmann/mcp-dockhand/issues/251)
+* **api:** cap request-body ceiling at Node's max string length ([b594483](https://github.com/strausmann/mcp-dockhand/commit/b594483bc9f17df88623a9cce61ca204b8b869f7)), references [#251](https://github.com/strausmann/mcp-dockhand/issues/251)
+* **api:** reject malformed MCP_MAX_REQUEST_BODY_BYTES instead of misparsing it ([f5a9cbf](https://github.com/strausmann/mcp-dockhand/commit/f5a9cbf367d83b6f7d2bffb2050d60581e939c97)), references [#251](https://github.com/strausmann/mcp-dockhand/issues/251)
+* **api:** strip env query param in route deriver for schema parity ([dc01814](https://github.com/strausmann/mcp-dockhand/commit/dc018143ea5563882e846cd9a8860438220ab96a))
+* **api:** treat postfix ++/-- as value-end so a following slash is division ([#202](https://github.com/strausmann/mcp-dockhand/issues/202)) ([fb16d6c](https://github.com/strausmann/mcp-dockhand/commit/fb16d6c410e694acd69bb5d5813a6f157b4dd404)), references [#246](https://github.com/strausmann/mcp-dockhand/issues/246)
+* **ci:** skip drift-bump push when bump PR already open + document annotation-as-contract ([#226](https://github.com/strausmann/mcp-dockhand/issues/226)) ([2eea428](https://github.com/strausmann/mcp-dockhand/commit/2eea42892177bf95bd94021bc038d68c81501f19)), references [#222](https://github.com/strausmann/mcp-dockhand/issues/222)
+* **deps:** update dependency pino to v10 ([e968fb2](https://github.com/strausmann/mcp-dockhand/commit/e968fb25448aaf0714d841638c8bea1b02544c55))
+* **security:** parse /mcp bodies only after the Host/Origin and bearer guards ([21005d2](https://github.com/strausmann/mcp-dockhand/commit/21005d2bbc5de3b4ef0696ebc9fd50e27322d67e)), references [#251](https://github.com/strausmann/mcp-dockhand/issues/251)
+* **tools:** enforce list_git_remote_branches' repositoryId/url contract ([4b0f15d](https://github.com/strausmann/mcp-dockhand/commit/4b0f15dba3554676d49c5db65848afb3dc6a24c0)), references [#251](https://github.com/strausmann/mcp-dockhand/issues/251)
+* **tools:** record list_git_remote_branches validation failures as errors ([5f5f991](https://github.com/strausmann/mcp-dockhand/commit/5f5f991ead78eb6db5d2fcd1f40a01a0b1559ab4)), references [#251](https://github.com/strausmann/mcp-dockhand/issues/251)
+* **tools:** reject supplying both icon and image in set_*_icon ([7dfe163](https://github.com/strausmann/mcp-dockhand/commit/7dfe1632cbf1ef4d9dbbfe2d2fe2bb6effd83df2)), references [#251](https://github.com/strausmann/mcp-dockhand/issues/251)
+* **tools:** require icon or image in set_container_icon/set_stack_icon ([f371edb](https://github.com/strausmann/mcp-dockhand/commit/f371edbdad7abd89993db7dee4138b9af1882695)), references [#251](https://github.com/strausmann/mcp-dockhand/issues/251)
+
+### Code Refactoring
+
+* **api:** consumers read routes/query from the single openapi source ([8e1fa79](https://github.com/strausmann/mcp-dockhand/commit/8e1fa79857fd6f7bf2d931f8b7b4c1509d4bf61c))
+* **tools:** address whole-branch review nits ([#202](https://github.com/strausmann/mcp-dockhand/issues/202)) ([74ba146](https://github.com/strausmann/mcp-dockhand/commit/74ba146f80368f4444e336bc4c6321def26d61ea))
+
+### Documentation
+
+* **api:** expose MCP_MAX_REQUEST_BODY_BYTES to Compose deployments ([19ba5d3](https://github.com/strausmann/mcp-dockhand/commit/19ba5d3570d2409ff760080eda46771fb228ea08)), references [#251](https://github.com/strausmann/mcp-dockhand/issues/251)
+* **api:** refresh two stale comments after spec-source consolidation ([#226](https://github.com/strausmann/mcp-dockhand/issues/226)) ([d94e783](https://github.com/strausmann/mcp-dockhand/commit/d94e78314725a13d256677b5477d40df3ae2859d))
+* **api:** regenerate body-contract report after git-stacks line shift ([9c874da](https://github.com/strausmann/mcp-dockhand/commit/9c874dad816723dbd298711e81424308b6b9efa9))
+* **api:** regenerate coverage.md against main's newer OpenAPI pin ([a32b2a5](https://github.com/strausmann/mcp-dockhand/commit/a32b2a532e9e4a8d7d88182a50abc9531b4e80ac)), references [#222](https://github.com/strausmann/mcp-dockhand/issues/222)
+* **api:** single-source spec + drift-bump model ([149d326](https://github.com/strausmann/mcp-dockhand/commit/149d326c9102de0174d3f2ab57058a65959ad628))
+* **tools:** preview_backup_restore now needs backups:view, not manage ([e084e8d](https://github.com/strausmann/mcp-dockhand/commit/e084e8d9966a70eb320697b3df03d1fd598d9e4f))
+
+### CI/CD
+
+* **api:** make the body-contract gate a hard PR gate ([728e9a3](https://github.com/strausmann/mcp-dockhand/commit/728e9a3c578977986b9c62cca20f2d965253e085)), references [#222](https://github.com/strausmann/mcp-dockhand/issues/222)
+* **api:** scheduled drift-bump PR toward upstream main ([26e8a00](https://github.com/strausmann/mcp-dockhand/commit/26e8a00e3850662baee32fecc312f623f985bae8)), references [#222](https://github.com/strausmann/mcp-dockhand/issues/222)
+
 ## [1.16.0](https://github.com/strausmann/mcp-dockhand/compare/v1.15.2...v1.16.0) (2026-09-06)
 
 ### Features
