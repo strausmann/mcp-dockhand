@@ -850,6 +850,63 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
+  // --- Deploy history (Dockhand 1.0.47+, Finsys/dockhand#1499) ---
+  //
+  // Every stack deploy (create-and-start, deploy_stack, or a save-and-redeploy
+  // via update_stack_compose) is now recorded as a 'stack_deploy'
+  // schedule_execution row; its protocol text is stored separately on disk.
+  // Ground-truthed against the real v1.0.47 handlers
+  // (src/routes/api/stacks/[name]/deploys/**/+server.ts and
+  // src/lib/server/deploy-run-access.ts) — not our own schema/doc, per the
+  // dockhand-mcp-dev skill's Ground Truth rule.
+
+  registerTool(server, 'list_stack_deploys',
+    {
+      name: z.string().describe('Stack name'),
+      environmentId: z.number().optional().describe('Environment id the stack belongs to (from list_environments). Omit for the local/default environment — the handler treats an omitted `env` query param and the literal string "null" identically, both meaning "deploys triggered without an explicit environment" (the normal shape on a single-environment install).'),
+    },
+    async ({ name, environmentId }) => {
+      return jsonResponse(await client.get(`/api/stacks/${encodePath(name)}/deploys`, { env: environmentId }));
+    }
+  );
+
+  registerTool(server, 'get_stack_deploy',
+    {
+      name: z.string().describe('Stack name'),
+      runId: z.number().describe('Deploy run id (from list_stack_deploys)'),
+    },
+    async ({ name, runId }) => {
+      return jsonResponse(await client.get(`/api/stacks/${encodePath(name)}/deploys/${encodePath(runId)}`));
+    }
+  );
+
+  registerTool(server, 'delete_stack_deploy',
+    {
+      name: z.string().describe('Stack name'),
+      runId: z.number().describe('Deploy run id (from list_stack_deploys). Fails with a 409 if the run has not finished yet (status is still queued/running) — retry once it completes.'),
+    },
+    async ({ name, runId }) => {
+      return jsonResponse(await client.delete(`/api/stacks/${encodePath(name)}/deploys/${encodePath(runId)}`));
+    }
+  );
+
+  registerTool(server, 'get_stack_deploy_log',
+    {
+      name: z.string().describe('Stack name'),
+      runId: z.number().describe('Deploy run id (from list_stack_deploys)'),
+    },
+    async ({ name, runId }) => {
+      // This is the most sensitive of the four deploy-history endpoints — it can
+      // carry secrets that survived Dockhand's own log redaction (see the
+      // handler's own module doc comment). The response is passed straight
+      // through to the caller and MUST NOT be logged, cached, or otherwise
+      // inspected here — see secret-safe-config-inspection.md in the
+      // homelab-management repo.
+      const log = await client.get(`/api/stacks/${encodePath(name)}/deploys/${encodePath(runId)}/log`);
+      return textResponse(log);
+    }
+  );
+
   registerTool(server, 'validate_stack_compose',
     {
       environmentId: z.number().optional().describe('Environment ID for context-aware checks (cross-stack port/name collisions, missing external networks/volumes) — the handler\'s `env` query param is genuinely optional, ground-truthed against v1.0.46'),
