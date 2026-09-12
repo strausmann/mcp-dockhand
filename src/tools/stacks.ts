@@ -35,8 +35,11 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       })).optional().describe('Environment variables'),
       rawEnvContent: z.string().optional().describe('Raw .env file content'),
       secretProviderId: z.number().nullable().optional().describe('Bind the stack to a configured secret provider (id from list_secret_providers); its secrets are injected at deploy. Pass null to leave it unbound. Dockhand 1.0.42+'),
+      pull: z.boolean().optional().describe('Pull newer images before the initial deploy. Only applies when start is not false. Omitted means Dockhand\'s own default (false) — a compose with a `build:` section previously never built on first start regardless of this flag; Dockhand 1.0.47+'),
+      build: z.boolean().optional().describe('Build services that declare a `build:` section on the initial deploy. Only applies when start is not false. Omitted means Dockhand\'s own default (false). Dockhand 1.0.47+'),
+      forceRecreate: z.boolean().optional().describe('Recreate containers on the initial deploy even when their resolved configuration is unchanged. Only applies when start is not false. Omitted means Dockhand\'s own default (false). Dockhand 1.0.47+'),
     },
-    async ({ environmentId, name, compose, composePath, envPath, start, envVars, rawEnvContent, secretProviderId }) => {
+    async ({ environmentId, name, compose, composePath, envPath, start, envVars, rawEnvContent, secretProviderId, pull, build, forceRecreate }) => {
       const body: Record<string, unknown> = { name, compose };
       if (composePath !== undefined) body.composePath = composePath;
       if (envPath !== undefined) body.envPath = envPath;
@@ -44,6 +47,9 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       if (envVars) body.envVars = envVars;
       if (rawEnvContent) body.rawEnvContent = rawEnvContent;
       if (secretProviderId !== undefined) body.secretProviderId = secretProviderId;
+      if (pull !== undefined) body.pull = pull;
+      if (build !== undefined) body.build = build;
+      if (forceRecreate !== undefined) body.forceRecreate = forceRecreate;
 
       return jsonResponse(await client.postSSE('/api/stacks', body, { env: environmentId }));
     }
@@ -134,11 +140,17 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       content: z.string().describe('New compose file content'),
       restart: z.boolean().optional().describe('Redeploy after update (default: false)'),
       secretProviderId: z.number().nullable().optional().describe('Bind the stack to a configured secret provider (id from list_secret_providers); its secrets are injected at deploy. Pass null to CLEAR an existing binding; omit to leave it unchanged. Dockhand 1.0.42+'),
+      pull: z.boolean().optional().describe('Pull newer images before the redeploy. Only applies when restart is true. Omitted means Dockhand\'s own default (false). Dockhand 1.0.47+'),
+      build: z.boolean().optional().describe('Build services that declare a `build:` section on the redeploy. Only applies when restart is true. Omitted means Dockhand\'s own default (false) — a compose with a `build:` section previously never rebuilt on save-and-redeploy regardless of this flag. Dockhand 1.0.47+'),
+      forceRecreate: z.boolean().optional().describe('Recreate containers on the redeploy even when their resolved configuration is unchanged. Only applies when restart is true. Omitted means Dockhand\'s own default (true, so env var changes take effect) — this differs from create_stack\'s default. Dockhand 1.0.47+'),
     },
-    async ({ environmentId, name, content, restart, secretProviderId }) => {
+    async ({ environmentId, name, content, restart, secretProviderId, pull, build, forceRecreate }) => {
       const body: Record<string, unknown> = { content };
       if (restart !== undefined) body.restart = restart;
       if (secretProviderId !== undefined) body.secretProviderId = secretProviderId;
+      if (pull !== undefined) body.pull = pull;
+      if (build !== undefined) body.build = build;
+      if (forceRecreate !== undefined) body.forceRecreate = forceRecreate;
 
       if (restart) {
         return jsonResponse(await client.putSSE(`/api/stacks/${encodePath(name)}/compose`, body, { env: environmentId }));
@@ -847,6 +859,63 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
         forceRecreate: forceRecreate ?? false,
       };
       return jsonResponse(await client.postSSE(`/api/stacks/${encodePath(name)}/deploy`, body, { env: environmentId }));
+    }
+  );
+
+  // --- Deploy history (Dockhand 1.0.47+, Finsys/dockhand#1499) ---
+  //
+  // Every stack deploy (create-and-start, deploy_stack, or a save-and-redeploy
+  // via update_stack_compose) is now recorded as a 'stack_deploy'
+  // schedule_execution row; its protocol text is stored separately on disk.
+  // Ground-truthed against the real v1.0.47 handlers
+  // (src/routes/api/stacks/[name]/deploys/**/+server.ts and
+  // src/lib/server/deploy-run-access.ts) — not our own schema/doc, per the
+  // dockhand-mcp-dev skill's Ground Truth rule.
+
+  registerTool(server, 'list_stack_deploys',
+    {
+      name: z.string().describe('Stack name'),
+      environmentId: z.number().optional().describe('Environment id the stack belongs to (from list_environments). Omit for the local/default environment — the handler treats an omitted `env` query param and the literal string "null" identically, both meaning "deploys triggered without an explicit environment" (the normal shape on a single-environment install).'),
+    },
+    async ({ name, environmentId }) => {
+      return jsonResponse(await client.get(`/api/stacks/${encodePath(name)}/deploys`, { env: environmentId }));
+    }
+  );
+
+  registerTool(server, 'get_stack_deploy',
+    {
+      name: z.string().describe('Stack name'),
+      runId: z.number().int().describe('Deploy run id (from list_stack_deploys)'),
+    },
+    async ({ name, runId }) => {
+      return jsonResponse(await client.get(`/api/stacks/${encodePath(name)}/deploys/${encodePath(runId)}`));
+    }
+  );
+
+  registerTool(server, 'delete_stack_deploy',
+    {
+      name: z.string().describe('Stack name'),
+      runId: z.number().int().describe('Deploy run id (from list_stack_deploys). Fails with a 409 if the run has not finished yet (status is still queued/running) — retry once it completes.'),
+    },
+    async ({ name, runId }) => {
+      return jsonResponse(await client.delete(`/api/stacks/${encodePath(name)}/deploys/${encodePath(runId)}`));
+    }
+  );
+
+  registerTool(server, 'get_stack_deploy_log',
+    {
+      name: z.string().describe('Stack name'),
+      runId: z.number().int().describe('Deploy run id (from list_stack_deploys)'),
+    },
+    async ({ name, runId }) => {
+      // This is the most sensitive of the four deploy-history endpoints — it can
+      // carry secrets that survived Dockhand's own log redaction (see the
+      // handler's own module doc comment). The response is passed straight
+      // through to the caller and MUST NOT be logged, cached, or otherwise
+      // inspected here — see secret-safe-config-inspection.md in the
+      // homelab-management repo.
+      const log = await client.get(`/api/stacks/${encodePath(name)}/deploys/${encodePath(runId)}/log`);
+      return textResponse(log);
     }
   );
 
