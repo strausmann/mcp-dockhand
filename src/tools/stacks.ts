@@ -35,8 +35,11 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       })).optional().describe('Environment variables'),
       rawEnvContent: z.string().optional().describe('Raw .env file content'),
       secretProviderId: z.number().nullable().optional().describe('Bind the stack to a configured secret provider (id from list_secret_providers); its secrets are injected at deploy. Pass null to leave it unbound. Dockhand 1.0.42+'),
+      pull: z.boolean().optional().describe('Pull newer images before the initial deploy. Only applies when start is not false. Omitted means Dockhand\'s own default (false) — a compose with a `build:` section previously never built on first start regardless of this flag; Dockhand 1.0.47+'),
+      build: z.boolean().optional().describe('Build services that declare a `build:` section on the initial deploy. Only applies when start is not false. Omitted means Dockhand\'s own default (false). Dockhand 1.0.47+'),
+      forceRecreate: z.boolean().optional().describe('Recreate containers on the initial deploy even when their resolved configuration is unchanged. Only applies when start is not false. Omitted means Dockhand\'s own default (false). Dockhand 1.0.47+'),
     },
-    async ({ environmentId, name, compose, composePath, envPath, start, envVars, rawEnvContent, secretProviderId }) => {
+    async ({ environmentId, name, compose, composePath, envPath, start, envVars, rawEnvContent, secretProviderId, pull, build, forceRecreate }) => {
       const body: Record<string, unknown> = { name, compose };
       if (composePath !== undefined) body.composePath = composePath;
       if (envPath !== undefined) body.envPath = envPath;
@@ -44,6 +47,9 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       if (envVars) body.envVars = envVars;
       if (rawEnvContent) body.rawEnvContent = rawEnvContent;
       if (secretProviderId !== undefined) body.secretProviderId = secretProviderId;
+      if (pull !== undefined) body.pull = pull;
+      if (build !== undefined) body.build = build;
+      if (forceRecreate !== undefined) body.forceRecreate = forceRecreate;
 
       return jsonResponse(await client.postSSE('/api/stacks', body, { env: environmentId }));
     }
@@ -134,11 +140,17 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       content: z.string().describe('New compose file content'),
       restart: z.boolean().optional().describe('Redeploy after update (default: false)'),
       secretProviderId: z.number().nullable().optional().describe('Bind the stack to a configured secret provider (id from list_secret_providers); its secrets are injected at deploy. Pass null to CLEAR an existing binding; omit to leave it unchanged. Dockhand 1.0.42+'),
+      pull: z.boolean().optional().describe('Pull newer images before the redeploy. Only applies when restart is true. Omitted means Dockhand\'s own default (false). Dockhand 1.0.47+'),
+      build: z.boolean().optional().describe('Build services that declare a `build:` section on the redeploy. Only applies when restart is true. Omitted means Dockhand\'s own default (false) — a compose with a `build:` section previously never rebuilt on save-and-redeploy regardless of this flag. Dockhand 1.0.47+'),
+      forceRecreate: z.boolean().optional().describe('Recreate containers on the redeploy even when their resolved configuration is unchanged. Only applies when restart is true. Omitted means Dockhand\'s own default (true, so env var changes take effect) — this differs from create_stack\'s default. Dockhand 1.0.47+'),
     },
-    async ({ environmentId, name, content, restart, secretProviderId }) => {
+    async ({ environmentId, name, content, restart, secretProviderId, pull, build, forceRecreate }) => {
       const body: Record<string, unknown> = { content };
       if (restart !== undefined) body.restart = restart;
       if (secretProviderId !== undefined) body.secretProviderId = secretProviderId;
+      if (pull !== undefined) body.pull = pull;
+      if (build !== undefined) body.build = build;
+      if (forceRecreate !== undefined) body.forceRecreate = forceRecreate;
 
       if (restart) {
         return jsonResponse(await client.putSSE(`/api/stacks/${encodePath(name)}/compose`, body, { env: environmentId }));
