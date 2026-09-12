@@ -885,7 +885,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
   registerTool(server, 'get_stack_deploy',
     {
       name: z.string().describe('Stack name'),
-      runId: z.number().describe('Deploy run id (from list_stack_deploys)'),
+      runId: z.number().int().describe('Deploy run id (from list_stack_deploys)'),
     },
     async ({ name, runId }) => {
       return jsonResponse(await client.get(`/api/stacks/${encodePath(name)}/deploys/${encodePath(runId)}`));
@@ -895,7 +895,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
   registerTool(server, 'delete_stack_deploy',
     {
       name: z.string().describe('Stack name'),
-      runId: z.number().describe('Deploy run id (from list_stack_deploys). Fails with a 409 if the run has not finished yet (status is still queued/running) — retry once it completes.'),
+      runId: z.number().int().describe('Deploy run id (from list_stack_deploys). Fails with a 409 if the run has not finished yet (status is still queued/running) — retry once it completes.'),
     },
     async ({ name, runId }) => {
       return jsonResponse(await client.delete(`/api/stacks/${encodePath(name)}/deploys/${encodePath(runId)}`));
@@ -905,7 +905,7 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
   registerTool(server, 'get_stack_deploy_log',
     {
       name: z.string().describe('Stack name'),
-      runId: z.number().describe('Deploy run id (from list_stack_deploys)'),
+      runId: z.number().int().describe('Deploy run id (from list_stack_deploys)'),
     },
     async ({ name, runId }) => {
       // This is the most sensitive of the four deploy-history endpoints — it can

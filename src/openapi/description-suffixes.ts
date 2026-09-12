@@ -200,9 +200,30 @@ const BACKUP_SNAPSHOT_DOWNLOAD_RETURNS_RAW_BYTES =
   'would bypass redaction) — use get_backup_snapshot_metadata for that path instead. For a ' +
   'redacted/inline text preview instead of raw bytes, use dump_backup_snapshot_file.';
 
+/**
+ * `get_stack_deploy_log` (src/tools/stacks.ts, Dockhand 1.0.47+, Finsys/dockhand#1499) returns
+ * the recorded deploy protocol for one run, verbatim. Dockhand redacts known secret VALUES from
+ * that log at write time (exact-value replacement, not pattern matching — see the tool's own
+ * inline comment in stacks.ts), but anything a compose deploy printed that did NOT match a
+ * stored secret value — a credential echoed by an image's entrypoint, a token in a URL, a value
+ * assembled at runtime — survives into the stored log and therefore into this response. The
+ * endpoint's own summary reads as a plain "fetch the log", giving no hint that the payload can
+ * carry live secrets; the difference is invisible until the text is already in the transcript.
+ * Same category as RETURNS_THE_FILE_VERBATIM above (category 2 of the module doc-comment: a
+ * response that returns secrets where the endpoint's own summary reads as safe).
+ */
+const DEPLOY_LOG_MAY_CONTAIN_SECRETS =
+  'SECURITY: this returns the recorded deploy log verbatim. Dockhand redacts known stored ' +
+  'secret VALUES at write time (exact-value replacement), but anything the deploy printed ' +
+  'that did not match a stored value — a credential echoed by an image\'s entrypoint, a token ' +
+  'in a URL, a value assembled at runtime — can survive into it. Do not log, cache, or print ' +
+  'the response — pass it straight to the operator. If you only need to know whether a deploy ' +
+  'succeeded, prefer get_stack_deploy (status/metadata) over the full log.';
+
 export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
   exec_container: EXEC_RETURNS_NO_OUTPUT,
   get_stack_env_raw: RETURNS_THE_FILE_VERBATIM,
+  get_stack_deploy_log: DEPLOY_LOG_MAY_CONTAIN_SECRETS,
   create_secret_provider: CONFIG_CARRIES_CREDENTIALS,
   update_secret_provider: CONFIG_CARRIES_CREDENTIALS,
   test_secret_provider: CONFIG_CARRIES_CREDENTIALS,

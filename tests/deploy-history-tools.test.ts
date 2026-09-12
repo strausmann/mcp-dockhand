@@ -1,7 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { z } from 'zod';
+import { registerStackTools } from '../src/tools/stacks.js';
+import { describeTool } from '../src/openapi/describe-tool.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const stacksSource = readFileSync(
@@ -77,9 +80,9 @@ describe('get_stack_deploy', () => {
     expect(block).toMatch(/\$\{encodePath\(name\)\}\/deploys\/\$\{encodePath\(runId\)\}`/);
   });
 
-  it('takes name as a required string and runId as a required number', () => {
+  it('takes name as a required string and runId as a required integer', () => {
     expect(block).toMatch(/name:\s*z\.string\(\)\.describe/);
-    expect(block).toMatch(/runId:\s*z\.number\(\)\.describe/);
+    expect(block).toMatch(/runId:\s*z\.number\(\)\.int\(\)\.describe/);
   });
 });
 
@@ -91,9 +94,9 @@ describe('delete_stack_deploy', () => {
     expect(block).toMatch(/\$\{encodePath\(name\)\}\/deploys\/\$\{encodePath\(runId\)\}`/);
   });
 
-  it('takes name as a required string and runId as a required number', () => {
+  it('takes name as a required string and runId as a required integer', () => {
     expect(block).toMatch(/name:\s*z\.string\(\)\.describe/);
-    expect(block).toMatch(/runId:\s*z\.number\(\)\.describe/);
+    expect(block).toMatch(/runId:\s*z\.number\(\)\.int\(\)\.describe/);
   });
 });
 
@@ -114,8 +117,100 @@ describe('get_stack_deploy_log', () => {
     expect(block).not.toMatch(/jsonResponse\(/);
   });
 
-  it('takes name as a required string and runId as a required number', () => {
+  it('takes name as a required string and runId as a required integer', () => {
     expect(block).toMatch(/name:\s*z\.string\(\)\.describe/);
-    expect(block).toMatch(/runId:\s*z\.number\(\)\.describe/);
+    expect(block).toMatch(/runId:\s*z\.number\(\)\.int\(\)\.describe/);
+  });
+});
+
+/**
+ * Copilot review finding on PR #258 (verified against the code): `runId: z.number()` accepts
+ * a non-integer like `12.5`, which Dockhand's `parseInt(params.runId, 10)` (upstream handler)
+ * silently truncates to `12`. For `delete_stack_deploy` — which DELETEs a specific run — that
+ * means a caller-supplied `12.5` can silently delete the WRONG run's deploy record. Fixed by
+ * adding `.int()` to the runId schema on all three run-scoped deploy-history tools.
+ *
+ * These tests exercise the ACTUAL Zod schema object (via z.object(schema).safeParse()), not a
+ * source-text regex — a regex match on `.int()` proves the token is present, not that Zod
+ * actually rejects a non-integer at runtime. Run once against the pre-fix source (plain
+ * `z.number()`, no `.int()`) to confirm the "rejects 12.5" assertions fail there — that is the
+ * counter-check required for a fixed validation bug: a test that would also pass against the
+ * unfixed schema proves nothing.
+ */
+describe('runId schema validation (integer-only, Copilot review finding on #258)', () => {
+  type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
+  type ZodShape = Record<string, z.ZodTypeAny>;
+
+  function captureSchemas(): Map<string, ZodShape> {
+    const schemas = new Map<string, ZodShape>();
+    const server = {
+      tool: (name: string, _description: string, schema: ZodShape, _cb: ToolHandler) => {
+        schemas.set(name, schema);
+      },
+    };
+    const client = {
+      get: vi.fn(),
+      delete: vi.fn(),
+      post: vi.fn(),
+      postSSE: vi.fn(),
+      put: vi.fn(),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    registerStackTools(server as any, client as any);
+    return schemas;
+  }
+
+  const RUN_SCOPED_TOOLS = ['get_stack_deploy', 'delete_stack_deploy', 'get_stack_deploy_log'];
+
+  it.each(RUN_SCOPED_TOOLS)('%s: accepts an integer runId', (toolName) => {
+    const schemas = captureSchemas();
+    const shape = schemas.get(toolName);
+    if (!shape) throw new Error(`${toolName} was not registered`);
+    const result = z.object(shape).safeParse({ name: 'demo', runId: 12 });
+    expect(result.success).toBe(true);
+  });
+
+  it.each(RUN_SCOPED_TOOLS)('%s: rejects a non-integer runId like 12.5', (toolName) => {
+    const schemas = captureSchemas();
+    const shape = schemas.get(toolName);
+    if (!shape) throw new Error(`${toolName} was not registered`);
+    const result = z.object(shape).safeParse({ name: 'demo', runId: 12.5 });
+    expect(result.success).toBe(false);
+  });
+
+  it('list_stack_deploys has no runId field to begin with (untouched by this fix)', () => {
+    const schemas = captureSchemas();
+    const shape = schemas.get('list_stack_deploys');
+    if (!shape) throw new Error('list_stack_deploys was not registered');
+    expect(shape.runId).toBeUndefined();
+  });
+});
+
+/**
+ * `get_stack_deploy_log` can carry secrets that survived Dockhand's own log redaction (see the
+ * tool's inline comment in stacks.ts) — the endpoint's own summary reads as a plain "fetch the
+ * log", so the operator-safety suffix (description-suffixes.ts, category 2: a response that
+ * returns secrets where the summary reads as safe) carries the warning instead.
+ */
+describe('get_stack_deploy_log operator-safety suffix', () => {
+  it('warns that the log can carry secrets that survived redaction', () => {
+    const description = describeTool('get_stack_deploy_log');
+
+    expect(description).toMatch(/SECURITY/);
+    expect(description).toMatch(/redact/i);
+    expect(description).toMatch(/get_stack_deploy\b/);
+  });
+
+  it('appends to the derived description instead of replacing it (suffix, not override)', () => {
+    const description = describeTool('get_stack_deploy_log');
+
+    expect(description.indexOf('SECURITY')).toBeGreaterThan(0);
+    expect(description).not.toBe('No description available.');
+  });
+
+  it('the sibling deploy-history tools carry no secret-log suffix', () => {
+    expect(describeTool('list_stack_deploys')).not.toMatch(/SECURITY: this returns the recorded deploy log/);
+    expect(describeTool('get_stack_deploy')).not.toMatch(/SECURITY: this returns the recorded deploy log/);
+    expect(describeTool('delete_stack_deploy')).not.toMatch(/SECURITY: this returns the recorded deploy log/);
   });
 });
