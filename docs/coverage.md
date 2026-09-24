@@ -4,25 +4,41 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-openapi.json` (via `deriveRoutesFromOpenapi()`).
 
-**Erzeugt:** 2026-09-06T13:20:56.418Z
-**Dockhand-Upstream-Commit:** `049221ceff6223ff10fae49c0cb9757368c565bf`
-**Schema-Endpunkte gesamt:** 257
+**Erzeugt:** 2026-09-14T06:32:20.307Z
+**Dockhand-Upstream-Commit:** `53e11bd891b9ebf2d67df044f3a7abb40acf483e`
+**Schema-Endpunkte gesamt:** 261
 
 ## Coverage
 
-**100.0%** (346/346 in-Scope-Endpunkte haben ein MCP-Tool)
+**98.6%** (346/351 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
 | COVERED | 346 |
-| MISSING_TOOL | 0 |
+| MISSING_TOOL | 5 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
 
-## MISSING_TOOL
+## MISSING_TOOL — nach Bereich
 
-Keine — alle in-Scope-Endpunkte haben ein MCP-Tool.
+Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
+ersten Pfad-Segment nach `/api/`:
+
+### backup (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| POST | `/api/backup/snapshots/batch-delete` | - |
+
+### stacks (4)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/stacks/{name}/deploys` | name |
+| DELETE | `/api/stacks/{name}/deploys/{runId}` | name, runId |
+| GET | `/api/stacks/{name}/deploys/{runId}` | name, runId |
+| GET | `/api/stacks/{name}/deploys/{runId}/log` | name, runId |
 
 ## Deliberately omitted (with reason)
 
