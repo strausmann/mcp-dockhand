@@ -3603,6 +3603,12 @@
                   "flags": {
                     "type": "string"
                   },
+                  "backupFlags": {
+                    "type": "string"
+                  },
+                  "restoreFlags": {
+                    "type": "string"
+                  },
                   "hostPath": {
                     "type": "string"
                   },
@@ -3739,6 +3745,12 @@
                     "properties": {}
                   },
                   "flags": {
+                    "type": "string"
+                  },
+                  "backupFlags": {
+                    "type": "string"
+                  },
+                  "restoreFlags": {
                     "type": "string"
                   },
                   "hostPath": {
@@ -4264,6 +4276,12 @@
                       "type": "object",
                       "properties": {}
                     }
+                  },
+                  "restoreSecrets": {
+                    "type": "boolean"
+                  },
+                  "skipStackFiles": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -4331,6 +4349,37 @@
                   },
                   "targetEnvId": {
                     "type": "integer"
+                  },
+                  "environmentId": {
+                    "type": "integer"
+                  },
+                  "mode": {
+                    "type": "string"
+                  },
+                  "targetType": {
+                    "type": "string"
+                  },
+                  "targetName": {
+                    "type": "string"
+                  },
+                  "targetPath": {
+                    "type": "string"
+                  },
+                  "volumeDestinations": {
+                    "type": "object",
+                    "properties": {}
+                  },
+                  "volumes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "skipStackFiles": {
+                    "type": "boolean"
+                  },
+                  "mergeStackFiles": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -4342,7 +4391,18 @@
                 "destinationId": 0,
                 "snapshotId": "string",
                 "includeTargets": true,
-                "targetEnvId": 0
+                "targetEnvId": 0,
+                "environmentId": 0,
+                "mode": "string",
+                "targetType": "string",
+                "targetName": "string",
+                "targetPath": "string",
+                "volumeDestinations": {},
+                "volumes": [
+                  "string"
+                ],
+                "skipStackFiles": true,
+                "mergeStackFiles": true
               }
             }
           }
@@ -9461,7 +9521,8 @@
                             "type": "boolean"
                           },
                           "newerVersion": {
-                            "type": "string"
+                            "type": "object",
+                            "properties": {}
                           }
                         },
                         "required": [
@@ -9488,7 +9549,7 @@
                       "currentImage": "string",
                       "checkedAt": "string",
                       "hasImageUpdate": true,
-                      "newerVersion": "string"
+                      "newerVersion": {}
                     }
                   ]
                 }
@@ -10016,7 +10077,8 @@
                       "type": "string"
                     },
                     "uptime": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     },
                     "gcForced": {
                       "type": "boolean"
@@ -10025,19 +10087,24 @@
                       "type": "boolean"
                     },
                     "process": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     },
                     "growth": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     },
                     "v8Heap": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     },
                     "system": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     },
                     "rssTracker": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     }
                   },
                   "required": [
@@ -12585,7 +12652,8 @@
                     "branches": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "object",
+                        "properties": {}
                       }
                     }
                   },
@@ -13163,10 +13231,12 @@
                   "type": "object",
                   "properties": {
                     "vars": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     },
                     "sources": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     }
                   },
                   "required": [
@@ -13175,8 +13245,8 @@
                   ]
                 },
                 "example": {
-                  "vars": "string",
-                  "sources": "string"
+                  "vars": {},
+                  "sources": {}
                 }
               }
             }
@@ -14487,7 +14557,8 @@
                   "type": "object",
                   "properties": {
                     "vars": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     }
                   },
                   "required": [
@@ -14931,7 +15002,23 @@
           }
         },
         "security": [],
-        "description": "Public endpoint authenticated by the repository's webhook secret via `X-Hub-Signature-256` (GitHub) or `X-Gitlab-Token` (GitLab); the raw request body is used for HMAC verification. A secret is required by default; set ALLOW_WEBHOOKS_WITHOUT_SECRET=true to accept a secret-less trigger on an isolated network."
+        "description": "Public endpoint authenticated by the repository's webhook secret via `X-Hub-Signature-256` (GitHub) or `X-Gitlab-Token` (GitLab); the raw request body is used for HMAC verification. A secret is required by default; set ALLOW_WEBHOOKS_WITHOUT_SECRET=true to accept a secret-less trigger on an isolated network.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ref": {
+                    "type": "string"
+                  }
+                },
+                "description": "Fields auto-detected from the handler's destructuring of the request body - generic string type, no @openapi annotation for this body yet."
+              }
+            }
+          }
+        }
       }
     },
     "/api/hawser/connect": {
@@ -15476,7 +15563,8 @@
                       "type": "integer"
                     },
                     "environment": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     }
                   },
                   "required": [
@@ -15586,7 +15674,8 @@
                   "type": "object",
                   "properties": {
                     "icons": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     }
                   },
                   "required": [
@@ -16344,7 +16433,8 @@
                       "type": "boolean"
                     },
                     "result": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     }
                   },
                   "required": [
@@ -16504,7 +16594,7 @@
         "tags": [
           "jobs"
         ],
-        "summary": "Poll a background job's status and accumulated output lines (no auth — job ids are unguessable UUIDs)",
+        "summary": "Poll a background job's status and accumulated output lines (owner or admin only)",
         "parameters": [
           {
             "name": "id",
@@ -16588,7 +16678,7 @@
         "tags": [
           "jobs"
         ],
-        "summary": "Request cancellation of a running background job (no auth — job ids are unguessable UUIDs)",
+        "summary": "Request cancellation of a running background job (owner or admin only)",
         "parameters": [
           {
             "name": "id",
@@ -16621,6 +16711,9 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Job not found"
           }
         },
         "security": [
@@ -22801,7 +22894,8 @@
                     "type": "string"
                   },
                   "config": {
-                    "type": "string"
+                    "type": "object",
+                    "properties": {}
                   }
                 },
                 "required": [
@@ -22813,7 +22907,7 @@
               "example": {
                 "name": "string",
                 "type": "string",
-                "config": "string"
+                "config": {}
               }
             }
           }
@@ -22856,21 +22950,46 @@
                       "type": "string"
                     },
                     "config": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
+                    },
+                    "stacksUsing": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "stackName": {
+                            "type": "string"
+                          },
+                          "environmentId": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "stackName"
+                        ]
+                      }
                     }
                   },
                   "required": [
                     "id",
                     "name",
                     "type",
-                    "config"
+                    "config",
+                    "stacksUsing"
                   ]
                 },
                 "example": {
                   "id": 0,
                   "name": "string",
                   "type": "string",
-                  "config": "string"
+                  "config": {},
+                  "stacksUsing": [
+                    {
+                      "stackName": "string",
+                      "environmentId": 0
+                    }
+                  ]
                 }
               }
             }
@@ -22978,14 +23097,15 @@
                     "type": "string"
                   },
                   "config": {
-                    "type": "string"
+                    "type": "object",
+                    "properties": {}
                   }
                 }
               },
               "example": {
                 "name": "string",
                 "type": "string",
-                "config": "string"
+                "config": {}
               }
             }
           }
@@ -23232,7 +23352,8 @@
                 "type": "object",
                 "properties": {
                   "config": {
-                    "type": "string"
+                    "type": "object",
+                    "properties": {}
                   }
                 }
               },
@@ -23307,7 +23428,8 @@
                     "type": "string"
                   },
                   "config": {
-                    "type": "string"
+                    "type": "object",
+                    "properties": {}
                   }
                 },
                 "required": [
@@ -23615,6 +23737,138 @@
                   },
                   "externalStackPaths": {
                     "type": "string"
+                  },
+                  "actionIconSize": {
+                    "type": "string"
+                  },
+                  "compactPorts": {
+                    "type": "boolean"
+                  },
+                  "confirmDestructive": {
+                    "type": "boolean"
+                  },
+                  "dateFormat": {
+                    "type": "string"
+                  },
+                  "defaultBackupImage": {
+                    "type": "string"
+                  },
+                  "defaultComposeTemplate": {
+                    "type": "string"
+                  },
+                  "defaultGrypeArgs": {
+                    "type": "string"
+                  },
+                  "defaultGrypeImage": {
+                    "type": "string"
+                  },
+                  "defaultScannerDns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "defaultScannerNetworkMode": {
+                    "type": "string"
+                  },
+                  "defaultTrivyArgs": {
+                    "type": "string"
+                  },
+                  "defaultTrivyImage": {
+                    "type": "string"
+                  },
+                  "downloadFormat": {
+                    "type": "string"
+                  },
+                  "editorFont": {
+                    "type": "string"
+                  },
+                  "eventCleanupCron": {
+                    "type": "string"
+                  },
+                  "eventCleanupEnabled": {
+                    "type": "boolean"
+                  },
+                  "eventCollectionMode": {
+                    "type": "string"
+                  },
+                  "eventPollInterval": {
+                    "type": "integer"
+                  },
+                  "eventRetentionDays": {
+                    "type": "integer"
+                  },
+                  "font": {
+                    "type": "string"
+                  },
+                  "fontSize": {
+                    "type": "string"
+                  },
+                  "formatLogTimestamps": {
+                    "type": "boolean"
+                  },
+                  "gridFontSize": {
+                    "type": "string"
+                  },
+                  "highlightUpdates": {
+                    "type": "boolean"
+                  },
+                  "honorProxyLabels": {
+                    "type": "boolean"
+                  },
+                  "labelFilterMode": {
+                    "type": "string"
+                  },
+                  "logMaxLines": {
+                    "type": "integer"
+                  },
+                  "metricsCollectionInterval": {
+                    "type": "integer"
+                  },
+                  "primaryStackLocation": {
+                    "type": "string"
+                  },
+                  "protectScannerImages": {
+                    "type": "boolean"
+                  },
+                  "scannerCleanupCron": {
+                    "type": "string"
+                  },
+                  "scannerCleanupEnabled": {
+                    "type": "boolean"
+                  },
+                  "scheduleCleanupCron": {
+                    "type": "string"
+                  },
+                  "scheduleCleanupEnabled": {
+                    "type": "boolean"
+                  },
+                  "scheduleRetentionDays": {
+                    "type": "integer"
+                  },
+                  "showExposedPorts": {
+                    "type": "boolean"
+                  },
+                  "showGitCommitHash": {
+                    "type": "boolean"
+                  },
+                  "showImageChangelogLinks": {
+                    "type": "boolean"
+                  },
+                  "showStoppedContainers": {
+                    "type": "boolean"
+                  },
+                  "showWhatsNew": {
+                    "type": "boolean"
+                  },
+                  "terminalFont": {
+                    "type": "string"
+                  },
+                  "timeFormat": {
+                    "type": "string"
+                  },
+                  "useSelfhstIcons": {
+                    "type": "boolean"
                   }
                 }
               },
@@ -23626,7 +23880,52 @@
                 "darkTheme": "string",
                 "defaultTimezone": "string",
                 "logBufferSizeKb": 0,
-                "externalStackPaths": "string"
+                "externalStackPaths": "string",
+                "actionIconSize": "string",
+                "compactPorts": true,
+                "confirmDestructive": true,
+                "dateFormat": "string",
+                "defaultBackupImage": "string",
+                "defaultComposeTemplate": "string",
+                "defaultGrypeArgs": "string",
+                "defaultGrypeImage": "string",
+                "defaultScannerDns": [
+                  "string"
+                ],
+                "defaultScannerNetworkMode": "string",
+                "defaultTrivyArgs": "string",
+                "defaultTrivyImage": "string",
+                "downloadFormat": "string",
+                "editorFont": "string",
+                "eventCleanupCron": "string",
+                "eventCleanupEnabled": true,
+                "eventCollectionMode": "string",
+                "eventPollInterval": 0,
+                "eventRetentionDays": 0,
+                "font": "string",
+                "fontSize": "string",
+                "formatLogTimestamps": true,
+                "gridFontSize": "string",
+                "highlightUpdates": true,
+                "honorProxyLabels": true,
+                "labelFilterMode": "string",
+                "logMaxLines": 0,
+                "metricsCollectionInterval": 0,
+                "primaryStackLocation": "string",
+                "protectScannerImages": true,
+                "scannerCleanupCron": "string",
+                "scannerCleanupEnabled": true,
+                "scheduleCleanupCron": "string",
+                "scheduleCleanupEnabled": true,
+                "scheduleRetentionDays": 0,
+                "showExposedPorts": true,
+                "showGitCommitHash": true,
+                "showImageChangelogLinks": true,
+                "showStoppedContainers": true,
+                "showWhatsNew": true,
+                "terminalFont": "string",
+                "timeFormat": "string",
+                "useSelfhstIcons": true
               }
             }
           }
@@ -23920,6 +24219,12 @@
                   },
                   "envId": {
                     "type": "integer"
+                  },
+                  "grypeImage": {
+                    "type": "string"
+                  },
+                  "trivyImage": {
+                    "type": "string"
                   }
                 }
               },
@@ -24352,7 +24657,8 @@
                   "envVars": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     }
                   },
                   "rawEnvContent": {
@@ -24382,7 +24688,7 @@
                 "composePath": "string",
                 "envPath": "string",
                 "envVars": [
-                  "string"
+                  {}
                 ],
                 "rawEnvContent": "string",
                 "secretProviderId": 0,
@@ -24542,6 +24848,9 @@
                       "type": "integer"
                     },
                     "currentComposePath": {
+                      "type": "string"
+                    },
+                    "persistenceWarning": {
                       "type": "string"
                     }
                   },
@@ -25057,7 +25366,8 @@
                       }
                     },
                     "secretProvider": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     }
                   },
                   "required": [
@@ -25075,7 +25385,7 @@
                   "injectedSecretKeys": [
                     "string"
                   ],
-                  "secretProvider": "string"
+                  "secretProvider": {}
                 }
               }
             }
@@ -26100,7 +26410,8 @@
                             "type": "integer"
                           },
                           "fix": {
-                            "type": "string"
+                            "type": "object",
+                            "properties": {}
                           },
                           "fixDescription": {
                             "type": "string"
@@ -26173,6 +26484,7 @@
             "bearerAuth": []
           }
         ],
+        "description": "Set existing:true when validating an already-deployed stack, so the stack's own running containers/ports are excluded from the cross-stack collision checks; omit it (or false) for a brand-new stack, where a name/port clash with a running stack of the same name must still be reported.",
         "requestBody": {
           "required": true,
           "content": {
@@ -26182,6 +26494,9 @@
                 "properties": {
                   "compose": {
                     "type": "string"
+                  },
+                  "existing": {
+                    "type": "boolean"
                   },
                   "config": {
                     "type": "object",
@@ -26193,12 +26508,14 @@
                         }
                       },
                       "severity": {
-                        "type": "string"
+                        "type": "object",
+                        "properties": {}
                       }
                     }
                   },
                   "envVars": {
-                    "type": "string"
+                    "type": "object",
+                    "properties": {}
                   }
                 },
                 "required": [
@@ -26806,19 +27123,24 @@
                   "type": "object",
                   "properties": {
                     "docker": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     },
                     "host": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     },
                     "runtime": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     },
                     "database": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     },
                     "stats": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     }
                   },
                   "required": [
@@ -26904,7 +27226,8 @@
                   "type": "object",
                   "properties": {
                     "diskUsage": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     }
                   }
                 },
@@ -29484,7 +29807,8 @@
                     "findings": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "object",
+                        "properties": {}
                       }
                     },
                     "total": {
@@ -29542,7 +29866,8 @@
                       "type": "integer"
                     },
                     "summary": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {}
                     },
                     "images": {
                       "type": "array",

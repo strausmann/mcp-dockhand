@@ -4,8 +4,8 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-openapi.json` (via `deriveRoutesFromOpenapi()`).
 
-**Erzeugt:** 2026-09-06T13:20:56.418Z
-**Dockhand-Upstream-Commit:** `049221ceff6223ff10fae49c0cb9757368c565bf`
+**Erzeugt:** 2026-09-07T06:32:11.490Z
+**Dockhand-Upstream-Commit:** `be10bb098cd63714ae58cf1aa698cbaeb5b45774`
 **Schema-Endpunkte gesamt:** 257
 
 ## Coverage
