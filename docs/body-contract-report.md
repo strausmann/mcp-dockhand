@@ -10,45 +10,35 @@
 > hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-Issue) — hier weiterhin nur
 > zur Übersicht gelistet. Die übrigen drei Typen bleiben vollständig advisory.
 
-**Erzeugt:** 2026-09-06T17:28:13.289Z
+**Erzeugt:** 2026-09-12T17:15:41.137Z
 
 ## Zusammenfassung
 
 | Typ | Anzahl | Bedeutung |
 |-----|--------|-----------|
-| BODY_PARAM_UNKNOWN | 21 | Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Ausschluss der Query-/Path-Parameter der Operation). |
-| UNTYPED_PASSTHROUGH | 52 | Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar. |
-| BODY_CONTRACT_UNRESOLVED | 40 | Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork). |
+| BODY_PARAM_UNKNOWN | 11 | Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Ausschluss der Query-/Path-Parameter der Operation). |
+| UNTYPED_PASSTHROUGH | 53 | Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar. |
+| BODY_CONTRACT_UNRESOLVED | 39 | Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork). |
 
-## BODY_PARAM_UNKNOWN (21)
+## BODY_PARAM_UNKNOWN (11)
 
 Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Ausschluss der Query-/Path-Parameter der Operation).
 
 | Tool | HTTP | Pfad | Feld | Datei |
 |------|------|------|------|-------|
 | `activate_license` | POST | `/api/license` | `licenseKey` | system.ts:194 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `name` | stacks.ts:747 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `composePath` | stacks.ts:747 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `envPath` | stacks.ts:747 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `sourceDir` | stacks.ts:747 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `name` | stacks.ts:759 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `composePath` | stacks.ts:759 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `envPath` | stacks.ts:759 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `sourceDir` | stacks.ts:759 |
 | `create_environment` | POST | `/api/environments` | `url` | environments.ts:157 |
 | `create_user` | POST | `/api/users` | `roles` | users.ts:33 |
-| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `mode` | backup-restore.ts:205 |
-| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `targetType` | backup-restore.ts:205 |
-| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `targetName` | backup-restore.ts:205 |
-| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `targetPath` | backup-restore.ts:205 |
-| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `volumeDestinations` | backup-restore.ts:205 |
-| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `skipStackFiles` | backup-restore.ts:205 |
-| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `mergeStackFiles` | backup-restore.ts:205 |
-| `preview_backup_restore` | POST | `/api/backup/restore/preview` | `volumes` | backup-restore.ts:205 |
-| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env` | `keys` | stacks.ts:672 |
-| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env/raw` | `keys` | stacks.ts:680 |
-| `run_backup_restore` | POST | `/api/backup/restore` | `restoreSecrets` | backup-restore.ts:237 |
-| `run_backup_restore` | POST | `/api/backup/restore` | `skipStackFiles` | backup-restore.ts:237 |
+| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env` | `keys` | stacks.ts:684 |
+| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env/raw` | `keys` | stacks.ts:692 |
 | `set_container_auto_update` | POST | `/api/auto-update/{containerName}` | `policy` | auto-update.ts:37 |
 | `test_environment_connection` | POST | `/api/environments/test` | `url` | environments.ts:225 |
 
-## UNTYPED_PASSTHROUGH (52)
+## UNTYPED_PASSTHROUGH (53)
 
 Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar.
 
@@ -71,6 +61,7 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `create_template_compose` | POST | `/api/templates/compose` | `template` | templates.ts:25 |
 | `create_template_source` | POST | `/api/templates/sources` | `name`, `url` | templates.ts:41 |
 | `create_volume` | POST | `/api/volumes` | `name` | volumes.ts:116 |
+| `receive_git_webhook` | POST | `/api/git/webhook/{webhookId}` | - | git-stacks.ts:394 |
 | `set_dashboard_preferences` | POST | `/api/dashboard/preferences` | - | dashboard.ts:29 |
 | `set_environment_image_prune` | POST | `/api/environments/{environmentId}/image-prune` | - | environments.ts:300 |
 | `set_environment_update_check` | POST | `/api/environments/{environmentId}/update-check` | - | environments.ts:283 |
@@ -105,9 +96,9 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `update_secret_provider` | PUT | `/api/secret-providers/{id}` | - | secret-providers.ts:83 |
 | `update_template_source` | PUT | `/api/templates/sources` | `id` | templates.ts:52 |
 | `update_user` | PUT | `/api/users/{userId}` | - | users.ts:50 |
-| `validate_stack_compose` | POST | `/api/stacks/{name}/validate` | `compose` | stacks.ts:879 |
+| `validate_stack_compose` | POST | `/api/stacks/{name}/validate` | `compose` | stacks.ts:948 |
 
-## BODY_CONTRACT_UNRESOLVED (40)
+## BODY_CONTRACT_UNRESOLVED (39)
 
 Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork).
 
@@ -126,19 +117,18 @@ Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehl
 | `prune_images` | POST | `/api/prune/images` | - | system.ts:226 |
 | `prune_networks` | POST | `/api/prune/networks` | - | system.ts:233 |
 | `prune_volumes` | POST | `/api/prune/volumes` | - | system.ts:240 |
-| `receive_git_webhook` | POST | `/api/git/webhook/{webhookId}` | - | git-stacks.ts:394 |
 | `release_volume_browse` | POST | `/api/volumes/{volumeName}/browse/release` | - | volumes.ts:75 |
 | `restart_container` | POST | `/api/containers/{containerId}/restart` | - | containers.ts:198 |
-| `restart_stack` | POST | `/api/stacks/{name}/restart` | - | stacks.ts:78 |
+| `restart_stack` | POST | `/api/stacks/{name}/restart` | - | stacks.ts:84 |
 | `run_backup_config` | POST | `/api/backup/configs/{configId}/run` | - | backup-configs.ts:152 |
 | `run_schedule_now` | POST | `/api/schedules/{type}/{scheduleId}/run` | - | schedules.ts:56 |
 | `scan_all_vulnerabilities` | POST | `/api/vulnerabilities/scan-all` | - | vulnerabilities.ts:45 |
 | `set_default_registry` | POST | `/api/registries/{registryId}/default` | - | registries.ts:56 |
 | `start_container` | POST | `/api/containers/{containerId}/start` | - | containers.ts:178 |
-| `start_stack` | POST | `/api/stacks/{name}/start` | - | stacks.ts:58 |
+| `start_stack` | POST | `/api/stacks/{name}/start` | - | stacks.ts:64 |
 | `stop_backup_config` | POST | `/api/backup/configs/{configId}/stop` | - | backup-configs.ts:159 |
 | `stop_container` | POST | `/api/containers/{containerId}/stop` | - | containers.ts:188 |
-| `stop_stack` | POST | `/api/stacks/{name}/stop` | - | stacks.ts:68 |
+| `stop_stack` | POST | `/api/stacks/{name}/stop` | - | stacks.ts:74 |
 | `sync_git_repository` | POST | `/api/git/repositories/{repositoryId}/sync` | - | git-stacks.ts:271 |
 | `sync_git_stack` | POST | `/api/git/stacks/{stackId}/sync` | - | git-stacks.ts:95 |
 | `test_backup_destination` | POST | `/api/backup/destinations/{destinationId}/test` | - | backup-destinations.ts:166 |
