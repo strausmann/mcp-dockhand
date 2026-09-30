@@ -4,25 +4,73 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-openapi.json` (via `deriveRoutesFromOpenapi()`).
 
-**Erzeugt:** 2026-09-06T13:20:56.418Z
-**Dockhand-Upstream-Commit:** `049221ceff6223ff10fae49c0cb9757368c565bf`
-**Schema-Endpunkte gesamt:** 257
+**Erzeugt:** 2026-09-21T06:33:08.813Z
+**Dockhand-Upstream-Commit:** `997b44f5bbc59766c86c64fc579265b48c608f1a`
+**Schema-Endpunkte gesamt:** 269
 
 ## Coverage
 
-**100.0%** (346/346 in-Scope-Endpunkte haben ein MCP-Tool)
+**95.3%** (346/363 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
 | COVERED | 346 |
-| MISSING_TOOL | 0 |
+| MISSING_TOOL | 17 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
 
-## MISSING_TOOL
+## MISSING_TOOL — nach Bereich
 
-Keine — alle in-Scope-Endpunkte haben ein MCP-Tool.
+Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
+ersten Pfad-Segment nach `/api/`:
+
+### backup (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| POST | `/api/backup/snapshots/batch-delete` | - |
+
+### container-tags (3)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/container-tags` | - |
+| GET | `/api/container-tags/{name}` | name |
+| PUT | `/api/container-tags/{name}` | name |
+
+### containers (2)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| POST | `/api/containers/{id}/exec/run` | id |
+| POST | `/api/containers/{id}/files/chown` | id |
+
+### stack-tags (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/stack-tags` | - |
+
+### stacks (6)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/stacks/{name}/deploys` | name |
+| DELETE | `/api/stacks/{name}/deploys/{runId}` | name, runId |
+| GET | `/api/stacks/{name}/deploys/{runId}` | name, runId |
+| GET | `/api/stacks/{name}/deploys/{runId}/log` | name, runId |
+| GET | `/api/stacks/{name}/tags` | name |
+| PUT | `/api/stacks/{name}/tags` | name |
+
+### tags (4)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/tags` | - |
+| POST | `/api/tags` | - |
+| DELETE | `/api/tags/{id}` | id |
+| PUT | `/api/tags/{id}` | id |
 
 ## Deliberately omitted (with reason)
 
