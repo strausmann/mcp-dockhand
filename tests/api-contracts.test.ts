@@ -129,6 +129,27 @@ describe('Dockhand API contract alignment', () => {
     expect(description).toMatch(/websocket|terminal/i);
   });
 
+  it('run_container_command matches the real /api/containers/{id}/exec/run contract: envId query param, cmd+user+workingDir body', () => {
+    // Ground truth (Finsys/dockhand src/routes/api/containers/[id]/exec/run/+server.ts): the
+    // one-shot endpoint issue #81 was waiting for. Reads `envId` from the query string (as
+    // /exec does), rejects a missing/empty/non-string `cmd` with 400, reads only `body.user`
+    // and `body.workingDir` besides it, and returns { stdout, stderr, exitCode }.
+    const block = extractToolBlock(containersSource, 'run_container_command');
+
+    expect(block).toMatch(/\{\s*envId:\s*environmentId\s*\}/);
+    expect(block).not.toMatch(/\{\s*env:\s*environmentId\s*\}/);
+    expect(block).toMatch(/cmd:\s*z\.array\(z\.string\(\)\)\.min\(1\)/);
+    expect(block).toMatch(/user:\s*z\.string\(\)\.optional\(\)/);
+    expect(block).toMatch(/workingDir:\s*z\.string\(\)\.optional\(\)/);
+    expect(block).toMatch(/client\.post\(`\/api\/containers\/\$\{encodePath\(containerId\)\}\/exec\/run`/);
+    expect(block).not.toMatch(/\bshell:\s*z\./);
+    expect(block).not.toMatch(/\btty:\s*z\./);
+
+    const description = describeTool('run_container_command');
+    expect(description).toMatch(/stdout/i);
+    expect(description).toMatch(/exit code/i);
+  });
+
   it('search_registry matches the real /api/registry/search contract: term (required), limit + registry (optional), no env', () => {
     // Ground truth (Finsys/dockhand src/routes/api/registry/search/+server.ts, v1.0.40):
     // `export const GET: RequestHandler = async ({ url }) => { const term = url.searchParams.get('term');

@@ -401,7 +401,6 @@ const IGNORED_PATTERNS = [
   '/api/debug/',               // Debug-Endpunkte
   '/api/self-update',          // Self-Update (gefährlich über MCP)
   '/api/events',               // SSE Event-Stream
-  '/api/jobs/',                // Interne Job-Verwaltung
   '/api/hawser/connect',       // Hawser Agent-Verbindung
   '/api/environments/{*}/icon',          // Icon-Upload (binary)
   '/api/environments/{*}/disk-warning',  // Disk-Warning (intern)

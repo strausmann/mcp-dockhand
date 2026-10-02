@@ -507,6 +507,28 @@ export function registerContainerTools(server: McpServer, client: DockhandClient
     }
   );
 
+  // One-shot command: POST /api/containers/{id}/exec/run (Finsys/dockhand
+  // src/routes/api/containers/[id]/exec/run/+server.ts). Like /exec above, the handler reads
+  // `envId` from the query string, not `env`. Body: cmd (non-empty string[], else 400),
+  // optional user and workingDir — nothing else is read. It waits for the command and returns
+  // { stdout, stderr, exitCode }; a non-zero exitCode is a normal 200, not an error. Bounded
+  // by a ~30s ceiling on remote (Hawser/TCP) environments — for long work use exec_container.
+  registerTool(server, 'run_container_command',
+    {
+      environmentId: z.number().describe('Environment ID'),
+      containerId: z.string().describe('Container ID or name'),
+      cmd: z.array(z.string()).min(1).describe('Command argv, e.g. ["sh", "-c", "echo hi"] — not run through a shell unless you ask for one'),
+      user: z.string().optional().describe('User to run as (e.g. "root" or "1000:1000"); defaults to the container user'),
+      workingDir: z.string().optional().describe('Working directory inside the container'),
+    },
+    async ({ environmentId, containerId, cmd, user, workingDir }) => {
+      const body: Record<string, unknown> = { cmd };
+      if (user) body.user = user;
+      if (workingDir) body.workingDir = workingDir;
+      return jsonResponse(await client.post(`/api/containers/${encodePath(containerId)}/exec/run`, body, { envId: environmentId }));
+    }
+  );
+
   registerTool(server, 'write_container_file_content',
     {
       environmentId: z.number().describe('Environment ID'),
