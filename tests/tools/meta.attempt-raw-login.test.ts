@@ -10,7 +10,7 @@
  * only — never the cookie's value) to compute `completedAuth` separately from the raw
  * `statusCode`.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { attemptRawLogin } from '../../src/tools/meta.js';
 
 interface MockResponseInit {
@@ -31,6 +31,13 @@ function mockResponse(init: MockResponseInit) {
 }
 
 describe('attemptRawLogin', () => {
+  // These cases are all about the session path, so the token branch must not be
+  // taken — otherwise a developer or CI environment that happens to export
+  // DOCKHAND_API_TOKEN would silently reroute every one of them.
+  beforeEach(() => {
+    delete process.env.DOCKHAND_API_TOKEN;
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -207,5 +214,69 @@ describe('attemptRawLogin', () => {
       process.env.DOCKHAND_USERNAME = originalUsername;
       process.env.DOCKHAND_PASSWORD = originalPassword;
     }
+  });
+});
+
+describe('attemptRawLogin — API token mode', () => {
+  beforeEach(() => {
+    process.env.DOCKHAND_API_TOKEN = 'dh_sentinel-token-value';
+  });
+
+  afterEach(() => {
+    delete process.env.DOCKHAND_API_TOKEN;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('probes an authenticated GET instead of POSTing to the login endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockResponse({ status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await attemptRawLogin('https://dockhand.example.com');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://dockhand.example.com/api/auth/tokens');
+    expect(init.method).toBe('GET');
+    expect(init.headers['Authorization']).toBe('Bearer dh_sentinel-token-value');
+    // The whole point: no session credentials are sent when there are none.
+    expect(init.body).toBeUndefined();
+  });
+
+  it('reports completedAuth:true on a 200', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse({ status: 200 })));
+
+    await expect(attemptRawLogin('https://dockhand.example.com')).resolves.toEqual({
+      statusCode: 200,
+      completedAuth: true,
+    });
+  });
+
+  it('reports completedAuth:false on a 401, surfacing the status code', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse({ status: 401 })));
+
+    await expect(attemptRawLogin('https://dockhand.example.com')).resolves.toEqual({
+      statusCode: 401,
+      completedAuth: false,
+    });
+  });
+
+  it('is not fooled by a session cookie in token mode — the status alone decides', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(mockResponse({ status: 403, setCookie: ['dockhand_session=abc123; Path=/'] })),
+    );
+
+    await expect(attemptRawLogin('https://dockhand.example.com')).resolves.toEqual({
+      statusCode: 403,
+      completedAuth: false,
+    });
+  });
+
+  it('never surfaces the token value in the result', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse({ status: 200 })));
+
+    const result = await attemptRawLogin('https://dockhand.example.com');
+    expect(JSON.stringify(result)).not.toContain('sentinel-token-value');
   });
 });

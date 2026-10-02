@@ -1,6 +1,15 @@
 /**
- * Session-based cookie authentication for Dockhand.
- * Handles login, cookie storage, auto-relogin on 401, and session timeout.
+ * Authentication for Dockhand — two modes:
+ *
+ *   1. **API token** — when `config.apiToken` is set (env `DOCKHAND_API_TOKEN`),
+ *      every request carries `Authorization: Bearer <token>`. No login, no
+ *      cookie, no relogin. The only mode that works against an MFA-protected
+ *      account, and the right one for headless / MCP / CI use.
+ *   2. **Session cookie** — the fallback when only username + password are set.
+ *      Logs in to /api/auth/login, caches the cookie, re-logs in on expiry.
+ *
+ * `DOCKHAND_API_TOKEN` unset ⇒ behaviour is exactly as it was before token mode
+ * existed.
  */
 
 import type { DockhandConfig, SessionInfo } from '../types/dockhand.js';
@@ -16,12 +25,28 @@ export class SessionManager {
 
   constructor(config: DockhandConfig) {
     this.config = config;
+    // Fail at construction rather than on the first request: without this, a
+    // half-configured deployment starts, serves /mcp, and every tool call dies
+    // with the same login error.
+    if (!config.apiToken && (!config.username || !config.password)) {
+      throw new Error(
+        'Dockhand auth requires either DOCKHAND_API_TOKEN or both DOCKHAND_USERNAME + DOCKHAND_PASSWORD',
+      );
+    }
+  }
+
+  private isTokenMode(): boolean {
+    return typeof this.config.apiToken === 'string' && this.config.apiToken.length > 0;
   }
 
   /**
-   * Login to Dockhand and store the session cookie.
+   * Login to Dockhand and store the session cookie. No-op in token mode.
    */
   async login(): Promise<void> {
+    if (this.isTokenMode()) {
+      return;
+    }
+
     // Prevent concurrent login attempts
     if (this.loginPromise) {
       return this.loginPromise;
@@ -167,9 +192,32 @@ export class SessionManager {
   }
 
   /**
-   * Get the current session cookie, logging in if needed.
+   * The auth header(s) to attach to a request — `{ Authorization: 'Bearer …' }`
+   * in token mode, `{ Cookie: '…' }` in session mode (logging in first if the
+   * cached session is missing or expired). This is what request paths should
+   * use; it is the only accessor valid in both modes.
+   */
+  async getAuthHeaders(): Promise<Record<string, string>> {
+    if (this.isTokenMode()) {
+      return { Authorization: `Bearer ${this.config.apiToken}` };
+    }
+    if (!this.session || Date.now() >= this.session.expiresAt) {
+      await this.login();
+    }
+    return { Cookie: this.session!.cookie };
+  }
+
+  /**
+   * Get the raw session cookie. Session mode only — a caller that has a cookie
+   * in hand cannot be authenticating with a bearer token, so in token mode this
+   * throws rather than returning something meaningless.
+   *
+   * @deprecated Use {@link getAuthHeaders} — it is correct in both modes.
    */
   async getCookie(): Promise<string> {
+    if (this.isTokenMode()) {
+      throw new Error('getCookie() is invalid in API-token mode — use getAuthHeaders() instead');
+    }
     if (!this.session || Date.now() >= this.session.expiresAt) {
       await this.login();
     }
@@ -178,16 +226,25 @@ export class SessionManager {
 
   /**
    * Invalidate current session (triggers re-login on next request).
+   * No-op in token mode — there is no session to clear, and the 401 retry path
+   * calls this unconditionally.
    */
   invalidate(): void {
+    if (this.isTokenMode()) {
+      return;
+    }
     this.session = null;
     log().info({ component: 'session' }, 'session invalidated, will re-login on next request');
   }
 
   /**
-   * Check if we have an active session.
+   * Check if we have an active session. Always true in token mode: the token is
+   * presented per request, so there is no session state to expire.
    */
   isAuthenticated(): boolean {
+    if (this.isTokenMode()) {
+      return true;
+    }
     return this.session !== null && Date.now() < this.session.expiresAt;
   }
 }

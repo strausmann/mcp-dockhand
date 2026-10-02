@@ -150,10 +150,10 @@ export class DockhandClient {
    */
   async postSSE(path: string, body?: unknown, params?: Record<string, string | number | undefined>): Promise<SSEResult> {
     const url = this.buildUrl(path, params);
-    const cookie = await this.session.getCookie();
+    const authHeaders = await this.session.getAuthHeaders();
 
     const headers: Record<string, string> = {
-      'Cookie': cookie,
+      ...authHeaders,
       'Accept': 'text/event-stream',
     };
 
@@ -173,9 +173,9 @@ export class DockhandClient {
       // This attempt's body is never read — cancel it so #215's proxy stream
       // still fires its (discarded-attempt) debug line instead of never firing.
       await response.body?.cancel();
-      // Retry once after re-login
-      const retryCookie = await this.session.getCookie();
-      headers['Cookie'] = retryCookie;
+      // Retry once after re-login — a no-op in token mode, where invalidate()
+      // is too, so the retry carries the same bearer token.
+      Object.assign(headers, await this.session.getAuthHeaders());
       const retryResponse = await this.loggedFetch('POST', url, {
         method: 'POST',
         headers,
@@ -193,10 +193,10 @@ export class DockhandClient {
    */
   async putSSE(path: string, body?: unknown, params?: Record<string, string | number | undefined>): Promise<SSEResult> {
     const url = this.buildUrl(path, params);
-    const cookie = await this.session.getCookie();
+    const authHeaders = await this.session.getAuthHeaders();
 
     const headers: Record<string, string> = {
-      'Cookie': cookie,
+      ...authHeaders,
       'Accept': 'text/event-stream',
       'Content-Type': 'application/json',
     };
@@ -213,8 +213,7 @@ export class DockhandClient {
       // See postSSE() above: cancel this attempt's unread body so its #215
       // debug line still fires.
       await response.body?.cancel();
-      const retryCookie = await this.session.getCookie();
-      headers['Cookie'] = retryCookie;
+      Object.assign(headers, await this.session.getAuthHeaders());
       const retryResponse = await this.loggedFetch('PUT', url, {
         method: 'PUT',
         headers,
@@ -462,8 +461,8 @@ export class DockhandClient {
     body?: FormData | Buffer | string,
     extraHeaders?: Record<string, string>,
   ): Promise<Response> {
-    const cookie = await this.session.getCookie();
-    const headers: Record<string, string> = { 'Cookie': cookie, ...extraHeaders };
+    const authHeaders = await this.session.getAuthHeaders();
+    const headers: Record<string, string> = { ...authHeaders, ...extraHeaders };
 
     let response = await this.loggedFetch(method, url, { method, headers, body });
 
@@ -472,8 +471,7 @@ export class DockhandClient {
       // See postSSE() above: cancel this attempt's unread body so its #215
       // debug line still fires.
       await response.body?.cancel();
-      const retryCookie = await this.session.getCookie();
-      headers['Cookie'] = retryCookie;
+      Object.assign(headers, await this.session.getAuthHeaders());
       response = await this.loggedFetch(method, url, { method, headers, body });
     }
 
@@ -495,10 +493,10 @@ export class DockhandClient {
   }
 
   private async request<T>(method: string, url: string, body?: unknown): Promise<T> {
-    const cookie = await this.session.getCookie();
+    const authHeaders = await this.session.getAuthHeaders();
 
     const headers: Record<string, string> = {
-      'Cookie': cookie,
+      ...authHeaders,
       'Accept': 'application/json',
     };
 
@@ -512,14 +510,13 @@ export class DockhandClient {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
-    // Auto-relogin on 401
+    // Auto-relogin on 401 — a no-op in token mode, where invalidate() is too.
     if (response.status === 401) {
       this.session.invalidate();
       // See postSSE() above: cancel this attempt's unread body so its #215
       // debug line still fires.
       await response.body?.cancel();
-      const retryCookie = await this.session.getCookie();
-      headers['Cookie'] = retryCookie;
+      Object.assign(headers, await this.session.getAuthHeaders());
       response = await this.loggedFetch(method, url, {
         method,
         headers,

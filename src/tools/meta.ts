@@ -359,16 +359,27 @@ export async function runSelfCheck(deps: {
 }
 
 /**
- * Required environment variables this server needs to talk to Dockhand.
- * Presence-only — the values themselves are never read into any output.
+ * Environment variables this server reads to talk to Dockhand. Presence-only —
+ * the values themselves are never read into any output.
+ *
+ * `DOCKHAND_URL` is required in both auth modes. The credential variables are
+ * mode-dependent and are reported individually rather than as a single verdict,
+ * so a caller can see exactly which half of a session pair is missing: either
+ * `DOCKHAND_API_TOKEN` alone, or `DOCKHAND_USERNAME` + `DOCKHAND_PASSWORD`.
  */
-const REQUIRED_ENV_KEYS = ['DOCKHAND_URL', 'DOCKHAND_USERNAME', 'DOCKHAND_PASSWORD'] as const;
+const REQUIRED_ENV_KEYS = [
+  'DOCKHAND_URL',
+  'DOCKHAND_USERNAME',
+  'DOCKHAND_PASSWORD',
+  'DOCKHAND_API_TOKEN',
+] as const;
 
 export interface ConfigValidation {
   requiredEnvPresent: {
     DOCKHAND_URL: boolean;
     DOCKHAND_USERNAME: boolean;
     DOCKHAND_PASSWORD: boolean;
+    DOCKHAND_API_TOKEN: boolean;
   };
   credentialsValid: boolean;
   statusCode: number | null;
@@ -407,13 +418,20 @@ export interface ConfigValidation {
 export async function validateConfig(deps: {
   attemptLogin: () => Promise<LoginProbeResult>;
 }): Promise<ConfigValidation> {
-  const requiredEnvPresent = {
-    DOCKHAND_URL: !!process.env.DOCKHAND_URL,
-    DOCKHAND_USERNAME: !!process.env.DOCKHAND_USERNAME,
-    DOCKHAND_PASSWORD: !!process.env.DOCKHAND_PASSWORD,
-  };
+  // Built from REQUIRED_ENV_KEYS rather than restated, so the reported set and
+  // the declared set cannot drift apart.
+  const requiredEnvPresent = Object.fromEntries(
+    REQUIRED_ENV_KEYS.map((key) => [key, !!process.env[key]]),
+  ) as ConfigValidation['requiredEnvPresent'];
 
-  const allPresent = REQUIRED_ENV_KEYS.every((key) => requiredEnvPresent[key]);
+  // A URL plus EITHER credential shape. Token mode is not a degraded session
+  // mode — it is the only one that completes against an MFA-protected account —
+  // so a deployment that supplies only a token is complete, not half-configured.
+  // Requiring the session pair unconditionally would report every token-only
+  // deployment as invalid.
+  const tokenMode = requiredEnvPresent.DOCKHAND_API_TOKEN;
+  const sessionMode = requiredEnvPresent.DOCKHAND_USERNAME && requiredEnvPresent.DOCKHAND_PASSWORD;
+  const allPresent = requiredEnvPresent.DOCKHAND_URL && (tokenMode || sessionMode);
   if (!allPresent) {
     return { requiredEnvPresent, credentialsValid: false, statusCode: null };
   }
@@ -630,6 +648,30 @@ function hasNamedCookie(setCookieHeaders: readonly string[], name: string): bool
 }
 
 export async function attemptRawLogin(baseUrl: string): Promise<LoginProbeResult> {
+  // Token mode: there is no login to attempt. A bearer token is presented on
+  // every request and either authenticates or it does not, so probing
+  // /api/auth/login here would send credentials that are absent and report a
+  // failure for a deployment that is in fact correctly configured.
+  //
+  // The probe is therefore one authenticated GET. /api/auth/tokens is the right
+  // target: the pinned spec marks it SECURED, and its summary guarantees it
+  // "never returns the hash/secret" — so a successful probe cannot pull
+  // credentials into this process. The token is sent as a header and is never
+  // logged (loggedProbe records method/route/status only).
+  const apiToken = process.env['DOCKHAND_API_TOKEN'];
+  if (apiToken) {
+    const response = await loggedProbe('GET', '/api/auth', () =>
+      fetch(`${baseUrl}/api/auth/tokens`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${apiToken}`, Accept: 'application/json' },
+        redirect: 'manual',
+      }),
+    );
+    // No requiresMfa / session-cookie subtlety exists in this mode: Dockhand
+    // either accepts the token or it does not.
+    return { statusCode: response.status, completedAuth: response.status === 200 };
+  }
+
   const response = await loggedProbe('POST', '/api/auth', () =>
     fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
