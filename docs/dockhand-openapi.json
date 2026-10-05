@@ -2305,6 +2305,214 @@
         "security": []
       }
     },
+    "/api/auth/passkeys/login/options": {
+      "post": {
+        "operationId": "post_api_auth_passkeys_login_options",
+        "tags": [
+          "auth"
+        ],
+        "summary": "Begin signing in with a passkey",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Request options and the ceremony id"
+          },
+          "400": {
+            "description": "Authentication is not enabled"
+          },
+          "403": {
+            "description": "Request origin does not match the configured ORIGIN"
+          },
+          "503": {
+            "description": "Passkeys are not configured (ORIGIN missing or not HTTPS)"
+          }
+        },
+        "security": [],
+        "description": "Returns the WebAuthn request options and a ceremony id to send back to the verify endpoint. Reachable without a session, since it runs before sign-in. The ceremony is single-use and expires after five minutes."
+      }
+    },
+    "/api/auth/passkeys/login/verify": {
+      "post": {
+        "operationId": "post_api_auth_passkeys_login_verify",
+        "tags": [
+          "auth"
+        ],
+        "summary": "Finish signing in with a passkey",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Sign-in succeeded and the session cookie was set"
+          },
+          "400": {
+            "description": "Authentication is not enabled, the body is malformed, or the ceremony expired"
+          },
+          "401": {
+            "description": "Passkey authentication failed"
+          },
+          "403": {
+            "description": "Request origin does not match the configured ORIGIN"
+          },
+          "503": {
+            "description": "Passkeys are not configured (ORIGIN missing or not HTTPS)"
+          }
+        },
+        "security": [],
+        "description": "Verifies the authenticator's assertion and, on success, issues the session cookie. A passkey requires user verification, so it is accepted as the whole interactive sign-in without a separate second factor.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ceremonyId": {
+                    "type": "string"
+                  },
+                  "response": {
+                    "type": "object",
+                    "properties": {}
+                  }
+                },
+                "required": [
+                  "ceremonyId",
+                  "response"
+                ]
+              },
+              "example": {
+                "ceremonyId": "string",
+                "response": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/passkeys/register/options": {
+      "post": {
+        "operationId": "post_api_auth_passkeys_register_options",
+        "tags": [
+          "auth"
+        ],
+        "summary": "Begin registering a passkey for the signed-in user",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Creation options and the ceremony id"
+          },
+          "400": {
+            "description": "Authentication is not enabled, or the name is missing or too long"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Request origin does not match the configured ORIGIN"
+          },
+          "409": {
+            "description": "A passkey with this name already exists for the user"
+          },
+          "503": {
+            "description": "Passkeys are not configured (ORIGIN missing or not HTTPS)"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Returns the WebAuthn creation options and a ceremony id to send back to the verify endpoint. Requires a session, since registering acts on the current account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              },
+              "example": {
+                "name": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/passkeys/register/verify": {
+      "post": {
+        "operationId": "post_api_auth_passkeys_register_verify",
+        "tags": [
+          "auth"
+        ],
+        "summary": "Finish registering a passkey",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The passkey was registered"
+          },
+          "400": {
+            "description": "Authentication is not enabled, the ceremony expired, or verification failed"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Request origin does not match the configured ORIGIN"
+          },
+          "409": {
+            "description": "This passkey is already registered"
+          },
+          "503": {
+            "description": "Passkeys are not configured (ORIGIN missing or not HTTPS)"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Verifies the attestation and stores the credential against the signed-in user, along with the AAGUID identifying the authenticator model.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ceremonyId": {
+                    "type": "string"
+                  },
+                  "response": {
+                    "type": "object",
+                    "properties": {}
+                  }
+                },
+                "required": [
+                  "ceremonyId",
+                  "response"
+                ]
+              },
+              "example": {
+                "ceremonyId": "string",
+                "response": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/providers": {
       "get": {
         "operationId": "get_api_auth_providers",
@@ -6720,6 +6928,24 @@
                     },
                     "imagePulled": {
                       "type": "boolean"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "message"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -6730,7 +6956,13 @@
                 "example": {
                   "success": true,
                   "id": "string",
-                  "imagePulled": true
+                  "imagePulled": true,
+                  "warnings": [
+                    {
+                      "status": "string",
+                      "message": "string"
+                    }
+                  ]
                 }
               }
             }
@@ -9290,6 +9522,24 @@
                     },
                     "id": {
                       "type": "string"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "message"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -9698,6 +9948,24 @@
                           },
                           "error": {
                             "type": "string"
+                          },
+                          "warnings": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string"
+                                },
+                                "message": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "status",
+                                "message"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -9740,7 +10008,13 @@
                       "containerId": "string",
                       "containerName": "string",
                       "success": true,
-                      "error": "string"
+                      "error": "string",
+                      "warnings": [
+                        {
+                          "status": "string",
+                          "message": "string"
+                        }
+                      ]
                     }
                   ],
                   "summary": {
@@ -10028,6 +10302,9 @@
                     "environmentId": {
                       "type": "integer"
                     },
+                    "minimumReleaseAgeHours": {
+                      "type": "integer"
+                    },
                     "pendingUpdates": {
                       "type": "array",
                       "items": {
@@ -10051,6 +10328,9 @@
                           "newerVersion": {
                             "type": "object",
                             "properties": {}
+                          },
+                          "releaseAgeRemainingHours": {
+                            "type": "integer"
                           }
                         },
                         "required": [
@@ -10065,11 +10345,13 @@
                   },
                   "required": [
                     "environmentId",
+                    "minimumReleaseAgeHours",
                     "pendingUpdates"
                   ]
                 },
                 "example": {
                   "environmentId": 0,
+                  "minimumReleaseAgeHours": 0,
                   "pendingUpdates": [
                     {
                       "containerId": "string",
@@ -10077,7 +10359,8 @@
                       "currentImage": "string",
                       "checkedAt": "string",
                       "hasImageUpdate": true,
-                      "newerVersion": {}
+                      "newerVersion": {},
+                      "releaseAgeRemainingHours": 0
                     }
                   ]
                 }
@@ -12785,13 +13068,25 @@
                         },
                         "vulnerabilityCriteria": {
                           "type": "string"
+                        },
+                        "minimumReleaseAgeHours": {
+                          "type": "number"
+                        },
+                        "minimumReleaseAgeOverride": {
+                          "type": "boolean"
+                        },
+                        "minimumReleaseAgeOverridden": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "enabled",
                         "cron",
                         "autoUpdate",
-                        "vulnerabilityCriteria"
+                        "vulnerabilityCriteria",
+                        "minimumReleaseAgeHours",
+                        "minimumReleaseAgeOverride",
+                        "minimumReleaseAgeOverridden"
                       ]
                     }
                   },
@@ -12871,13 +13166,25 @@
                         },
                         "vulnerabilityCriteria": {
                           "type": "string"
+                        },
+                        "minimumReleaseAgeHours": {
+                          "type": "number"
+                        },
+                        "minimumReleaseAgeOverride": {
+                          "type": "boolean"
+                        },
+                        "minimumReleaseAgeOverridden": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "enabled",
                         "cron",
                         "autoUpdate",
-                        "vulnerabilityCriteria"
+                        "vulnerabilityCriteria",
+                        "minimumReleaseAgeHours",
+                        "minimumReleaseAgeOverride",
+                        "minimumReleaseAgeOverridden"
                       ]
                     }
                   },
@@ -12892,11 +13199,17 @@
                     "enabled": true,
                     "cron": "string",
                     "autoUpdate": true,
-                    "vulnerabilityCriteria": "string"
+                    "vulnerabilityCriteria": "string",
+                    "minimumReleaseAgeHours": 0,
+                    "minimumReleaseAgeOverride": true,
+                    "minimumReleaseAgeOverridden": true
                   }
                 }
               }
             }
+          },
+          "400": {
+            "description": "Minimum image age must be a whole number from 0 to 720 hours"
           },
           "403": {
             "description": "Permission denied (RBAC 'environments:edit' missing)"
@@ -12934,6 +13247,12 @@
                   },
                   "vulnerabilityCriteria": {
                     "type": "string"
+                  },
+                  "minimumReleaseAgeHours": {
+                    "type": "number"
+                  },
+                  "minimumReleaseAgeOverride": {
+                    "type": "boolean"
                   }
                 }
               },
@@ -21003,6 +21322,76 @@
         ]
       }
     },
+    "/api/profile/passkeys": {
+      "get": {
+        "operationId": "get_api_profile_passkeys",
+        "tags": [
+          "profile"
+        ],
+        "summary": "List the signed-in user's passkeys",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The user's registered passkeys"
+          },
+          "400": {
+            "description": "Authentication is not enabled"
+          },
+          "401": {
+            "description": "Not authenticated"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Names and metadata only; no credential material is returned."
+      }
+    },
+    "/api/profile/passkeys/{id}": {
+      "delete": {
+        "operationId": "delete_api_profile_passkeys_id",
+        "tags": [
+          "profile"
+        ],
+        "summary": "Remove one of the signed-in user's passkeys",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Path parameter \"id\" (auto-detected from the handler's source - no @openapi annotation for this parameter yet)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The passkey was removed"
+          },
+          "400": {
+            "description": "Authentication is not enabled, or the id is not a number"
+          },
+          "404": {
+            "description": "No such passkey for this user"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Scoped to the caller's own credentials, so another user's id yields a 404. The shared guard in this file answers first and may instead return 401 when there is no session, 403 on an origin mismatch, or 503 when passkeys are not configured."
+      }
+    },
     "/api/profile/preferences": {
       "get": {
         "operationId": "get_api_profile_preferences",
@@ -25033,6 +25422,134 @@
         }
       }
     },
+    "/api/settings/minimum-release-age": {
+      "get": {
+        "operationId": "get_api_settings_minimum-release-age",
+        "tags": [
+          "settings"
+        ],
+        "summary": "Get the minimum image age in hours (creation time, with first-observed fallback)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hours": {
+                      "type": "number"
+                    },
+                    "overridden": {
+                      "type": "boolean"
+                    },
+                    "inherited": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "hours",
+                    "overridden",
+                    "inherited"
+                  ]
+                },
+                "example": {
+                  "hours": 0,
+                  "overridden": true,
+                  "inherited": true
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied (needs settings:view)"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "post_api_settings_minimum-release-age",
+        "tags": [
+          "settings"
+        ],
+        "summary": "Set the minimum image age in hours (creation time, with first-observed fallback)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hours": {
+                      "type": "number"
+                    },
+                    "overridden": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "hours",
+                    "overridden"
+                  ]
+                },
+                "example": {
+                  "hours": 0,
+                  "overridden": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Hours must be a whole number from 0 to 720"
+          },
+          "403": {
+            "description": "Permission denied (needs settings:edit)"
+          },
+          "409": {
+            "description": "MINIMUM_RELEASE_AGE_HOURS overrides this setting"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hours": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "hours"
+                ]
+              },
+              "example": {
+                "hours": 0
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/navigation": {
       "get": {
         "operationId": "get_api_settings_navigation",
@@ -25341,7 +25858,7 @@
               "example": {
                 "scanner": "grype",
                 "grypeArgs": "-o json -v {image}",
-                "trivyArgs": "image --format json {image}",
+                "trivyArgs": "image --scanners vuln --format json {image}",
                 "envId": 1
               }
             }
@@ -28550,10 +29067,13 @@
             }
           },
           "400": {
-            "description": "Stack name is required"
+            "description": "Stack name is required or environment ID is invalid"
           },
           "401": {
             "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Permission denied (requires stacks:edit and environment access)"
           },
           "500": {
             "description": "Failed to get path hints"
