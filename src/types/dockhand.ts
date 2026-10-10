@@ -4,8 +4,16 @@
 
 export interface DockhandConfig {
   url: string;
-  username: string;
-  password: string;
+  /**
+   * Personal API token (`dh_…`) sent as `Authorization: Bearer`. When set,
+   * session login is skipped entirely — `username`/`password` are not required.
+   * Dockhand v1.0.25+ issues these under /api/auth/tokens.
+   */
+  apiToken?: string;
+  /** Session mode only; required when `apiToken` is unset. */
+  username?: string;
+  /** Session mode only; required when `apiToken` is unset. */
+  password?: string;
 }
 
 export interface SessionInfo {
