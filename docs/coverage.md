@@ -4,25 +4,63 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-openapi.json` (via `deriveRoutesFromOpenapi()`).
 
-**Erzeugt:** 2026-10-04T11:41:47.694Z
-**Dockhand-Upstream-Commit:** `9280f13c42adbdfb04395221930f3d7c589d98a2`
-**Schema-Endpunkte gesamt:** 272
+**Erzeugt:** 2026-10-12T06:38:46.941Z
+**Dockhand-Upstream-Commit:** `5c03936f8a96b20caddf58e77912585273962032`
+**Schema-Endpunkte gesamt:** 282
 
 ## Coverage
 
-**100.0%** (371/371 in-Scope-Endpunkte haben ein MCP-Tool)
+**96.9%** (371/383 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
 | COVERED | 371 |
-| MISSING_TOOL | 0 |
+| MISSING_TOOL | 12 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 22 |
 
-## MISSING_TOOL
+## MISSING_TOOL — nach Bereich
 
-Keine — alle in-Scope-Endpunkte haben ein MCP-Tool.
+Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
+ersten Pfad-Segment nach `/api/`:
+
+### auth (4)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| POST | `/api/auth/passkeys/login/options` | - |
+| POST | `/api/auth/passkeys/login/verify` | - |
+| POST | `/api/auth/passkeys/register/options` | - |
+| POST | `/api/auth/passkeys/register/verify` | - |
+
+### environments (3)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/environments/{id}/report` | id |
+| POST | `/api/environments/{id}/report` | id |
+| GET | `/api/environments/report` | - |
+
+### profile (2)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/profile/passkeys` | - |
+| DELETE | `/api/profile/passkeys/{id}` | id |
+
+### settings (2)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/settings/minimum-release-age` | - |
+| POST | `/api/settings/minimum-release-age` | - |
+
+### stack-stats (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/stack-stats` | - |
 
 ## Deliberately omitted (with reason)
 
