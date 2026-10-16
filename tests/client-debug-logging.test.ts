@@ -51,9 +51,12 @@ describe('client debug logging', () => {
       username: 'svc',
       password: 'pw',
     });
-    // The session manager would try to log in first; hand it a cookie.
+    // The session manager would try to log in first; hand it a session cookie.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (instance as any).session = { getCookie: async () => 'session=x', invalidate: () => {} };
+    (instance as any).session = {
+      getAuthHeaders: async () => ({ Cookie: 'session=x' }),
+      invalidate: () => {},
+    };
     return instance;
   }
 

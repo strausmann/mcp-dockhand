@@ -33,6 +33,10 @@ docker run -d \
   ghcr.io/strausmann/mcp-dockhand:latest
 ```
 
+Optionally, replace the `DOCKHAND_USERNAME`/`DOCKHAND_PASSWORD` pair with
+`-e DOCKHAND_API_TOKEN=dh_your-api-token` to authenticate with a personal API
+token instead — see [Authentication](#authentication).
+
 ### Docker Compose
 
 ```yaml
@@ -47,6 +51,8 @@ services:
       - DOCKHAND_URL=https://your-dockhand-server.com
       - DOCKHAND_USERNAME=your-username
       - DOCKHAND_PASSWORD=your-password
+      # Optional: use a personal API token instead of the pair above.
+      #- DOCKHAND_API_TOKEN=dh_your-api-token
 ```
 
 ### From Source
@@ -59,6 +65,9 @@ npm run build
 DOCKHAND_URL=https://your-server.com DOCKHAND_USERNAME=admin DOCKHAND_PASSWORD=secret npm start
 ```
 
+(Or, in place of the credential pair, `DOCKHAND_API_TOKEN=dh_your-api-token` — see
+[Authentication](#authentication).)
+
 ## Configuration
 
 | Variable | Required | Default | Description |
@@ -66,6 +75,7 @@ DOCKHAND_URL=https://your-server.com DOCKHAND_USERNAME=admin DOCKHAND_PASSWORD=s
 | `DOCKHAND_URL` | Yes | - | Dockhand server URL |
 | `DOCKHAND_USERNAME` | Yes | - | Dockhand username |
 | `DOCKHAND_PASSWORD` | Yes | - | Dockhand password |
+| `DOCKHAND_API_TOKEN` | No | - | Optional alternative to the username/password pair: a personal API token (`dh_…`) sent as `Authorization: Bearer`. When set, `DOCKHAND_USERNAME`/`DOCKHAND_PASSWORD` are not required. |
 | `MCP_PORT` | No | `8080` | Port for the MCP server |
 | `MCP_SESSION_TTL_SECONDS` | No | `1800` | Inactivity timeout before a retained MCP session is expired |
 | `MCP_SESSION_CLEANUP_INTERVAL_SECONDS` | No | `300` | Interval for removing expired sessions (clamped to the session TTL) |
@@ -555,7 +565,7 @@ them wrap a single Dockhand endpoint the way the tables above do (`get_tool_mani
 | `check_for_update` | Compares this server's running version against the latest GitHub release (TTL-cached) |
 | `get_tool_manifest` | Lists every registered tool with its Dockhand `{method, path}`, plus the pinned Dockhand OpenAPI commit/version this server's tools were generated against |
 | `self_check` | End-to-end diagnostic: Dockhand reachability, credential validity, and a live, per-environment reachability check (`POST /api/environments/{id}/test`, run in parallel with a 5s per-environment timeout) plus Hawser-agent-connected status, in one call |
-| `validate_config` | Checks that the required `DOCKHAND_URL`/`DOCKHAND_USERNAME`/`DOCKHAND_PASSWORD` env vars are present and that they authenticate successfully |
+| `validate_config` | Checks that `DOCKHAND_URL` and a complete credential set are present — `DOCKHAND_API_TOKEN`, or `DOCKHAND_USERNAME` + `DOCKHAND_PASSWORD` — and that they authenticate successfully |
 | `get_runtime_stats` | In-process counters for this server: total/per-tool call and error counts, uptime, and the last error's tool/message/timestamp |
 
 **Notes:**
@@ -607,11 +617,24 @@ Deploy operations (start, stop, down, restart, compose update with restart) retu
 
 ### Authentication
 
-The server uses session-based cookie authentication. It automatically:
+The server normally authenticates with `DOCKHAND_USERNAME` + `DOCKHAND_PASSWORD`
+and a session cookie. It automatically:
 - Logs in on first request
 - Stores the session cookie in memory
 - Re-authenticates on 401 responses
 - Handles session timeout (24h)
+
+Optionally, set `DOCKHAND_API_TOKEN` to a personal API token instead — create one
+in the Dockhand UI under `/api/auth/tokens` (Dockhand v1.0.25+). Every request
+then carries `Authorization: Bearer <token>`: no login round-trip, no session
+cookie to expire, and no re-login on 401. The token also works against an account
+with MFA enabled, where the session login above cannot complete a TOTP challenge
+non-interactively.
+
+When `DOCKHAND_API_TOKEN` is set it is used and the username/password pair is
+ignored, so the pair is not required alongside it. With neither the token nor a
+complete credential pair, the server exits at startup rather than failing every
+tool call later.
 
 ### Troubleshooting
 

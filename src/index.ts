@@ -46,12 +46,22 @@ function getEnvOrThrow(name: string): string {
   return value;
 }
 
+// DOCKHAND_API_TOKEN selects token auth and makes the username/password pair
+// unnecessary. Only one mode is read: a set token wins, and the session
+// variables are then not even required to be present.
+const apiToken = process.env['DOCKHAND_API_TOKEN'];
+
 const config = {
-  dockhand: {
-    url: getEnvOrThrow('DOCKHAND_URL'),
-    username: getEnvOrThrow('DOCKHAND_USERNAME'),
-    password: getEnvOrThrow('DOCKHAND_PASSWORD'),
-  },
+  dockhand: apiToken
+    ? {
+        url: getEnvOrThrow('DOCKHAND_URL'),
+        apiToken,
+      }
+    : {
+        url: getEnvOrThrow('DOCKHAND_URL'),
+        username: getEnvOrThrow('DOCKHAND_USERNAME'),
+        password: getEnvOrThrow('DOCKHAND_PASSWORD'),
+      },
   port: parseInt(process.env['MCP_PORT'] ?? '8080', 10),
   host: process.env['MCP_HOST'] || '0.0.0.0',
 };
@@ -60,6 +70,9 @@ logger.info(
   {
     component: 'config',
     dockhandUrl: config.dockhand.url,
+    // The mode, not the credential: username is absent in token mode, and the
+    // token value itself must never reach the log.
+    auth: apiToken ? 'api-token' : 'session',
     dockhandUser: config.dockhand.username,
     port: config.port,
   },

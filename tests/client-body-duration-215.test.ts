@@ -130,7 +130,10 @@ describe('loggedFetch body-inclusive duration + real bytes (#215)', () => {
       password: 'pw',
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (instance as any).session = { getCookie: async () => 'session=x', invalidate: () => {} };
+    (instance as any).session = {
+      getAuthHeaders: async () => ({ Cookie: 'session=x' }),
+      invalidate: () => {},
+    };
     return instance;
   }
 

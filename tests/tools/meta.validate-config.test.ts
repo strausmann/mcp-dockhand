@@ -1,7 +1,12 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { validateConfig } from '../../src/tools/meta.js';
 
-const ENV_KEYS = ['DOCKHAND_URL', 'DOCKHAND_USERNAME', 'DOCKHAND_PASSWORD'] as const;
+const ENV_KEYS = [
+  'DOCKHAND_URL',
+  'DOCKHAND_USERNAME',
+  'DOCKHAND_PASSWORD',
+  'DOCKHAND_API_TOKEN',
+] as const;
 
 describe('validateConfig', () => {
   const originalEnv: Record<string, string | undefined> = {};
@@ -33,6 +38,7 @@ describe('validateConfig', () => {
         DOCKHAND_URL: true,
         DOCKHAND_USERNAME: true,
         DOCKHAND_PASSWORD: true,
+        DOCKHAND_API_TOKEN: false,
       },
       credentialsValid: true,
       statusCode: 200,
@@ -56,6 +62,7 @@ describe('validateConfig', () => {
       DOCKHAND_URL: true,
       DOCKHAND_USERNAME: true,
       DOCKHAND_PASSWORD: false,
+      DOCKHAND_API_TOKEN: false,
     });
     expect(loginCalled).toBe(false);
     expect(result.credentialsValid).toBe(false);
@@ -119,5 +126,61 @@ describe('validateConfig', () => {
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain('sentinel-username-value');
     expect(serialized).not.toContain('sentinel-password-value');
+  });
+
+  it('treats a token-only configuration as complete and runs the probe', async () => {
+    process.env.DOCKHAND_URL = 'https://dock.example.test';
+    delete process.env.DOCKHAND_USERNAME;
+    delete process.env.DOCKHAND_PASSWORD;
+    process.env.DOCKHAND_API_TOKEN = 'dh_sentinel-token-value';
+
+    let loginCalled = false;
+    const result = await validateConfig({
+      attemptLogin: async () => {
+        loginCalled = true;
+        return { statusCode: 200, completedAuth: true };
+      },
+    });
+
+    expect(loginCalled).toBe(true);
+    expect(result.credentialsValid).toBe(true);
+    expect(result.requiredEnvPresent).toEqual({
+      DOCKHAND_URL: true,
+      DOCKHAND_USERNAME: false,
+      DOCKHAND_PASSWORD: false,
+      DOCKHAND_API_TOKEN: true,
+    });
+  });
+
+  it('does not attempt a probe when a token is set but DOCKHAND_URL is missing', async () => {
+    delete process.env.DOCKHAND_URL;
+    delete process.env.DOCKHAND_USERNAME;
+    delete process.env.DOCKHAND_PASSWORD;
+    process.env.DOCKHAND_API_TOKEN = 'dh_sentinel-token-value';
+
+    let loginCalled = false;
+    const result = await validateConfig({
+      attemptLogin: async () => {
+        loginCalled = true;
+        return { statusCode: 200, completedAuth: true };
+      },
+    });
+
+    expect(loginCalled).toBe(false);
+    expect(result.credentialsValid).toBe(false);
+    expect(result.statusCode).toBeNull();
+  });
+
+  it('never includes the token value in the result — secret-safe by construction', async () => {
+    process.env.DOCKHAND_URL = 'https://dock.example.test';
+    delete process.env.DOCKHAND_USERNAME;
+    delete process.env.DOCKHAND_PASSWORD;
+    process.env.DOCKHAND_API_TOKEN = 'dh_sentinel-token-value';
+
+    const result = await validateConfig({
+      attemptLogin: async () => ({ statusCode: 200, completedAuth: true }),
+    });
+
+    expect(JSON.stringify(result)).not.toContain('sentinel-token-value');
   });
 });
