@@ -85,20 +85,6 @@
   },
   {
     "method": "GET",
-    "path": "/api/jobs/{id}",
-    "reason": "Interne Job-Verwaltung (Dockhand-eigene Hintergrundprozesse), nicht für MCP-Nutzer gedacht.",
-    "adr": "docs/adr/0001-omission-registry.md",
-    "date": "2026-08-10"
-  },
-  {
-    "method": "DELETE",
-    "path": "/api/jobs/{id}",
-    "reason": "Interne Job-Verwaltung (Dockhand-eigene Hintergrundprozesse), nicht für MCP-Nutzer gedacht.",
-    "adr": "docs/adr/0001-omission-registry.md",
-    "date": "2026-08-10"
-  },
-  {
-    "method": "GET",
     "path": "/api/hawser/connect",
     "reason": "Hawser-Agent-WebSocket-Verbindungsaufbau (Node zu Dockhand), kein MCP-Anwendungsfall.",
     "adr": "docs/adr/0001-omission-registry.md",
