@@ -262,6 +262,61 @@ describe('runSelfCheck', () => {
     expect(result.environments[0]).toMatchObject({ tested: false });
   });
 
+  // Read-only mode (exhaustive audit, PR #318): POST /api/auth/login creates a session row,
+  // updates lastLogin and writes an audit entry, so the login probe is not run. Auth is
+  // judged from the authenticated GET /api/environments call instead.
+  it('read-only: never runs the login probe; a listed environment set means auth is valid', async () => {
+    let probed = 0;
+    const result = await runSelfCheck({
+      toolPolicy: { ...POLICY, readOnly: true },
+      readOnly: true,
+      probeHealth: async () => {},
+      probeAuth: async () => {
+        probed += 1;
+        return false;
+      },
+      listEnvironments: async () => [
+        { id: 1, name: 'production', reachable: false, hawserConnected: false, tested: false, skipReason: 'x' },
+      ],
+    });
+
+    expect(probed).toBe(0);
+    expect(result.authValid).toBe(true);
+    expect(result.authCheck).toBe('session');
+    expect(result.overall).toBe('ok');
+  });
+
+  it('read-only: a rejected environments call (e.g. 401) means auth is not valid', async () => {
+    let probed = 0;
+    const result = await runSelfCheck({
+      toolPolicy: { ...POLICY, readOnly: true },
+      readOnly: true,
+      probeHealth: async () => {},
+      probeAuth: async () => {
+        probed += 1;
+        return true;
+      },
+      listEnvironments: async () => {
+        throw new Error('Dockhand API error: GET /api/environments returned 401: Unauthorized');
+      },
+    });
+
+    expect(probed).toBe(0);
+    expect(result.authValid).toBe(false);
+    expect(result.authCheck).toBe('session');
+    expect(result.overall).toBe('degraded');
+  });
+
+  it('default: checks auth with the login probe', async () => {
+    const result = await runSelfCheck({
+      toolPolicy: POLICY,
+      probeHealth: async () => {},
+      probeAuth: async () => true,
+      listEnvironments: async () => [],
+    });
+    expect(result.authCheck).toBe('login-probe');
+  });
+
   it('default: asks listEnvironments to run connection tests', async () => {
     const seen: Array<{ testConnections: boolean }> = [];
     await runSelfCheck({

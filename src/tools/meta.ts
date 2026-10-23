@@ -256,6 +256,10 @@ export interface SelfCheckEnvironment {
 export interface SelfCheck {
   dockhandReachable: boolean;
   authValid: boolean;
+  /** How `authValid` was determined: `login-probe` is a fresh POST /api/auth/login;
+   * `session` (MCP_READ_ONLY) is the outcome of the authenticated GET /api/environments
+   * with the server's existing session or token, since the login probe writes upstream. */
+  authCheck: 'login-probe' | 'session';
   latencyMs: number;
   environments: SelfCheckEnvironment[];
   overall: 'ok' | 'degraded' | 'down';
@@ -317,7 +321,10 @@ export async function runSelfCheck(deps: {
   toolPolicy: ToolPolicySummary;
   /** MCP_READ_ONLY (issue #254): the per-environment connection test is a write upstream,
    * so `listEnvironments` is asked to skip it, and an untested environment (`tested:
-   * false`) does not degrade `overall`. Defaults to `false`. */
+   * false`) does not degrade `overall`. The login probe is a write upstream too (session
+   * row, lastLogin, audit entry), so `probeAuth` is not called: `authValid` is whether
+   * `listEnvironments` (an authenticated GET) succeeded. Any failure there, a 401/403 or
+   * otherwise, leaves auth unconfirmed and reports `false`. Defaults to `false`. */
   readOnly?: boolean;
   probeHealth: () => Promise<void>;
   probeAuth: () => Promise<boolean>;
@@ -330,6 +337,7 @@ export async function runSelfCheck(deps: {
 }): Promise<SelfCheck> {
   const now = deps.now ?? Date.now;
   const phaseTimeoutMs = deps.phaseTimeoutMs ?? SELF_CHECK_PHASE_TIMEOUT_MS;
+  const authCheck = deps.readOnly ? 'session' : 'login-probe';
   const start = now();
 
   try {
@@ -338,6 +346,7 @@ export async function runSelfCheck(deps: {
     return {
       dockhandReachable: false,
       authValid: false,
+      authCheck,
       latencyMs: now() - start,
       environments: [],
       overall: 'down',
@@ -345,11 +354,13 @@ export async function runSelfCheck(deps: {
     };
   }
 
-  let authValid: boolean;
-  try {
-    authValid = await withTimeout(deps.probeAuth(), phaseTimeoutMs);
-  } catch {
-    authValid = false;
+  let authValid = false;
+  if (!deps.readOnly) {
+    try {
+      authValid = await withTimeout(deps.probeAuth(), phaseTimeoutMs);
+    } catch {
+      authValid = false;
+    }
   }
 
   let environments: SelfCheckEnvironment[];
@@ -360,6 +371,7 @@ export async function runSelfCheck(deps: {
       phaseTimeoutMs,
     );
     environmentsOk = environments.every((env) => env.reachable || env.tested === false);
+    if (deps.readOnly) authValid = true;
   } catch {
     environments = [];
     environmentsOk = false;
@@ -368,6 +380,7 @@ export async function runSelfCheck(deps: {
   return {
     dockhandReachable: true,
     authValid,
+    authCheck,
     latencyMs: now() - start,
     environments,
     overall: authValid && environmentsOk ? 'ok' : 'degraded',
@@ -921,7 +934,9 @@ export async function probeRawHealth(baseUrl: string): Promise<void> {
  *       - `probeAuth`: `attemptRawLogin()` above, `.completedAuth` (**Fix round 2,
  *         Finding 3**: NOT a bare `status === 200` check — see `attemptRawLogin()`'s own
  *         doc comment for why a `200` alone is not sufficient, e.g. an MFA-pending
- *         login).
+ *         login). Not called under MCP_READ_ONLY: that POST is a write upstream, so
+ *         `authValid` then comes from `listEnvironments`' authenticated GET
+ *         (`authCheck: "session"`, see `runSelfCheck()`).
  *       - `listEnvironments`: `listSelfCheckEnvironments()` above — three calls, then
  *         `deriveEnvironmentStatuses()` above turns
  *         their results into `SelfCheckEnvironment[]` — see that function's own doc comment

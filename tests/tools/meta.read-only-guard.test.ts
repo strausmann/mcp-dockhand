@@ -4,8 +4,10 @@
  * a Dockhand write endpoint. The original design claimed "no meta tool posts" from a scan
  * of registerTool() bodies only; self_check's helper did POST /api/environments/{id}/test.
  *
- * This runs every META_TOOL_NAMES handler for real against a recording fake client, with
- * fetch() stubbed, and fails on any non-GET request that is not on NON_GET_ALLOWLIST.
+ * This runs every registered META_TOOL_NAMES handler for real against a recording fake
+ * client, with fetch() stubbed. Under MCP_READ_ONLY it fails on any non-GET request and on
+ * any request to a host other than Dockhand; with the default policy, on any non-GET
+ * request not on NON_GET_ALLOWLIST_DEFAULT_ONLY.
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { registerMetaTools } from '../../src/tools/meta.js';
@@ -23,22 +25,18 @@ import { logger } from '../../src/utils/logger.js';
 const BASE_URL = 'http://dockhand.test';
 
 /**
- * Non-GET requests a meta tool may make under MCP_READ_ONLY, with the reason.
- * The login probe (self_check, validate_config) POSTs /api/auth/login through fetch():
- * upstream that writes an audit entry and counts against the login rate limiter. Accepted
- * exception, see ADR-0003 — the server logs in the same way during normal operation.
- */
-const NON_GET_ALLOWLIST: Readonly<Record<string, readonly string[]>> = {
-  self_check: ['POST /api/auth/login'],
-  validate_config: ['POST /api/auth/login'],
-};
-
-/**
- * Additionally allowed only when read-only mode is OFF: self_check's per-environment
- * connection test is a write upstream and is skipped under MCP_READ_ONLY.
+ * Non-GET requests a meta tool may make with read-only mode OFF, with the reason. Under
+ * MCP_READ_ONLY no meta tool may make any (ADR-0003):
+ *   - the login probe (self_check, validate_config) POSTs /api/auth/login through fetch():
+ *     upstream that creates a session row, updates lastLogin and writes an audit entry.
+ *     self_check skips it under MCP_READ_ONLY; validate_config is write (WRITE_META_TOOLS)
+ *     and not registered there.
+ *   - self_check's per-environment connection test is a write upstream and is skipped
+ *     under MCP_READ_ONLY.
  */
 const NON_GET_ALLOWLIST_DEFAULT_ONLY: Readonly<Record<string, readonly string[]>> = {
-  self_check: ['POST /api/environments/1/test'],
+  self_check: ['POST /api/auth/login', 'POST /api/environments/1/test'],
+  validate_config: ['POST /api/auth/login'],
 };
 
 type Handler = (args: Record<string, never>) => Promise<{ isError?: boolean }>;
@@ -95,7 +93,7 @@ function nonGet(calls: readonly string[]): string[] {
   return calls.filter((c) => !c.startsWith('GET '));
 }
 
-describe('meta tools make no unlisted non-GET request', () => {
+describe('meta tools make no unlisted non-GET or outbound request', () => {
   beforeEach(() => {
     vi.spyOn(logger, 'info').mockImplementation(() => undefined);
     vi.spyOn(logger, 'debug').mockImplementation(() => undefined);
@@ -131,22 +129,24 @@ describe('meta tools make no unlisted non-GET request', () => {
     // check_for_update and validate_config are write (WRITE_META_TOOLS): not registered.
     expect([...byTool.keys()]).toEqual(META_TOOL_NAMES.filter((n) => !WRITE_META_TOOLS.includes(n)));
     for (const name of byTool.keys()) {
-      const unlisted = nonGet(byTool.get(name)!).filter((c) => !(NON_GET_ALLOWLIST[name] ?? []).includes(c));
-      expect(unlisted, name).toEqual([]);
+      expect(nonGet(byTool.get(name)!), name).toEqual([]);
+      // Outbound requests are recorded as "METHOD host/path", Dockhand ones as "METHOD /path".
+      expect(byTool.get(name)!.filter((c) => !c.split(' ')[1].startsWith('/')), name).toEqual([]);
     }
     // The fake really records: self_check listed environments without testing them.
     expect(byTool.get('self_check')).toContain('GET /api/environments');
   });
 
-  it('with the default policy, only the documented read-only-gated request is added', async () => {
+  it('with the default policy, only the documented read-only-gated requests are added', async () => {
     const byTool = await runAll(defaultToolPolicy());
 
     for (const name of META_TOOL_NAMES) {
-      const allowed = [...(NON_GET_ALLOWLIST[name] ?? []), ...(NON_GET_ALLOWLIST_DEFAULT_ONLY[name] ?? [])];
+      const allowed = NON_GET_ALLOWLIST_DEFAULT_ONLY[name] ?? [];
       const unlisted = nonGet(byTool.get(name)!).filter((c) => !allowed.includes(c));
       expect(unlisted, name).toEqual([]);
     }
-    // Proves the gate is what keeps it out under read-only, not a broken fake.
+    // Proves the gate is what keeps them out under read-only, not a broken fake.
     expect(byTool.get('self_check')).toContain('POST /api/environments/1/test');
+    expect(byTool.get('self_check')).toContain('POST /api/auth/login');
   });
 });
