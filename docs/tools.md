@@ -4,7 +4,7 @@
 
 Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tools are registered; see [README → Read-only mode and tool filter](../README.md#read-only-mode-and-tool-filter). Endpoints and summaries come from the Dockhand OpenAPI spec pinned at commit `9efea8ba2e1e8779441a9b99c101a03f19ca515f`.
 
-**Tools:** 390 · **read:** 184 · **write:** 206
+**Tools:** 390 · **read:** 172 · **write:** 218
 
 | Tool | Mode | Method | Path | Summary |
 | --- | --- | --- | --- | --- |
@@ -13,11 +13,11 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `add_user_role` | write | POST | `/api/users/{id}/roles` | Assign a role to a user, optionally scoped to an environment (enterprise, admin only) |
 | `adopt_stack` | write | POST | `/api/stacks/adopt` | Adopt previously discovered compose stacks into Dockhand for a given environment |
 | `batch_delete_backup_snapshots` | write | POST | `/api/backup/snapshots/batch-delete` | Forget and prune several snapshots from one destination in a single restic forget --prune, with per-snapshot ownership and environment access gates |
-| `batch_get_selfhst_icons` | read | POST | `/api/icons/selfhst/batch` | Resolve multiple selfh.st app icons in one request (avoids per-icon requests a WAF flags as crawling) |
+| `batch_get_selfhst_icons` | write | POST | `/api/icons/selfhst/batch` | Resolve multiple selfh.st app icons in one request (avoids per-icon requests a WAF flags as crawling) |
 | `batch_update_containers` | write | POST | `/api/containers/batch-update` | Recreate a set of containers with their latest images, preserving all settings (requires the 'create' permission) |
 | `batch_update_containers_stream` | write | POST | `/api/containers/batch-update-stream` | Recreate a set of containers with live streaming progress (Server-Sent Events), optionally blocking on vulnerability criteria (requires the 'create' permission) |
 | `browse_backup_snapshot` | read | GET | `/api/backup/snapshots/{id}/browse` | List directory entries at a path inside a snapshot (job-polled) |
-| `browse_volume` | read | GET | `/api/volumes/{name}/browse` | Browse a directory inside a Docker volume via a cached helper container; the volume is mounted read-only when in use by other containers |
+| `browse_volume` | write | GET | `/api/volumes/{name}/browse` | Browse a directory inside a Docker volume via a cached helper container; the volume is mounted read-only when in use by other containers |
 | `cancel_job` | write | DELETE | `/api/jobs/{id}` | Request cancellation of a running background job (owner or admin only) |
 | `check_container_updates` | write | POST | `/api/containers/check-updates` | Trigger a fresh image-update check across all (non-hidden, non-podman-infra) containers in an environment |
 | `check_for_update` | read | — | — | — |
@@ -102,7 +102,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `export_environment_report` | read | GET | `/api/environments/report` | Export an environment state report as a downloadable file |
 | `export_image` | read | GET | `/api/images/{id}/export` | Export a Docker image as a downloadable tar (or tar.gz) stream |
 | `export_image_scan` | read | GET | `/api/images/scan/export` | Export the cached vulnerability findings for a single image as json, csv, or sarif |
-| `export_volume` | read | GET | `/api/volumes/{name}/export` | Export a Docker volume (or a sub-path) as a downloadable archive — streaming tar, gzip-compressed tar.gz, or raw single-file bytes |
+| `export_volume` | write | GET | `/api/volumes/{name}/export` | Export a Docker volume (or a sub-path) as a downloadable archive — streaming tar, gzip-compressed tar.gz, or raw single-file bytes |
 | `export_vulnerabilities` | read | GET | `/api/vulnerabilities/export` | Export an environment's aggregated vulnerability findings as json or csv, matching the grid's filters and sort |
 | `get_activity_events` | read | GET | `/api/activity/events` | Stream live container activity and environment-status events over Server-Sent Events |
 | `get_activity_feed` | read | GET | `/api/activity` | Query container activity events with filters and pagination |
@@ -130,11 +130,11 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `get_container_icon` | read | GET | `/api/container-icons/{name}` | Get a container's uploaded custom icon (raw image/webp bytes, not JSON) |
 | `get_container_icon_overrides` | read | GET | `/api/container-icons` | List all container icon overrides for an environment as a name -> icon map |
 | `get_container_logs` | read | GET | `/api/containers/{id}/logs` | Return the last N lines of a container's combined stdout/stderr logs as a single string |
-| `get_container_shells` | read | GET | `/api/containers/{id}/shells` | Probe a container for available shells (bash/sh/zsh/ash) and report the preferred default (requires the 'exec' permission) |
+| `get_container_shells` | write | GET | `/api/containers/{id}/shells` | Probe a container for available shells (bash/sh/zsh/ash) and report the preferred default (requires the 'exec' permission) |
 | `get_container_sizes` | read | GET | `/api/containers/sizes` | List all containers in an environment together with their writable-layer and root-filesystem sizes (requires the 'view' permission) |
 | `get_container_stats` | read | GET | `/api/containers/{id}/stats` | Return a one-shot CPU/memory/network/block-IO stats snapshot for a container (Docker-CLI-equivalent memory accounting) |
 | `get_container_tags` | read | GET | `/api/container-tags/{name}` | Get the tag ids assigned to one container (by name) |
-| `get_container_top` | read | GET | `/api/containers/{id}/top` | List the processes running inside a container (via `ps` in the container, falling back to the Docker top API) |
+| `get_container_top` | write | GET | `/api/containers/{id}/top` | List the processes running inside a container (via `ps` in the container, falling back to the Docker top API) |
 | `get_container_update_check` | read | GET | `/api/containers/check-updates` | Read the cached pending image-update records for an environment (no fresh check; requires the 'view' permission) |
 | `get_container_version_notes` | read | GET | `/api/containers/{id}/version-notes` | Resolve GitHub release notes for the versions a semver update-check surfaced (requires the 'view' permission) |
 | `get_containers_stats` | read | GET | `/api/containers/stats` | Return a CPU/memory/network/block-IO stats snapshot for every running container in an environment (requires the 'view' permission) |
@@ -158,8 +158,8 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `get_git_repository_sync_status` | read | GET | `/api/git/repositories/{id}/sync` | Check whether the tracked branch has new commits upstream without pulling them |
 | `get_git_stack` | read | GET | `/api/git/stacks/{id}` | Get one git stack |
 | `get_git_stack_env_files` | read | GET | `/api/git/stacks/{id}/env-files` | List the .env files present in a git stack's cloned repository |
-| `get_git_stack_webhook` | read | GET | `/api/git/stacks/{id}/webhook` | GET webhook trigger for a git stack, with the secret passed as the `secret` query parameter |
-| `get_git_webhook` | read | GET | `/api/git/webhook/{id}` | GET webhook trigger for a git repository, with the secret passed as the `secret` query parameter |
+| `get_git_stack_webhook` | write | GET | `/api/git/stacks/{id}/webhook` | GET webhook trigger for a git stack, with the secret passed as the `secret` query parameter |
+| `get_git_webhook` | write | GET | `/api/git/webhook/{id}` | GET webhook trigger for a git repository, with the secret passed as the `secret` query parameter |
 | `get_grid_preferences` | read | GET | `/api/preferences/grid` | Retrieve all saved data-grid column preferences (per-user when auth is enabled) |
 | `get_host_info` | read | GET | `/api/host` | Return host info (hostname, IP, CPU, memory, uptime, Docker counts) for the daemon behind an environment |
 | `get_image_history` | read | GET | `/api/images/{id}/history` | Return the layer build history of a Docker image |
@@ -219,7 +219,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `get_user` | read | GET | `/api/users/{id}` | Get a single user by id (password hash is never returned; isAdmin is derived from role assignment) |
 | `get_user_roles` | read | GET | `/api/users/{id}/roles` | List the roles assigned to a user (enterprise only) |
 | `get_volume` | read | GET | `/api/volumes/{name}` | Inspect a single Docker volume by name (the name is validated as a Docker identifier) |
-| `get_volume_file_content` | read | GET | `/api/volumes/{name}/browse/content` | Read the content of a single file inside a Docker volume (files larger than 1MB are rejected) |
+| `get_volume_file_content` | write | GET | `/api/volumes/{name}/browse/content` | Read the content of a single file inside a Docker volume (files larger than 1MB are rejected) |
 | `get_vulnerability_count` | read | GET | `/api/vulnerabilities/count` | Return the total finding count, severity summary, and distinct image/container/stack filter values for an environment |
 | `health_check` | read | GET | `/api/health` | Liveness probe — always returns 200 when the SvelteKit process is up |
 | `health_check_database` | read | GET | `/api/health/database` | Public database health check reporting schema/migration/table status; authenticated settings:view callers also get connection details |
@@ -233,13 +233,13 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `list_backup_destinations` | read | GET | `/api/backup/destinations` | List all backup destinations without passwords, SSH data, TLS PEMs, or cloud-credential env vars |
 | `list_backup_snapshots` | read | GET | `/api/backup/snapshots` | List restic snapshots for a backup config or a single destination (job-polled) |
 | `list_config_sets` | read | GET | `/api/config-sets` | List all config sets (reusable bundles of env vars, labels, ports, volumes, and runtime defaults) |
-| `list_container_files` | read | GET | `/api/containers/{id}/files` | List the contents of a directory inside a container's filesystem |
+| `list_container_files` | write | GET | `/api/containers/{id}/files` | List the contents of a directory inside a container's filesystem |
 | `list_container_tags` | read | GET | `/api/container-tags` | List all container tag assignments for an environment as a name -> tagIds map |
 | `list_containers` | read | GET | `/api/containers` | List containers for one environment (dockhand.hidden=true label is filtered out) |
 | `list_environment_notifications` | read | GET | `/api/environments/{id}/notifications` | List notification channel configurations attached to an environment |
 | `list_environments` | read | GET | `/api/environments` | List all Docker environments (hosts) known to Dockhand |
 | `list_git_credentials` | read | GET | `/api/git/credentials` | List all stored git credentials with secrets stripped (only hasPassword/hasSshKey flags returned) |
-| `list_git_remote_branches` | read | POST | `/api/git/branches` | List remote branches for a git repository via `git ls-remote` |
+| `list_git_remote_branches` | write | POST | `/api/git/branches` | List remote branches for a git repository via `git ls-remote` |
 | `list_git_repositories` | read | GET | `/api/git/repositories` | List all git repositories (repositories are global, not scoped to an environment) |
 | `list_git_stacks` | read | GET | `/api/git/stacks` | List git-deployed stacks (optionally scoped to one environment) |
 | `list_hawser_tokens` | read | GET | `/api/hawser/tokens` | List all Hawser agent tokens (only the prefix is returned, never the full token) |
@@ -267,9 +267,9 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `load_image` | write | POST | `/api/images/load` | Load a Docker image from an uploaded tar (docker load) for air-gapped hosts |
 | `logout` | write | POST | `/api/auth/logout` | Destroy the current session (clears the dockhand_session cookie) |
 | `pause_container` | write | POST | `/api/containers/{id}/pause` | Pause all processes in a running container (requires the container 'stop' permission) |
-| `preview_backup_restore` | read | POST | `/api/backup/restore/preview` | Preview what a restore would write (resolved targets + volume/stack contents) |
+| `preview_backup_restore` | write | POST | `/api/backup/restore/preview` | Preview what a restore would write (resolved targets + volume/stack contents) |
 | `preview_backup_stack_path` | read | GET | `/api/backup/stack-path` | Preview where a stack's directory will be captured from on the host, without running a backup |
-| `probe_backup_stack_dir` | read | GET | `/api/backup/stack-dir-listing` | Probe the target host and list the actual contents of a stack's directory, for the backup create/edit dialog's file picker |
+| `probe_backup_stack_dir` | write | GET | `/api/backup/stack-dir-listing` | Probe the target host and list the actual contents of a stack's directory, for the backup create/edit dialog's file picker |
 | `probe_secret_provider` | write | POST | `/api/secret-providers/{id}/probe` | Live-probe which key NAMES exist in a stored provider (names only, values never leave the server) |
 | `prune_all` | write | POST | `/api/prune/all` | Prune all unused Docker resources (containers, images, volumes and networks) in a single operation |
 | `prune_containers` | write | POST | `/api/prune/containers` | Prune (delete) all stopped containers in the target environment |

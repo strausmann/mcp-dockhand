@@ -11,18 +11,34 @@
 import { TOOL_ENDPOINT_MAP, type ToolEndpointEntry } from '../openapi/tool-endpoint-map.js';
 import { META_TOOL_NAMES } from './meta-tool-names.js';
 
-/** GET endpoints that nonetheless change state (trigger a git stack deploy). */
-export const WRITE_GET_TOOLS: readonly string[] = ['trigger_git_webhook'];
+/**
+ * GET tools with a side effect, classified `write` despite the method. Read-only means no
+ * state change in Dockhand or on the Docker host and no outbound side effect; each entry
+ * below breaks that upstream (Dockhand handler at the pinned commit).
+ */
+export const WRITE_GET_TOOLS: readonly string[] = [
+  'trigger_git_webhook', // webhook trigger: deploys the git stack
+  'get_git_stack_webhook', // same endpoint as trigger_git_webhook: deploys, or writes an audit entry
+  'get_git_webhook', // repository webhook trigger: deploys, or writes an audit entry
+  'browse_volume', // pulls the helper image, creates and starts a helper container
+  'export_volume', // helper container (create/start), released after the export
+  'get_volume_file_content', // helper container, then exec `cat` in it
+  'get_container_shells', // exec in the user's container to probe for shells
+  'get_container_top', // exec `ps` in the user's container (when the caller holds exec)
+  'list_container_files', // exec `ls` in the user's container
+  'probe_backup_stack_dir', // pulls the backup helper image and runs a helper container
+];
 
-/** POST endpoints that only validate, preview or read (POST for transport reasons). */
+/**
+ * POST tools that only validate or compare (POST for transport reasons): no Dockhand state
+ * change, no Docker daemon call, no outbound request. validate_stack_compose runs
+ * `docker compose config` on a throwaway temp copy.
+ */
 export const READ_ONLY_POST_TOOLS: readonly string[] = [
   'validate_stack_compose',
   'validate_stack_env',
   'validate_stack_path',
   'check_stack_path_change',
-  'preview_backup_restore',
-  'batch_get_selfhst_icons',
-  'list_git_remote_branches',
 ];
 
 export class ToolPolicyError extends Error {

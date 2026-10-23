@@ -43,6 +43,24 @@ describe('tool policy coverage', () => {
     }
   });
 
+  // Several tools can wrap one Dockhand endpoint. If one of them is read and another write,
+  // the classification contradicts itself: the read one calls the very endpoint we judged to
+  // have a side effect (get_git_stack_webhook and trigger_git_webhook share
+  // GET /api/git/stacks/{id}/webhook; this test would have caught it).
+  it('no read tool shares {method, path} with a write tool', () => {
+    const byEndpoint = new Map<string, { read: string[]; write: string[] }>();
+    for (const [name, entry] of Object.entries(TOOL_ENDPOINT_MAP)) {
+      const key = `${entry.method.toUpperCase()} ${entry.path}`;
+      const slot = byEndpoint.get(key) ?? { read: [], write: [] };
+      slot[classifyTool(name, TOOL_ENDPOINT_MAP, META_TOOL_NAMES)].push(name);
+      byEndpoint.set(key, slot);
+    }
+    const conflicts = [...byEndpoint]
+      .filter(([, s]) => s.read.length > 0 && s.write.length > 0)
+      .map(([key, s]) => `${key}: read=${s.read.join(',')} write=${s.write.join(',')}`);
+    expect(conflicts).toEqual([]);
+  });
+
   it('read-classified GET tools match the reviewed snapshot', () => {
     const actual = sorted(
       Object.keys(TOOL_ENDPOINT_MAP).filter(
