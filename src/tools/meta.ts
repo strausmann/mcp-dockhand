@@ -153,25 +153,11 @@ export async function checkForUpdate(deps: {
   }
 }
 
-/**
- * The six self-help/meta tool names registered by `registerMetaTools()` below —
- * `get_tool_manifest` itself among them. This is the single source of truth for that
- * list: `tests/tool-endpoint.test.ts`'s endpoint-completeness check imports it to
- * exclude these six from its "every registered tool has a `TOOL_ENDPOINT_MAP` entry"
- * assertion (none of the six wrap a single Dockhand endpoint the way every other
- * registered tool does — see that test's own doc comment for why, tool by tool), and
- * `get_tool_manifest`'s own registration wiring below reuses it (Fix round 2,
- * Finding 4) so its inventory includes these six tools too, not just the
- * `TOOL_ENDPOINT_MAP` ones.
- */
-export const META_TOOL_NAMES: readonly string[] = [
-  'check_for_update',
-  'get_runtime_stats',
-  'get_server_info',
-  'get_tool_manifest',
-  'self_check',
-  'validate_config',
-];
+// Defined in its own module so `src/utils/tool-policy.ts` can import it without a cycle
+// (this file imports `tool-helper.ts`, which imports the policy). Re-exported so existing
+// importers keep working.
+import { META_TOOL_NAMES } from '../utils/meta-tool-names.js';
+export { META_TOOL_NAMES };
 
 /**
  * Pure builder behind the `get_tool_manifest` tool. Maps the tool→endpoint map
