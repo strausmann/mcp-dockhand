@@ -24,7 +24,7 @@ async function main() {
   const { buildToolListDoc } = await import('../dist/utils/tool-list-doc.js');
   const { TOOL_ENDPOINT_MAP } = await import('../dist/openapi/tool-endpoint-map.js');
   const { META_TOOL_NAMES } = await import('../dist/utils/meta-tool-names.js');
-  const { classifyTool } = await import('../dist/utils/tool-policy.js');
+  const { classifyTool, READ_ONLY_ADAPTIVE_TOOLS } = await import('../dist/utils/tool-policy.js');
   const { specOperation } = await import('../dist/openapi/spec-loader.js');
   const { PINNED_DOCKHAND_OPENAPI_COMMIT } = await import('../dist/openapi/pinned.js');
 
@@ -32,7 +32,10 @@ async function main() {
     endpointMap: TOOL_ENDPOINT_MAP,
     metaToolNames: META_TOOL_NAMES,
     classify: (name) => classifyTool(name, TOOL_ENDPOINT_MAP, META_TOOL_NAMES),
-    summaryOf: (name) => specOperation(TOOL_ENDPOINT_MAP[name])?.summary,
+    summaryOf: (name) =>
+      READ_ONLY_ADAPTIVE_TOOLS.includes(name)
+        ? 'Read only under MCP_READ_ONLY, where it skips its side effect; write otherwise (see README).'
+        : specOperation(TOOL_ENDPOINT_MAP[name])?.summary,
     openApiCommit: PINNED_DOCKHAND_OPENAPI_COMMIT,
   });
 

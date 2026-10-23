@@ -53,6 +53,10 @@ aufgeführten Fälle gefunden; die Mengen sind entsprechend korrigiert.
    (`POST /api/environments/{id}/test`, derselbe Endpunkt wie `test_environment`) entfällt.
    Die Environments werden nur aus den `GET`-Aufrufen gemeldet, jeweils mit `tested: false`
    und `skipReason`; ein ungetestetes Environment verschlechtert `overall` nicht.
+   Außerhalb von `MCP_READ_ONLY` läuft der Test weiter. Deshalb ist der *effektive* Modus von
+   `self_check` dort `write` (`READ_ONLY_ADAPTIVE_TOOLS`, `effectiveMode()`): Annotationen und
+   `get_tool_manifest` kündigen die POST-sendende Variante nie als lesend an. Die statische
+   Einordnung (`classifyTool`), die `MCP_READ_ONLY` verwendet, bleibt `read`.
 6. **Login-Probe als akzeptierte Ausnahme.** `self_check` und `validate_config` prüfen die
    Zugangsdaten im Session-Modus per `POST /api/auth/login` (Token-Modus: ein `GET`). Upstream
    schreibt das einen Audit-Eintrag und zählt gegen das Login-Rate-Limit. Das ist bewusst

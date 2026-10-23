@@ -10,6 +10,8 @@ import {
   configureToolPolicy,
   currentToolPolicy,
   findMisspelledPolicyVars,
+  READ_ONLY_ADAPTIVE_TOOLS,
+  effectiveMode,
 } from '../../src/utils/tool-policy.js';
 import { TOOL_ENDPOINT_MAP } from '../../src/openapi/tool-endpoint-map.js';
 import { META_TOOL_NAMES } from '../../src/tools/meta.js';
@@ -201,7 +203,9 @@ describe('default / configured policy', () => {
     expect(p.summary.readOnly).toBe(false);
     expect(p.summary.total).toBe(new Set([...Object.keys(TOOL_ENDPOINT_MAP), ...META_TOOL_NAMES]).size);
     expect(p.mode('trigger_git_webhook')).toBe('write');
-    expect(p.mode('self_check')).toBe('read');
+    // self_check runs its connection-test POST outside read-only, so it must not be advertised as read.
+    expect(p.mode('self_check')).toBe('write');
+    expect(p.mode('get_server_info')).toBe('read');
   });
 
   it('currentToolPolicy starts as default and can be reconfigured', () => {
@@ -213,6 +217,33 @@ describe('default / configured policy', () => {
     } finally {
       configureToolPolicy(defaultToolPolicy());
     }
+  });
+});
+
+describe('read-only-adaptive tools (Codex review #318)', () => {
+  const real = { endpointMap: TOOL_ENDPOINT_MAP, metaToolNames: META_TOOL_NAMES };
+
+  it('lists self_check', () => {
+    expect(READ_ONLY_ADAPTIVE_TOOLS).toEqual(['self_check']);
+  });
+
+  it('effectiveMode is write outside read-only and the static classification under it', () => {
+    expect(effectiveMode('self_check', false, TOOL_ENDPOINT_MAP, META_TOOL_NAMES)).toBe('write');
+    expect(effectiveMode('self_check', true, TOOL_ENDPOINT_MAP, META_TOOL_NAMES)).toBe('read');
+    expect(effectiveMode('get_server_info', false, TOOL_ENDPOINT_MAP, META_TOOL_NAMES)).toBe('read');
+    expect(classifyTool('self_check', TOOL_ENDPOINT_MAP, META_TOOL_NAMES)).toBe('read');
+  });
+
+  it('MCP_READ_ONLY keeps self_check registered and reports it as read', () => {
+    const p = buildToolPolicy({ MCP_READ_ONLY: 'true' }, real);
+    expect(p.isRegistered('self_check')).toBe(true);
+    expect(p.mode('self_check')).toBe('read');
+  });
+
+  it('an allow-only filter reports self_check as write', () => {
+    const p = buildToolPolicy({ MCP_TOOLS_ALLOW: 'self_check' }, real);
+    expect(p.isRegistered('self_check')).toBe(true);
+    expect(p.mode('self_check')).toBe('write');
   });
 });
 
