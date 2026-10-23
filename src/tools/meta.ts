@@ -246,6 +246,11 @@ export interface SelfCheckEnvironment {
   name: string;
   reachable: boolean;
   hawserConnected: boolean;
+  /** Present (always `false`) only when the connection test was skipped; `reachable` is
+   * then unverified, not a failure. Absent on a tested environment (unchanged shape). */
+  tested?: false;
+  /** Why the connection test was skipped — see `CONNECTION_TEST_SKIPPED_READ_ONLY`. */
+  skipReason?: string;
 }
 
 export interface SelfCheck {
@@ -310,9 +315,13 @@ const SELF_CHECK_PHASE_TIMEOUT_MS = 10_000;
  */
 export async function runSelfCheck(deps: {
   toolPolicy: ToolPolicySummary;
+  /** MCP_READ_ONLY (issue #254): the per-environment connection test is a write upstream,
+   * so `listEnvironments` is asked to skip it, and an untested environment (`tested:
+   * false`) does not degrade `overall`. Defaults to `false`. */
+  readOnly?: boolean;
   probeHealth: () => Promise<void>;
   probeAuth: () => Promise<boolean>;
-  listEnvironments: () => Promise<SelfCheckEnvironment[]>;
+  listEnvironments: (opts: { testConnections: boolean }) => Promise<SelfCheckEnvironment[]>;
   now?: () => number;
   /** Per-phase deadline passed to `withTimeout()` for each of the three probes below.
    * Defaults to `SELF_CHECK_PHASE_TIMEOUT_MS`; overridable so tests can exercise a
@@ -346,8 +355,11 @@ export async function runSelfCheck(deps: {
   let environments: SelfCheckEnvironment[];
   let environmentsOk: boolean;
   try {
-    environments = await withTimeout(deps.listEnvironments(), phaseTimeoutMs);
-    environmentsOk = environments.every((env) => env.reachable);
+    environments = await withTimeout(
+      deps.listEnvironments({ testConnections: !deps.readOnly }),
+      phaseTimeoutMs,
+    );
+    environmentsOk = environments.every((env) => env.reachable || env.tested === false);
   } catch {
     environments = [];
     environmentsOk = false;
@@ -530,11 +542,70 @@ export function deriveEnvironmentStatuses(
  * to `self_check`'s total latency, not the sum across environments. */
 const ENVIRONMENT_TEST_TIMEOUT_MS = 5_000;
 
+/** `skipReason` on every environment `self_check` lists without testing it. */
+export const CONNECTION_TEST_SKIPPED_READ_ONLY =
+  'connection test skipped in read-only mode (POST /api/environments/{id}/test changes state)';
+
+/**
+ * `self_check`'s `listEnvironments` wiring, against the real client: the environment list,
+ * the Hawser connection status, and — only when `testConnections` — one
+ * `POST /api/environments/{id}/test` per environment. That POST is a write upstream (it
+ * opens Docker/Hawser connections and updates hawser fields on the environment), so under
+ * MCP_READ_ONLY (`testConnections: false`) it is never sent and each environment carries
+ * `tested: false` + `skipReason` instead (issue #254, security review).
+ */
+export async function listSelfCheckEnvironments(
+  client: Pick<DockhandClient, 'get' | 'post'>,
+  opts: { testConnections: boolean },
+): Promise<SelfCheckEnvironment[]> {
+  const envs = await client.get<EnvironmentListEntry[]>('/api/environments');
+
+  let connectedAgentIds = new Set<number>();
+  try {
+    const hawser = await client.get<{ connections?: HawserConnection[] }>('/api/hawser/connect');
+    connectedAgentIds = new Set((hawser.connections ?? []).map((c) => c.environmentId));
+  } catch {
+    // Best-effort: an unreachable Hawser status endpoint degrades every
+    // hawser-edge environment to not-connected below rather than failing
+    // listEnvironments() outright — see the doc comment above
+    // registerMetaTools() for the full rationale.
+  }
+
+  if (!opts.testConnections) {
+    return deriveEnvironmentStatuses(envs, connectedAgentIds, new Map()).map((env) => ({
+      ...env,
+      tested: false as const,
+      skipReason: CONNECTION_TEST_SKIPPED_READ_ONLY,
+    }));
+  }
+
+  // Fix round 1, Finding 1: a genuine, per-environment, in-parallel reachability
+  // check for EVERY environment (not just hawser-edge ones) — no connection type
+  // is ever assumed reachable. Each probe is individually timeout-bounded so one
+  // hung environment cannot make self_check itself hang.
+  const testResults = await Promise.allSettled(
+    envs.map((env) =>
+      withTimeout(
+        client.post<{ success?: boolean }>(`/api/environments/${encodePath(env.id)}/test`),
+        ENVIRONMENT_TEST_TIMEOUT_MS,
+      ),
+    ),
+  );
+
+  const perEnvReachable = new Map<number, boolean>();
+  envs.forEach((env, i) => {
+    const result = testResults[i];
+    perEnvReachable.set(env.id, result.status === 'fulfilled' && !!result.value.success);
+  });
+
+  return deriveEnvironmentStatuses(envs, connectedAgentIds, perEnvReachable);
+}
+
 /**
  * Races `promise` against a timeout, rejecting with a plain `Error` if `promise` has
  * not settled within `timeoutMs`. Generic, not Dockhand-specific — used only to bound
- * the per-environment `POST /api/environments/{id}/test` calls in `self_check`'s
- * `listEnvironments` wiring below.
+ * the per-environment `POST /api/environments/{id}/test` calls in
+ * `listSelfCheckEnvironments()` above.
  *
  * Note: this only makes the *caller* stop waiting — it does not abort the underlying
  * `fetch()` inside `promise` (`DockhandClient`'s request methods take no
@@ -851,7 +922,8 @@ export async function probeRawHealth(baseUrl: string): Promise<void> {
  *         Finding 3**: NOT a bare `status === 200` check — see `attemptRawLogin()`'s own
  *         doc comment for why a `200` alone is not sufficient, e.g. an MFA-pending
  *         login).
- *       - `listEnvironments`: three calls, then `deriveEnvironmentStatuses()` above turns
+ *       - `listEnvironments`: `listSelfCheckEnvironments()` above — three calls, then
+ *         `deriveEnvironmentStatuses()` above turns
  *         their results into `SelfCheckEnvironment[]` — see that function's own doc comment
  *         for exactly how `reachable`/`hawserConnected` are derived (**Fix round 1, Finding
  *         1**: `reachable` is now a genuine live outcome check for every environment, never
@@ -873,7 +945,10 @@ export async function probeRawHealth(baseUrl: string): Promise<void> {
  *              the real, uniform reachability signal for socket AND edge environments
  *              alike. A rejected/timed-out probe degrades that one environment to
  *              `reachable: false` (via the missing `perEnvReachable` entry) rather than
- *              failing `listEnvironments` for every other environment.
+ *              failing `listEnvironments` for every other environment. Skipped under
+ *              MCP_READ_ONLY (the endpoint is a write upstream): each environment then
+ *              carries `tested: false` + `skipReason` and `runSelfCheck` does not count it
+ *              against `overall`.
  *   - `validate_config`: `validateConfig()`'s `attemptLogin` is `attemptRawLogin()` above
  *     against `client.getBaseUrl()` — the same helper `self_check` uses, so the two tools
  *     agree on what "the configured credentials are valid" means (both key off
@@ -930,45 +1005,13 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
   registerTool(server, 'self_check',
     {},
     async () => {
+      const policy = currentToolPolicy().summary;
       const result = await runSelfCheck({
-        toolPolicy: currentToolPolicy().summary,
+        toolPolicy: policy,
+        readOnly: policy.readOnly,
         probeHealth: () => probeRawHealth(client.getBaseUrl()),
         probeAuth: async () => (await attemptRawLogin(client.getBaseUrl())).completedAuth,
-        listEnvironments: async () => {
-          const envs = await client.get<EnvironmentListEntry[]>('/api/environments');
-
-          let connectedAgentIds = new Set<number>();
-          try {
-            const hawser = await client.get<{ connections?: HawserConnection[] }>('/api/hawser/connect');
-            connectedAgentIds = new Set((hawser.connections ?? []).map((c) => c.environmentId));
-          } catch {
-            // Best-effort: an unreachable Hawser status endpoint degrades every
-            // hawser-edge environment to not-connected below rather than failing
-            // listEnvironments() outright — see the doc comment above
-            // registerMetaTools() for the full rationale.
-          }
-
-          // Fix round 1, Finding 1: a genuine, per-environment, in-parallel reachability
-          // check for EVERY environment (not just hawser-edge ones) — no connection type
-          // is ever assumed reachable. Each probe is individually timeout-bounded so one
-          // hung environment cannot make self_check itself hang.
-          const testResults = await Promise.allSettled(
-            envs.map((env) =>
-              withTimeout(
-                client.post<{ success?: boolean }>(`/api/environments/${encodePath(env.id)}/test`),
-                ENVIRONMENT_TEST_TIMEOUT_MS,
-              ),
-            ),
-          );
-
-          const perEnvReachable = new Map<number, boolean>();
-          envs.forEach((env, i) => {
-            const result = testResults[i];
-            perEnvReachable.set(env.id, result.status === 'fulfilled' && !!result.value.success);
-          });
-
-          return deriveEnvironmentStatuses(envs, connectedAgentIds, perEnvReachable);
-        },
+        listEnvironments: (opts) => listSelfCheckEnvironments(client, opts),
       });
       return jsonResponse(result);
     }
