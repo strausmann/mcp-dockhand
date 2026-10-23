@@ -166,7 +166,8 @@ has to be rejected at call time.
 
   `self_check` stays available but skips its per-environment connection test
   (`POST /api/environments/{id}/test`); each environment is then reported with
-  `tested: false` and a `skipReason`. One exception is accepted and documented: `self_check`
+  `tested: false` and a `skipReason`. Outside read-only mode it still runs the test, so there
+  it is annotated and reported (`get_tool_manifest`) as `write`. One exception is accepted and documented: `self_check`
   and `validate_config` probe the credentials with `POST /api/auth/login` in session mode,
   which writes a Dockhand audit entry and counts against its login rate limit. The server
   logs in the same way during normal operation.

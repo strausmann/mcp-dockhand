@@ -41,6 +41,15 @@ export const READ_ONLY_POST_TOOLS: readonly string[] = [
   'check_stack_path_change',
 ];
 
+/**
+ * Tools that are read only because they adapt to read-only mode: `self_check` skips its
+ * per-environment connection test (POST /api/environments/{id}/test) under MCP_READ_ONLY
+ * but runs it otherwise. Their read-only classification (classifyTool) is `read`, so
+ * MCP_READ_ONLY keeps them; their effective mode outside read-only is `write`, so the
+ * annotations and the manifest never advertise the POST-issuing variant as read-only.
+ */
+export const READ_ONLY_ADAPTIVE_TOOLS: readonly string[] = ['self_check'];
+
 export class ToolPolicyError extends Error {
   constructor(message: string) {
     super(message);
@@ -70,6 +79,17 @@ export function classifyTool(
   const entry = Object.prototype.hasOwnProperty.call(endpointMap, name) ? endpointMap[name] : undefined;
   if (entry && entry.method.toUpperCase() === 'GET' && !WRITE_GET_TOOLS.includes(name)) return 'read';
   return 'write';
+}
+
+/** Mode of a tool as it behaves under the given read-only setting (see READ_ONLY_ADAPTIVE_TOOLS). */
+export function effectiveMode(
+  name: string,
+  readOnly: boolean,
+  endpointMap: EndpointMap,
+  metaToolNames: readonly string[],
+): 'read' | 'write' {
+  if (!readOnly && READ_ONLY_ADAPTIVE_TOOLS.includes(name)) return 'write';
+  return classifyTool(name, endpointMap, metaToolNames);
 }
 
 export interface ToolPolicySummary {
@@ -131,7 +151,7 @@ export function buildToolPolicy(
   const deny = parseList(env.MCP_TOOLS_DENY);
 
   const all = [...new Set([...Object.keys(endpointMap), ...metaToolNames])];
-  const mode = (name: string) => classifyTool(name, endpointMap, metaToolNames);
+  const classify = (name: string) => classifyTool(name, endpointMap, metaToolNames);
 
   // Typos are fatal: validate against the full universe, not the read-only base.
   for (const [varName, entries] of [['MCP_TOOLS_ALLOW', allow], ['MCP_TOOLS_DENY', deny]] as const) {
@@ -141,7 +161,7 @@ export function buildToolPolicy(
     }
   }
 
-  const base = new Set(readOnly ? all.filter((t) => mode(t) === 'read') : all);
+  const base = new Set(readOnly ? all.filter((t) => classify(t) === 'read') : all);
   const readmitted: string[] = [];
   if (readOnly) {
     // Only an exact ALLOW name (no wildcard) re-admits a write tool.
@@ -167,7 +187,7 @@ export function buildToolPolicy(
 
   return {
     isRegistered: (name) => final.has(name),
-    mode,
+    mode: (name) => effectiveMode(name, readOnly, endpointMap, metaToolNames),
     summary: {
       readOnly,
       allow,
@@ -184,7 +204,7 @@ export function defaultToolPolicy(): ToolPolicy {
   const total = new Set([...Object.keys(TOOL_ENDPOINT_MAP), ...META_TOOL_NAMES]).size;
   return {
     isRegistered: () => true,
-    mode: (name) => classifyTool(name, TOOL_ENDPOINT_MAP, META_TOOL_NAMES),
+    mode: (name) => effectiveMode(name, false, TOOL_ENDPOINT_MAP, META_TOOL_NAMES),
     summary: { readOnly: false, allow: [], deny: [], registered: total, total, readmittedWriteTools: [] },
   };
 }

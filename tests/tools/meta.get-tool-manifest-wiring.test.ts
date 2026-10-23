@@ -90,7 +90,9 @@ describe('get_tool_manifest registration wiring', () => {
 
     for (const metaName of META_TOOL_NAMES) {
       const entry = manifest.tools.find((t) => t.name === metaName);
-      expect(entry, metaName).toEqual({ name: metaName, method: null, path: null, mode: 'read', registered: true });
+      // self_check runs its connection-test POST outside read-only (READ_ONLY_ADAPTIVE_TOOLS).
+      const mode = metaName === 'self_check' ? 'write' : 'read';
+      expect(entry, metaName).toEqual({ name: metaName, method: null, path: null, mode, registered: true });
     }
   });
 
