@@ -31,8 +31,9 @@ function collectRegisteredToolNames(): string[] {
 async function invokeGetToolManifest(): Promise<{ toolCount: number; tools: { name: string; method: string | null; path: string | null }[] }> {
   const tools = new Map<string, CapturedTool>();
   const server = {
-    tool(name: string, _description: string, _schema: unknown, handler: CapturedTool['handler']) {
-      tools.set(name, { name, handler });
+    tool(name: string, ...rest: unknown[]) {
+      // The handler is the last argument; extra arguments may precede it.
+      tools.set(name, { name, handler: rest.at(-1) as CapturedTool['handler'] });
     },
   };
   // registerMetaTools() never invokes a handler during registration, and this specific
