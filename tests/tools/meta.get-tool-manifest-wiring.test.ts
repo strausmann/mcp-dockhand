@@ -11,10 +11,16 @@
  * server (same fixture shape tests/tool-descriptions-derived.test.ts and
  * tests/tools/meta.register.test.ts already use), with no real Dockhand client needed.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { registerAllTools } from '../../src/tools/index.js';
 import { registerMetaTools, META_TOOL_NAMES } from '../../src/tools/meta.js';
 import { TOOL_ENDPOINT_MAP } from '../../src/openapi/tool-endpoint-map.js';
+import {
+  buildToolPolicy,
+  configureToolPolicy,
+  defaultToolPolicy,
+  WRITE_META_TOOLS,
+} from '../../src/utils/tool-policy.js';
 
 interface CapturedTool {
   name: string;
@@ -28,11 +34,20 @@ function collectRegisteredToolNames(): string[] {
   return names;
 }
 
-async function invokeGetToolManifest(): Promise<{ toolCount: number; tools: { name: string; method: string | null; path: string | null }[] }> {
+interface ManifestEntry {
+  name: string;
+  method: string | null;
+  path: string | null;
+  mode: 'read' | 'write';
+  registered: boolean;
+}
+
+async function invokeGetToolManifest(): Promise<{ toolCount: number; registeredCount: number; tools: ManifestEntry[] }> {
   const tools = new Map<string, CapturedTool>();
   const server = {
-    tool(name: string, _description: string, _schema: unknown, handler: CapturedTool['handler']) {
-      tools.set(name, { name, handler });
+    tool(name: string, ...rest: unknown[]) {
+      // The handler is the last argument; extra arguments may precede it.
+      tools.set(name, { name, handler: rest.at(-1) as CapturedTool['handler'] });
     },
   };
   // registerMetaTools() never invokes a handler during registration, and this specific
@@ -44,11 +59,14 @@ async function invokeGetToolManifest(): Promise<{ toolCount: number; tools: { na
   const result = await captured.handler({});
   return JSON.parse(result.content[0]!.text) as {
     toolCount: number;
-    tools: { name: string; method: string | null; path: string | null }[];
+    registeredCount: number;
+    tools: ManifestEntry[];
   };
 }
 
 describe('get_tool_manifest registration wiring', () => {
+  afterEach(() => configureToolPolicy(defaultToolPolicy()));
+
   it('toolCount equals the true registered tool count from registerAllTools() (Fix round 2, Finding 4)', async () => {
     const allNames = collectRegisteredToolNames();
     const manifest = await invokeGetToolManifest();
@@ -73,7 +91,10 @@ describe('get_tool_manifest registration wiring', () => {
 
     for (const metaName of META_TOOL_NAMES) {
       const entry = manifest.tools.find((t) => t.name === metaName);
-      expect(entry, metaName).toEqual({ name: metaName, method: null, path: null });
+      // self_check runs its connection-test POST outside read-only (READ_ONLY_ADAPTIVE_TOOLS);
+      // WRITE_META_TOOLS are write in every mode.
+      const mode = metaName === 'self_check' || WRITE_META_TOOLS.includes(metaName) ? 'write' : 'read';
+      expect(entry, metaName).toEqual({ name: metaName, method: null, path: null, mode, registered: true });
     }
   });
 
@@ -87,7 +108,7 @@ describe('get_tool_manifest registration wiring', () => {
     const manifest = await invokeGetToolManifest();
 
     const entry = manifest.tools.find((t) => t.name === 'get_prometheus_metrics');
-    expect(entry).toEqual({ name: 'get_prometheus_metrics', method: 'GET', path: '/metrics' });
+    expect(entry).toEqual({ name: 'get_prometheus_metrics', method: 'GET', path: '/metrics', mode: 'read', registered: true });
   });
 
   it('every non-meta tool (including get_prometheus_metrics) matches its TOOL_ENDPOINT_MAP entry exactly', async () => {
@@ -95,7 +116,24 @@ describe('get_tool_manifest registration wiring', () => {
 
     for (const [name, entry] of Object.entries(TOOL_ENDPOINT_MAP)) {
       const found = manifest.tools.find((t) => t.name === name);
-      expect(found, name).toEqual({ name, method: entry.method, path: entry.path });
+      expect(found, name).toMatchObject({ name, method: entry.method, path: entry.path });
     }
+  });
+  it('under MCP_READ_ONLY the manifest marks a write tool as mode:write, registered:false and counts only registered tools', async () => {
+    configureToolPolicy(
+      buildToolPolicy({ MCP_READ_ONLY: 'true' }, { endpointMap: TOOL_ENDPOINT_MAP, metaToolNames: META_TOOL_NAMES }),
+    );
+    const manifest = await invokeGetToolManifest();
+
+    const cancel = manifest.tools.find((t) => t.name === 'cancel_job');
+    expect(cancel).toMatchObject({ name: 'cancel_job', mode: 'write', registered: false });
+    expect(manifest.toolCount).toBe(manifest.tools.length);
+    expect(manifest.registeredCount).toBe(manifest.tools.filter((t) => t.registered).length);
+    expect(manifest.registeredCount).toBeLessThan(manifest.toolCount);
+  });
+
+  it('with the default policy every tool is registered', async () => {
+    const manifest = await invokeGetToolManifest();
+    expect(manifest.registeredCount).toBe(manifest.toolCount);
   });
 });

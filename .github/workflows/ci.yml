@@ -46,17 +46,21 @@ jobs:
       # next nightly would have shipped that. Both generators are no-op-safe when nothing
       # changed, so regenerating and diffing is a clean gate.
       #
-      # If this fails: run `npm run api:coverage-doc`, `npm run api:tool-endpoint-map` and
-      # `node scripts/generate-body-contract-doc.mjs`, then commit the result.
+      # If this fails: run `npm run api:coverage-doc`, `npm run api:tool-endpoint-map`,
+      # `node scripts/generate-body-contract-doc.mjs` and `npm run docs:tools` (needs
+      # `npm run build` first), then commit the result. A new derived doc must also be
+      # regenerated and committed by api-schema-sync.yml and drift-bump.yml.
       - name: Derived docs are in sync with the code
         run: |
           npm run api:coverage-doc
           npm run api:tool-endpoint-map
           node scripts/generate-body-contract-doc.mjs
+          npm run docs:tools
           git diff --exit-code -- \
             docs/coverage.md \
             src/openapi/tool-endpoint-map.ts \
-            docs/body-contract-report.md
+            docs/body-contract-report.md \
+            docs/tools.md
 
       # Task #222 (mcp-dockhand#222 Task 5): the body-contract validator existed since
       # Task P1.4/P1.6 but only ran nightly in api-schema-sync.yml with

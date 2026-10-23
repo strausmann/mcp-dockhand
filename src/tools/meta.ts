@@ -15,6 +15,7 @@ import { getStatsSnapshot } from '../utils/runtime-stats.js';
 import { log } from '../utils/log-context.js';
 import { encodePath } from '../utils/encode-path.js';
 import { parseApiToken } from '../auth/api-token.js';
+import { currentToolPolicy, type ToolPolicySummary } from '../utils/tool-policy.js';
 
 export interface ServerInfo {
   version: string;
@@ -24,6 +25,7 @@ export interface ServerInfo {
   mcpProtocolVersion: string;
   dockhandUrl: string;
   dockhandServerVersion: string | null;
+  toolPolicy: ToolPolicySummary;
 }
 
 /**
@@ -34,6 +36,7 @@ export interface ServerInfo {
  * self-help tool never breaks because Dockhand itself is unreachable.
  */
 export async function buildServerInfo(deps: {
+  toolPolicy: ToolPolicySummary;
   dockhandUrl: string;
   mcpProtocolVersion?: string;
   getDockhandServerVersion: () => Promise<string>;
@@ -52,6 +55,7 @@ export async function buildServerInfo(deps: {
     mcpProtocolVersion: deps.mcpProtocolVersion ?? 'unknown',
     dockhandUrl: deps.dockhandUrl,
     dockhandServerVersion,
+    toolPolicy: deps.toolPolicy,
   };
 }
 
@@ -153,25 +157,11 @@ export async function checkForUpdate(deps: {
   }
 }
 
-/**
- * The six self-help/meta tool names registered by `registerMetaTools()` below —
- * `get_tool_manifest` itself among them. This is the single source of truth for that
- * list: `tests/tool-endpoint.test.ts`'s endpoint-completeness check imports it to
- * exclude these six from its "every registered tool has a `TOOL_ENDPOINT_MAP` entry"
- * assertion (none of the six wrap a single Dockhand endpoint the way every other
- * registered tool does — see that test's own doc comment for why, tool by tool), and
- * `get_tool_manifest`'s own registration wiring below reuses it (Fix round 2,
- * Finding 4) so its inventory includes these six tools too, not just the
- * `TOOL_ENDPOINT_MAP` ones.
- */
-export const META_TOOL_NAMES: readonly string[] = [
-  'check_for_update',
-  'get_runtime_stats',
-  'get_server_info',
-  'get_tool_manifest',
-  'self_check',
-  'validate_config',
-];
+// Defined in its own module so `src/utils/tool-policy.ts` can import it without a cycle
+// (this file imports `tool-helper.ts`, which imports the policy). Re-exported so existing
+// importers keep working.
+import { META_TOOL_NAMES } from '../utils/meta-tool-names.js';
+export { META_TOOL_NAMES };
 
 /**
  * Pure builder behind the `get_tool_manifest` tool. Maps the tool→endpoint map
@@ -197,10 +187,13 @@ export interface ToolManifestEntry {
   name: string;
   method: string | null;
   path: string | null;
+  mode: 'read' | 'write';
+  registered: boolean;
 }
 
 export interface ToolManifest {
   toolCount: number;
+  registeredCount: number;
   tools: ToolManifestEntry[];
   dockhandOpenApiCommit: string;
   dockhandOpenApiVersion: string;
@@ -210,6 +203,8 @@ export interface ToolManifest {
 export function buildToolManifest(deps: {
   endpointMap: Readonly<Record<string, ToolEndpointEntry>>;
   metaToolNames: readonly string[];
+  classify: (name: string) => 'read' | 'write';
+  isRegistered: (name: string) => boolean;
   openApiCommit: string;
   openApiVersion: string;
   generatedAt: string;
@@ -218,15 +213,20 @@ export function buildToolManifest(deps: {
     name,
     method: entry.method,
     path: entry.path,
+    mode: deps.classify(name),
+    registered: deps.isRegistered(name),
   }));
   const metaTools: ToolManifestEntry[] = deps.metaToolNames.map((name) => ({
     name,
     method: null,
     path: null,
+    mode: deps.classify(name),
+    registered: deps.isRegistered(name),
   }));
   const tools = [...endpointTools, ...metaTools];
   return {
     toolCount: tools.length,
+    registeredCount: tools.filter((t) => t.registered).length,
     tools,
     dockhandOpenApiCommit: deps.openApiCommit,
     dockhandOpenApiVersion: deps.openApiVersion,
@@ -246,14 +246,24 @@ export interface SelfCheckEnvironment {
   name: string;
   reachable: boolean;
   hawserConnected: boolean;
+  /** Present (always `false`) only when the connection test was skipped; `reachable` is
+   * then unverified, not a failure. Absent on a tested environment (unchanged shape). */
+  tested?: false;
+  /** Why the connection test was skipped — see `CONNECTION_TEST_SKIPPED_READ_ONLY`. */
+  skipReason?: string;
 }
 
 export interface SelfCheck {
   dockhandReachable: boolean;
   authValid: boolean;
+  /** How `authValid` was determined: `login-probe` is a fresh POST /api/auth/login;
+   * `session` (MCP_READ_ONLY) is the outcome of the authenticated GET /api/environments
+   * with the server's existing session or token, since the login probe writes upstream. */
+  authCheck: 'login-probe' | 'session';
   latencyMs: number;
   environments: SelfCheckEnvironment[];
   overall: 'ok' | 'degraded' | 'down';
+  toolPolicy: ToolPolicySummary;
 }
 
 /** Default per-phase deadline for each of `runSelfCheck()`'s three probes (health,
@@ -308,9 +318,17 @@ const SELF_CHECK_PHASE_TIMEOUT_MS = 10_000;
  * same degraded/down outcome as a genuine failure, so no other branching changes.
  */
 export async function runSelfCheck(deps: {
+  toolPolicy: ToolPolicySummary;
+  /** MCP_READ_ONLY (issue #254): the per-environment connection test is a write upstream,
+   * so `listEnvironments` is asked to skip it, and an untested environment (`tested:
+   * false`) does not degrade `overall`. The login probe is a write upstream too (session
+   * row, lastLogin, audit entry), so `probeAuth` is not called: `authValid` is whether
+   * `listEnvironments` (an authenticated GET) succeeded. Any failure there, a 401/403 or
+   * otherwise, leaves auth unconfirmed and reports `false`. Defaults to `false`. */
+  readOnly?: boolean;
   probeHealth: () => Promise<void>;
   probeAuth: () => Promise<boolean>;
-  listEnvironments: () => Promise<SelfCheckEnvironment[]>;
+  listEnvironments: (opts: { testConnections: boolean }) => Promise<SelfCheckEnvironment[]>;
   now?: () => number;
   /** Per-phase deadline passed to `withTimeout()` for each of the three probes below.
    * Defaults to `SELF_CHECK_PHASE_TIMEOUT_MS`; overridable so tests can exercise a
@@ -319,6 +337,7 @@ export async function runSelfCheck(deps: {
 }): Promise<SelfCheck> {
   const now = deps.now ?? Date.now;
   const phaseTimeoutMs = deps.phaseTimeoutMs ?? SELF_CHECK_PHASE_TIMEOUT_MS;
+  const authCheck = deps.readOnly ? 'session' : 'login-probe';
   const start = now();
 
   try {
@@ -327,24 +346,32 @@ export async function runSelfCheck(deps: {
     return {
       dockhandReachable: false,
       authValid: false,
+      authCheck,
       latencyMs: now() - start,
       environments: [],
       overall: 'down',
+      toolPolicy: deps.toolPolicy,
     };
   }
 
-  let authValid: boolean;
-  try {
-    authValid = await withTimeout(deps.probeAuth(), phaseTimeoutMs);
-  } catch {
-    authValid = false;
+  let authValid = false;
+  if (!deps.readOnly) {
+    try {
+      authValid = await withTimeout(deps.probeAuth(), phaseTimeoutMs);
+    } catch {
+      authValid = false;
+    }
   }
 
   let environments: SelfCheckEnvironment[];
   let environmentsOk: boolean;
   try {
-    environments = await withTimeout(deps.listEnvironments(), phaseTimeoutMs);
-    environmentsOk = environments.every((env) => env.reachable);
+    environments = await withTimeout(
+      deps.listEnvironments({ testConnections: !deps.readOnly }),
+      phaseTimeoutMs,
+    );
+    environmentsOk = environments.every((env) => env.reachable || env.tested === false);
+    if (deps.readOnly) authValid = true;
   } catch {
     environments = [];
     environmentsOk = false;
@@ -353,9 +380,11 @@ export async function runSelfCheck(deps: {
   return {
     dockhandReachable: true,
     authValid,
+    authCheck,
     latencyMs: now() - start,
     environments,
     overall: authValid && environmentsOk ? 'ok' : 'degraded',
+    toolPolicy: deps.toolPolicy,
   };
 }
 
@@ -526,11 +555,70 @@ export function deriveEnvironmentStatuses(
  * to `self_check`'s total latency, not the sum across environments. */
 const ENVIRONMENT_TEST_TIMEOUT_MS = 5_000;
 
+/** `skipReason` on every environment `self_check` lists without testing it. */
+export const CONNECTION_TEST_SKIPPED_READ_ONLY =
+  'connection test skipped in read-only mode (POST /api/environments/{id}/test changes state)';
+
+/**
+ * `self_check`'s `listEnvironments` wiring, against the real client: the environment list,
+ * the Hawser connection status, and — only when `testConnections` — one
+ * `POST /api/environments/{id}/test` per environment. That POST is a write upstream (it
+ * opens Docker/Hawser connections and updates hawser fields on the environment), so under
+ * MCP_READ_ONLY (`testConnections: false`) it is never sent and each environment carries
+ * `tested: false` + `skipReason` instead (issue #254, security review).
+ */
+export async function listSelfCheckEnvironments(
+  client: Pick<DockhandClient, 'get' | 'post'>,
+  opts: { testConnections: boolean },
+): Promise<SelfCheckEnvironment[]> {
+  const envs = await client.get<EnvironmentListEntry[]>('/api/environments');
+
+  let connectedAgentIds = new Set<number>();
+  try {
+    const hawser = await client.get<{ connections?: HawserConnection[] }>('/api/hawser/connect');
+    connectedAgentIds = new Set((hawser.connections ?? []).map((c) => c.environmentId));
+  } catch {
+    // Best-effort: an unreachable Hawser status endpoint degrades every
+    // hawser-edge environment to not-connected below rather than failing
+    // listEnvironments() outright — see the doc comment above
+    // registerMetaTools() for the full rationale.
+  }
+
+  if (!opts.testConnections) {
+    return deriveEnvironmentStatuses(envs, connectedAgentIds, new Map()).map((env) => ({
+      ...env,
+      tested: false as const,
+      skipReason: CONNECTION_TEST_SKIPPED_READ_ONLY,
+    }));
+  }
+
+  // Fix round 1, Finding 1: a genuine, per-environment, in-parallel reachability
+  // check for EVERY environment (not just hawser-edge ones) — no connection type
+  // is ever assumed reachable. Each probe is individually timeout-bounded so one
+  // hung environment cannot make self_check itself hang.
+  const testResults = await Promise.allSettled(
+    envs.map((env) =>
+      withTimeout(
+        client.post<{ success?: boolean }>(`/api/environments/${encodePath(env.id)}/test`),
+        ENVIRONMENT_TEST_TIMEOUT_MS,
+      ),
+    ),
+  );
+
+  const perEnvReachable = new Map<number, boolean>();
+  envs.forEach((env, i) => {
+    const result = testResults[i];
+    perEnvReachable.set(env.id, result.status === 'fulfilled' && !!result.value.success);
+  });
+
+  return deriveEnvironmentStatuses(envs, connectedAgentIds, perEnvReachable);
+}
+
 /**
  * Races `promise` against a timeout, rejecting with a plain `Error` if `promise` has
  * not settled within `timeoutMs`. Generic, not Dockhand-specific — used only to bound
- * the per-environment `POST /api/environments/{id}/test` calls in `self_check`'s
- * `listEnvironments` wiring below.
+ * the per-environment `POST /api/environments/{id}/test` calls in
+ * `listSelfCheckEnvironments()` above.
  *
  * Note: this only makes the *caller* stop waiting — it does not abort the underlying
  * `fetch()` inside `promise` (`DockhandClient`'s request methods take no
@@ -846,8 +934,11 @@ export async function probeRawHealth(baseUrl: string): Promise<void> {
  *       - `probeAuth`: `attemptRawLogin()` above, `.completedAuth` (**Fix round 2,
  *         Finding 3**: NOT a bare `status === 200` check — see `attemptRawLogin()`'s own
  *         doc comment for why a `200` alone is not sufficient, e.g. an MFA-pending
- *         login).
- *       - `listEnvironments`: three calls, then `deriveEnvironmentStatuses()` above turns
+ *         login). Not called under MCP_READ_ONLY: that POST is a write upstream, so
+ *         `authValid` then comes from `listEnvironments`' authenticated GET
+ *         (`authCheck: "session"`, see `runSelfCheck()`).
+ *       - `listEnvironments`: `listSelfCheckEnvironments()` above — three calls, then
+ *         `deriveEnvironmentStatuses()` above turns
  *         their results into `SelfCheckEnvironment[]` — see that function's own doc comment
  *         for exactly how `reachable`/`hawserConnected` are derived (**Fix round 1, Finding
  *         1**: `reachable` is now a genuine live outcome check for every environment, never
@@ -869,7 +960,10 @@ export async function probeRawHealth(baseUrl: string): Promise<void> {
  *              the real, uniform reachability signal for socket AND edge environments
  *              alike. A rejected/timed-out probe degrades that one environment to
  *              `reachable: false` (via the missing `perEnvReachable` entry) rather than
- *              failing `listEnvironments` for every other environment.
+ *              failing `listEnvironments` for every other environment. Skipped under
+ *              MCP_READ_ONLY (the endpoint is a write upstream): each environment then
+ *              carries `tested: false` + `skipReason` and `runSelfCheck` does not count it
+ *              against `overall`.
  *   - `validate_config`: `validateConfig()`'s `attemptLogin` is `attemptRawLogin()` above
  *     against `client.getBaseUrl()` — the same helper `self_check` uses, so the two tools
  *     agree on what "the configured credentials are valid" means (both key off
@@ -886,6 +980,7 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
     {},
     async () => {
       const info = await buildServerInfo({
+        toolPolicy: currentToolPolicy().summary,
         dockhandUrl: client.getBaseUrl(),
         mcpProtocolVersion: LATEST_PROTOCOL_VERSION,
         getDockhandServerVersion: async () => {
@@ -912,6 +1007,8 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
       const manifest = buildToolManifest({
         endpointMap: TOOL_ENDPOINT_MAP,
         metaToolNames: META_TOOL_NAMES,
+        classify: (name) => currentToolPolicy().mode(name),
+        isRegistered: (name) => currentToolPolicy().isRegistered(name),
         openApiCommit: PINNED_DOCKHAND_OPENAPI_COMMIT,
         openApiVersion: specInfoVersion() ?? 'unknown',
         generatedAt: new Date().toISOString(),
@@ -923,44 +1020,13 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
   registerTool(server, 'self_check',
     {},
     async () => {
+      const policy = currentToolPolicy().summary;
       const result = await runSelfCheck({
+        toolPolicy: policy,
+        readOnly: policy.readOnly,
         probeHealth: () => probeRawHealth(client.getBaseUrl()),
         probeAuth: async () => (await attemptRawLogin(client.getBaseUrl())).completedAuth,
-        listEnvironments: async () => {
-          const envs = await client.get<EnvironmentListEntry[]>('/api/environments');
-
-          let connectedAgentIds = new Set<number>();
-          try {
-            const hawser = await client.get<{ connections?: HawserConnection[] }>('/api/hawser/connect');
-            connectedAgentIds = new Set((hawser.connections ?? []).map((c) => c.environmentId));
-          } catch {
-            // Best-effort: an unreachable Hawser status endpoint degrades every
-            // hawser-edge environment to not-connected below rather than failing
-            // listEnvironments() outright — see the doc comment above
-            // registerMetaTools() for the full rationale.
-          }
-
-          // Fix round 1, Finding 1: a genuine, per-environment, in-parallel reachability
-          // check for EVERY environment (not just hawser-edge ones) — no connection type
-          // is ever assumed reachable. Each probe is individually timeout-bounded so one
-          // hung environment cannot make self_check itself hang.
-          const testResults = await Promise.allSettled(
-            envs.map((env) =>
-              withTimeout(
-                client.post<{ success?: boolean }>(`/api/environments/${encodePath(env.id)}/test`),
-                ENVIRONMENT_TEST_TIMEOUT_MS,
-              ),
-            ),
-          );
-
-          const perEnvReachable = new Map<number, boolean>();
-          envs.forEach((env, i) => {
-            const result = testResults[i];
-            perEnvReachable.set(env.id, result.status === 'fulfilled' && !!result.value.success);
-          });
-
-          return deriveEnvironmentStatuses(envs, connectedAgentIds, perEnvReachable);
-        },
+        listEnvironments: (opts) => listSelfCheckEnvironments(client, opts),
       });
       return jsonResponse(result);
     }

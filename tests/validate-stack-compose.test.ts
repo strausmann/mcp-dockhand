@@ -33,7 +33,7 @@ function jsonOut(res: unknown): Record<string, unknown> {
 
 function setup() {
   const handlers = new Map<string, ToolHandler>();
-  const server = { tool: (n: string, _d: string, _s: unknown, cb: ToolHandler) => handlers.set(n, cb) };
+  const server = { tool: (n: string, _d: string, _s: unknown, _a: unknown, cb: ToolHandler) => handlers.set(n, cb) };
   const client = {
     get: vi.fn(),
     post: vi.fn().mockResolvedValue({ findings: [], counts: { error: 0, warn: 0, info: 0 } }),
@@ -53,7 +53,7 @@ describe('validate_stack_compose (#230)', () => {
   // post-implementation check: the tool is, in fact, registered.
   it('the tool is registered', () => {
     const handlers = new Map<string, ToolHandler>();
-    const server = { tool: (n: string, _d: string, _s: unknown, cb: ToolHandler) => handlers.set(n, cb) };
+    const server = { tool: (n: string, _d: string, _s: unknown, _a: unknown, cb: ToolHandler) => handlers.set(n, cb) };
     const client = { get: vi.fn(), post: vi.fn() };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     registerStackTools(server as any, client as any);
