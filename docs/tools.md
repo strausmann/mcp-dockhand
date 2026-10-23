@@ -310,7 +310,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `scan_image` | write | POST | `/api/images/scan` | Start a vulnerability scan of an image and stream scan progress as Server-Sent Events, persisting the results |
 | `scan_stacks` | write | POST | `/api/stacks/scan` | Scan a given filesystem path (or all configured external paths when none is given) for compose stacks, flagging which discovered stacks are already running |
 | `search_registry` | write | GET | `/api/registry/search` | Search for images by name in Docker Hub or a configured private registry (direct + catalog fallback) |
-| `self_check` | read | — | — | Read only under MCP_READ_ONLY, where it skips its side effect; write otherwise (see README). |
+| `self_check` | read | — | — | Read only under MCP_READ_ONLY, where it skips its side effects; write otherwise (see README). |
 | `set_container_auto_update` | write | POST | `/api/auto-update/{containerName}` | Create or update a container's auto-update setting; enabled=false deletes it and its schedule |
 | `set_container_icon` | write | POST | `/api/container-icons/{name}` | Set a container's icon override - either a name reference or an uploaded image |
 | `set_container_tags` | write | PUT | `/api/container-tags/{name}` | Replace the tag ids assigned to one container (by name) |
