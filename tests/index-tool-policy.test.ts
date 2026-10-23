@@ -125,4 +125,33 @@ describe('src/index.ts tool policy startup', () => {
     expect(warnLine).toBeDefined();
     expect(JSON.parse(warnLine!)).toMatchObject({ level: 'warn', component: 'tools', tools: ['cancel_job'] });
   });
+
+  it('a misspelled policy variable name logs a config warn naming it, and does not fail', async () => {
+    const createServer = vi.fn().mockReturnValue(new Promise(() => {}));
+    vi.doMock('../src/server.js', () => ({ createServer }));
+    const calls: string[] = [];
+    vi.spyOn(fs, 'writeSync').mockImplementation((fd: unknown, buffer: unknown) => {
+      if (fd === 2) {
+        calls.push(String(buffer));
+        return Buffer.byteLength(String(buffer));
+      }
+      return 0;
+    });
+    process.env['MCP_READONLY'] = 'true';
+
+    await import('../src/index.js');
+    await new Promise((r) => setTimeout(r, 0));
+
+    const warnLine = calls.map((c) => c.trim()).find((c) => c.includes('MCP_READONLY'));
+    expect(warnLine).toBeDefined();
+    const parsed = JSON.parse(warnLine!);
+    expect(parsed).toMatchObject({
+      level: 'warn',
+      component: 'config',
+      variables: [{ name: 'MCP_READONLY', expected: 'MCP_READ_ONLY' }],
+    });
+    // The value is never logged.
+    expect(warnLine).not.toContain('"true"');
+    expect(createServer).toHaveBeenCalled();
+  });
 });
