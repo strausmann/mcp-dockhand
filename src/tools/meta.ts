@@ -15,6 +15,7 @@ import { getStatsSnapshot } from '../utils/runtime-stats.js';
 import { log } from '../utils/log-context.js';
 import { encodePath } from '../utils/encode-path.js';
 import { parseApiToken } from '../auth/api-token.js';
+import { currentToolPolicy, type ToolPolicySummary } from '../utils/tool-policy.js';
 
 export interface ServerInfo {
   version: string;
@@ -24,6 +25,7 @@ export interface ServerInfo {
   mcpProtocolVersion: string;
   dockhandUrl: string;
   dockhandServerVersion: string | null;
+  toolPolicy: ToolPolicySummary;
 }
 
 /**
@@ -34,6 +36,7 @@ export interface ServerInfo {
  * self-help tool never breaks because Dockhand itself is unreachable.
  */
 export async function buildServerInfo(deps: {
+  toolPolicy: ToolPolicySummary;
   dockhandUrl: string;
   mcpProtocolVersion?: string;
   getDockhandServerVersion: () => Promise<string>;
@@ -52,6 +55,7 @@ export async function buildServerInfo(deps: {
     mcpProtocolVersion: deps.mcpProtocolVersion ?? 'unknown',
     dockhandUrl: deps.dockhandUrl,
     dockhandServerVersion,
+    toolPolicy: deps.toolPolicy,
   };
 }
 
@@ -183,10 +187,13 @@ export interface ToolManifestEntry {
   name: string;
   method: string | null;
   path: string | null;
+  mode: 'read' | 'write';
+  registered: boolean;
 }
 
 export interface ToolManifest {
   toolCount: number;
+  registeredCount: number;
   tools: ToolManifestEntry[];
   dockhandOpenApiCommit: string;
   dockhandOpenApiVersion: string;
@@ -196,6 +203,8 @@ export interface ToolManifest {
 export function buildToolManifest(deps: {
   endpointMap: Readonly<Record<string, ToolEndpointEntry>>;
   metaToolNames: readonly string[];
+  classify: (name: string) => 'read' | 'write';
+  isRegistered: (name: string) => boolean;
   openApiCommit: string;
   openApiVersion: string;
   generatedAt: string;
@@ -204,15 +213,20 @@ export function buildToolManifest(deps: {
     name,
     method: entry.method,
     path: entry.path,
+    mode: deps.classify(name),
+    registered: deps.isRegistered(name),
   }));
   const metaTools: ToolManifestEntry[] = deps.metaToolNames.map((name) => ({
     name,
     method: null,
     path: null,
+    mode: deps.classify(name),
+    registered: deps.isRegistered(name),
   }));
   const tools = [...endpointTools, ...metaTools];
   return {
     toolCount: tools.length,
+    registeredCount: tools.filter((t) => t.registered).length,
     tools,
     dockhandOpenApiCommit: deps.openApiCommit,
     dockhandOpenApiVersion: deps.openApiVersion,
@@ -240,6 +254,7 @@ export interface SelfCheck {
   latencyMs: number;
   environments: SelfCheckEnvironment[];
   overall: 'ok' | 'degraded' | 'down';
+  toolPolicy: ToolPolicySummary;
 }
 
 /** Default per-phase deadline for each of `runSelfCheck()`'s three probes (health,
@@ -294,6 +309,7 @@ const SELF_CHECK_PHASE_TIMEOUT_MS = 10_000;
  * same degraded/down outcome as a genuine failure, so no other branching changes.
  */
 export async function runSelfCheck(deps: {
+  toolPolicy: ToolPolicySummary;
   probeHealth: () => Promise<void>;
   probeAuth: () => Promise<boolean>;
   listEnvironments: () => Promise<SelfCheckEnvironment[]>;
@@ -316,6 +332,7 @@ export async function runSelfCheck(deps: {
       latencyMs: now() - start,
       environments: [],
       overall: 'down',
+      toolPolicy: deps.toolPolicy,
     };
   }
 
@@ -342,6 +359,7 @@ export async function runSelfCheck(deps: {
     latencyMs: now() - start,
     environments,
     overall: authValid && environmentsOk ? 'ok' : 'degraded',
+    toolPolicy: deps.toolPolicy,
   };
 }
 
@@ -872,6 +890,7 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
     {},
     async () => {
       const info = await buildServerInfo({
+        toolPolicy: currentToolPolicy().summary,
         dockhandUrl: client.getBaseUrl(),
         mcpProtocolVersion: LATEST_PROTOCOL_VERSION,
         getDockhandServerVersion: async () => {
@@ -898,6 +917,8 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
       const manifest = buildToolManifest({
         endpointMap: TOOL_ENDPOINT_MAP,
         metaToolNames: META_TOOL_NAMES,
+        classify: (name) => currentToolPolicy().mode(name),
+        isRegistered: (name) => currentToolPolicy().isRegistered(name),
         openApiCommit: PINNED_DOCKHAND_OPENAPI_COMMIT,
         openApiVersion: specInfoVersion() ?? 'unknown',
         generatedAt: new Date().toISOString(),
@@ -910,6 +931,7 @@ export function registerMetaTools(server: McpServer, client: DockhandClient): vo
     {},
     async () => {
       const result = await runSelfCheck({
+        toolPolicy: currentToolPolicy().summary,
         probeHealth: () => probeRawHealth(client.getBaseUrl()),
         probeAuth: async () => (await attemptRawLogin(client.getBaseUrl())).completedAuth,
         listEnvironments: async () => {
