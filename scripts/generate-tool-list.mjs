@@ -34,7 +34,7 @@ async function main() {
     classify: (name) => classifyTool(name, TOOL_ENDPOINT_MAP, META_TOOL_NAMES),
     summaryOf: (name) =>
       READ_ONLY_ADAPTIVE_TOOLS.includes(name)
-        ? 'Read only under MCP_READ_ONLY, where it skips its side effect; write otherwise (see README).'
+        ? 'Read only under MCP_READ_ONLY, where it skips its side effects; write otherwise (see README).'
         : specOperation(TOOL_ENDPOINT_MAP[name])?.summary,
     openApiCommit: PINNED_DOCKHAND_OPENAPI_COMMIT,
   });

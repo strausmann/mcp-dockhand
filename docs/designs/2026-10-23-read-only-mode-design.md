@@ -12,6 +12,34 @@
 > section, `self_check` behaviour, the login-probe exception and the guard tests below are
 > the corrected state.
 
+> **Revision 2 (2026-10-23, exhaustive audit).** The first security review sampled GET
+> handlers instead of tracing every read tool, and missed further side effects. An exhaustive
+> audit then traced all 172 read tools into the upstream helpers at the pinned commit, under
+> the strict definition: no state change in Dockhand or on any Docker host, and no outbound
+> network access even when the remote side is only read. Changes:
+> - 18 more tools in `WRITE_GET_TOOLS`: `get_selfhst_icon`, `get_selfhst_icon_manifest`
+>   (selfh.st CDN, icon cache write), `get_git_repository_sync_status` (`git fetch`),
+>   `get_container_file_content` (exec `cat`), `get_scanner_settings` (runs scanner
+>   containers, queries the registry), `get_oidc_login_url` (IdP discovery fetch, login-state
+>   cookie), `get_container_version_notes` (GitHub/forge API), `get_registry_catalog`,
+>   `get_registry_tags`, `get_registry_tag_info`, `search_registry` (registry queries with
+>   stored credentials), `list_templates` (template source URLs), and the six backup snapshot
+>   readers `list_backup_snapshots`, `browse_backup_snapshot`,
+>   `download_backup_snapshot_file`, `dump_backup_snapshot_file`,
+>   `get_backup_snapshot_metadata`, `diff_backup_snapshots` (restic against the backup
+>   repository, restic cache on disk).
+> - `validate_stack_compose` leaves `READ_ONLY_POST_TOOLS`: a caller-supplied compose file can
+>   carry remote `include:` resources that `docker compose config` would fetch.
+> - New `WRITE_META_TOOLS` (`check_for_update`: this server calls api.github.com;
+>   `validate_config`: a real login).
+> - The login-probe exception is withdrawn. `POST /api/auth/login` creates a session row,
+>   updates `lastLogin` and writes an audit entry on every call. Under `MCP_READ_ONLY`
+>   `self_check` no longer sends it and derives `authValid` from its authenticated
+>   `GET /api/environments` (`authCheck: "session"`).
+> - A short list of accepted exceptions replaces it (see "Accepted exceptions" below).
+>
+> Result: 151 read and 239 write tools (was 172 / 218).
+
 ## Problem
 
 mcp-dockhand registers about 390 tools, read and write, for every MCP client. Who may do what
@@ -80,8 +108,8 @@ read-only server by accident.
 
 - the tool's primary endpoint in `TOOL_ENDPOINT_MAP` is `GET` **and** the tool is not in
   `WRITE_GET_TOOLS`;
-- the tool is in `META_TOOL_NAMES` (local tools with no Dockhand endpoint) or in
-  `READ_ONLY_POST_TOOLS`.
+- the tool is in `META_TOOL_NAMES` (local tools with no Dockhand endpoint) but not in
+  `WRITE_META_TOOLS`, or it is in `READ_ONLY_POST_TOOLS`.
 
 Everything else is write, **including an unknown name** (fail-safe).
 
@@ -91,8 +119,18 @@ Everything else is write, **including an unknown name** (fail-safe).
 | | `browse_volume`, `export_volume`, `get_volume_file_content` | Create and start a volume helper container on the Docker host, pulling its image when missing. |
 | | `get_container_shells`, `get_container_top`, `list_container_files` | Exec in the user's container (`get_container_top` only when the caller holds the exec permission, which an admin, and every caller with Dockhand auth disabled, always does). |
 | | `probe_backup_stack_dir` | Pulls the backup helper image and runs a helper container. |
-| `META_TOOL_NAMES` (existing, `src/tools/meta.ts`) | `check_for_update`, `get_runtime_stats`, `get_server_info`, `get_tool_manifest`, `self_check`, `validate_config` | No single Dockhand endpoint; diagnostic. Two exceptions to "changes nothing": the login probe (below) and `self_check`'s connection test, which is skipped under `MCP_READ_ONLY`. |
-| `READ_ONLY_POST_TOOLS` | `validate_stack_compose`, `validate_stack_env`, `validate_stack_path`, `check_stack_path_change` | POST for transport reasons only: they validate or compare, with no stored result, no Docker daemon call and no outbound request. |
+| | `get_selfhst_icon`, `get_selfhst_icon_manifest` | Fetch from the selfh.st CDN and write Dockhand's icon cache. |
+| | `get_git_repository_sync_status` | `git fetch origin <branch>`. |
+| | `get_container_file_content` | Exec `cat` in the user's container. |
+| | `get_scanner_settings` | Without `settingsOnly=true`, runs each scanner image as a container for its version; queries the registry for newer versions. |
+| | `get_oidc_login_url` | Fetches the IdP discovery document, sets a login-state cookie and redirects to the IdP. |
+| | `get_container_version_notes` | Fetches release notes from the GitHub/forge API. |
+| | `get_registry_catalog`, `get_registry_tags`, `get_registry_tag_info`, `search_registry` | Query registries, private ones with stored credentials. |
+| | `list_templates` | Fetches every enabled template source URL and a sitemap. |
+| | `list_backup_snapshots`, `browse_backup_snapshot`, `download_backup_snapshot_file`, `dump_backup_snapshot_file`, `get_backup_snapshot_metadata`, `diff_backup_snapshots` | Run restic against the backup repository (outbound, stored credentials) and write restic's cache. |
+| `WRITE_META_TOOLS` | `check_for_update`, `validate_config` | Checked before the meta rule. `check_for_update` calls api.github.com; `validate_config` exists to send a real `POST /api/auth/login`. |
+| `META_TOOL_NAMES` (existing, `src/utils/meta-tool-names.ts`) | `check_for_update`, `get_runtime_stats`, `get_server_info`, `get_tool_manifest`, `self_check`, `validate_config` | No single Dockhand endpoint; diagnostic. Read unless in `WRITE_META_TOOLS`. `self_check` skips its login probe and its connection test under `MCP_READ_ONLY` (below). |
+| `READ_ONLY_POST_TOOLS` | `validate_stack_env`, `validate_stack_path`, `check_stack_path_change` | POST for transport reasons only: they validate or compare, with no stored result, no Docker daemon call and no outbound request. `validate_stack_compose` is write (remote `include:`). |
 
 The following are deliberately **not** read-only, under the strict definition agreed for #254:
 
@@ -113,13 +151,24 @@ The following are deliberately **not** read-only, under the strict definition ag
 Docker/Hawser connections and updates hawser fields. Under `MCP_READ_ONLY`, `self_check` skips
 it and reports the environments from the GET calls only. Each environment then carries
 `tested: false` and a `skipReason`, and an untested environment does not degrade `overall`.
-Without `MCP_READ_ONLY` nothing changes.
+It also skips its login probe (`POST /api/auth/login`, which creates a session row, updates
+`lastLogin` and writes an audit entry): `authValid` is then whether the authenticated
+`GET /api/environments` succeeded with the server's existing session or token, and the
+result carries `authCheck: "session"` (`"login-probe"` otherwise). Without `MCP_READ_ONLY`
+nothing changes.
 
-**Login probe (accepted exception).** `self_check` and `validate_config` probe the
-credentials with `POST /api/auth/login` (session mode; token mode uses a GET). Upstream that
-writes an audit entry and counts against the login rate limiter. This is accepted and
-documented, not hidden: the server logs in exactly this way during normal operation, so the
-probe adds nothing a read-only server does not already do.
+**Accepted exceptions (Revision 2).** These are the only side effects a read tool may still
+cause under `MCP_READ_ONLY`:
+
+- Lazy one-time initialisation that every Dockhand install already does at startup or on
+  first use and that carries no data: creating the icon, stacks and git-repos directories
+  (`get_container_icon`, `get_stack_icon`, `get_git_stack_env_files`,
+  `get_stack_delete_preview` and the stack-directory readers), and the one-time backup
+  instance-id setting (`get_backup_instance_id`).
+- Inherent to every MCP call regardless of tool: the server's own login at startup and after
+  a 401, and the bearer token's `lastUsed` update.
+
+The earlier login-probe exception is withdrawn.
 
 The universe `U` is `keys(TOOL_ENDPOINT_MAP) ∪ META_TOOL_NAMES`. A test asserts that it equals the
 set of names actually registered.
@@ -139,9 +188,14 @@ Three tests now guard against a repeat:
 - No read tool shares `{method, path}` with a write tool (`tests/tool-policy-coverage.test.ts`).
   That alone would have caught `get_git_stack_webhook`.
 - Every `READ_ONLY_POST_TOOLS` entry maps to a POST, every `WRITE_GET_TOOLS` entry to a GET.
-- Every meta tool handler runs against a recording client with `fetch` stubbed, under
-  `MCP_READ_ONLY` and the default policy. Any non-GET request that is not on an explicit,
-  commented allowlist fails the test (`tests/tools/meta.read-only-guard.test.ts`).
+- Every registered meta tool handler runs against a recording client with `fetch` stubbed,
+  under `MCP_READ_ONLY` and the default policy. Under `MCP_READ_ONLY` any non-GET request
+  and any request to a host other than Dockhand fails the test; with the default policy, any
+  non-GET request not on an explicit, commented allowlist
+  (`tests/tools/meta.read-only-guard.test.ts`).
+
+Revision 2 adds the exhaustive audit itself: every read tool was traced into the upstream
+helpers it calls, not sampled.
 
 ## Integration
 
@@ -223,7 +277,7 @@ same classification.
 - README: a "Read-only mode and tool filter" section and three rows in the environment table.
   The docker-compose example carries commented `MCP_READ_ONLY` / `MCP_TOOLS_*` lines.
 - `docs/adr/0003-tool-read-write-classification.md` records the classification rule, the
-  three exception sets and the "unknown ⇒ write" default as a binding rule for future tools.
+  exception sets and the "unknown ⇒ write" default as a binding rule for future tools.
   The ADR registry gets a new row.
 
 ## Security review (final step)

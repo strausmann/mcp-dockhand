@@ -1,5 +1,7 @@
 # Read-only Mode and Tool Filter Implementation Plan
 
+> **Current classification:** [ADR-0003](../adr/0003-tool-read-write-classification.md). The tool sets in this plan are historical.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** `MCP_READ_ONLY`, `MCP_TOOLS_ALLOW` and `MCP_TOOLS_DENY` decide at startup which tools mcp-dockhand registers. Every tool carries MCP read/write annotations, and a generated `docs/tools.md` lists every tool with its mode.

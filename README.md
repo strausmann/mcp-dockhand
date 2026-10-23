@@ -85,7 +85,7 @@ DOCKHAND_URL=https://your-server.com DOCKHAND_USERNAME=admin DOCKHAND_PASSWORD=s
 | `MCP_ALLOWED_HOSTS` | No | *(unset — Host check disabled)* | Comma-separated `Host` header allowlist for `/mcp` (DNS-rebinding protection). **Opt-in**: unset means no Host check at all (pre-existing behavior, so existing deployments aren't broken by an update). Recommended once you set it up — see [Securing the transport](#securing-the-transport) |
 | `MCP_ALLOWED_ORIGINS` | No | *(unset — Origin check disabled)* | Comma-separated `Origin` header allowlist for `/mcp`. Opt-in, same as above. Only enforced when a caller actually sends an `Origin` header at all (non-browser MCP clients typically don't) |
 | `MCP_AUTH_TOKEN` | No | *(unset — endpoint unauthenticated)* | Shared secret required as `Authorization: Bearer <token>` on every `/mcp` request. Opt-in; recommended once the endpoint is reachable beyond your own loopback — see [Securing the transport](#securing-the-transport) |
-| `MCP_READ_ONLY` | No | `false` | `true`/`1`/`yes` registers only read tools (no state change, no outbound side effect, with the documented login-probe exception); `false`/`0`/`no`/empty keeps everything. Values are case-insensitive. Any other value is a startup error. See [Read-only mode and tool filter](#read-only-mode-and-tool-filter) |
+| `MCP_READ_ONLY` | No | `false` | `true`/`1`/`yes` registers only read tools (no state change, no outbound network access; only the documented exceptions); `false`/`0`/`no`/empty keeps everything. Values are case-insensitive. Any other value is a startup error. See [Read-only mode and tool filter](#read-only-mode-and-tool-filter) |
 | `MCP_TOOLS_ALLOW` | No | *(unset — all tools)* | Comma-separated tool names or `*` patterns; when set, only matching tools are registered. Under `MCP_READ_ONLY`, an exact name (no `*`) also re-admits that write tool |
 | `MCP_TOOLS_DENY` | No | *(unset)* | Comma-separated tool names or `*` patterns that are never registered. Always wins over `MCP_TOOLS_ALLOW` |
 | `LOG_LEVEL` | No | `info` | `error`, `warn`, `info` or `debug`. `debug` adds one line per Dockhand request (method, endpoint template, status, duration). For requests through the client the duration spans the full response body and a `bytes` body-size field is added; the login and self-check probes (which bootstrap the client and so can't route through it) log time-to-headers without a `bytes` field. Never a path segment or a parameter value. An unrecognised value warns and falls back to `info`. |
@@ -144,10 +144,11 @@ client never sees them (which also saves the tokens their descriptions would use
 has to be rejected at call time.
 
 - `MCP_READ_ONLY=true` (case-insensitive: `true`/`1`/`yes`) registers only read tools: no
-  state change in Dockhand or on the Docker host and no outbound side effect. A tool is
-  read-only when its Dockhand endpoint is a `GET` without a side effect, when it is a local
-  diagnostic tool, or when it is one of four `POST` tools that only validate
-  (`validate_stack_compose`, `validate_stack_env`, `validate_stack_path`,
+  state change in Dockhand or on the Docker host and no outbound network access (registries,
+  CDNs, GitHub, git remotes, backup repositories), even when the remote side is only read. A
+  tool is read-only when its Dockhand endpoint is a `GET` without a side effect, when it is a
+  local diagnostic tool (except `check_for_update` and `validate_config`), or when it is one
+  of three `POST` tools that only validate (`validate_stack_env`, `validate_stack_path`,
   `check_stack_path_change`). Anything unclassified counts as write. See
   [ADR-0003](docs/adr/0003-tool-read-write-classification.md). Tools you might expect to be
   read-only but that are **write** under this mode:
@@ -158,19 +159,39 @@ has to be rejected at call time.
   - volume browsing `browse_volume`, `export_volume`, `get_volume_file_content` (start a
     helper container on the Docker host);
   - container inspection that execs in the container: `list_container_files`,
-    `get_container_top`, `get_container_shells`;
+    `get_container_top`, `get_container_shells`, `get_container_file_content`;
   - backup probes `probe_backup_stack_dir`, `preview_backup_restore` (helper containers,
-    restic);
-  - `list_git_remote_branches` (`git ls-remote` to a caller-chosen URL with a stored
-    credential) and `batch_get_selfhst_icons` (CDN fetch, disk cache write).
+    restic) and snapshot browsing `list_backup_snapshots`, `browse_backup_snapshot`,
+    `download_backup_snapshot_file`, `dump_backup_snapshot_file`,
+    `get_backup_snapshot_metadata`, `diff_backup_snapshots` (restic against the backup
+    repository with stored credentials, restic cache on disk);
+  - registry queries `get_registry_catalog`, `get_registry_tags`, `get_registry_tag_info`,
+    `search_registry` (private registries with stored credentials);
+  - `list_templates` (fetches the template source URLs), `get_container_version_notes`
+    (GitHub/forge release notes), `get_selfhst_icon`, `get_selfhst_icon_manifest` and
+    `batch_get_selfhst_icons` (CDN fetch, icon cache write);
+  - git: `list_git_remote_branches` (`git ls-remote` to a caller-chosen URL with a stored
+    credential) and `get_git_repository_sync_status` (`git fetch`);
+  - `get_scanner_settings` (runs the scanner images as containers to read their versions),
+    `get_oidc_login_url` (fetches the IdP discovery document, sets a login-state cookie);
+  - `validate_stack_compose` (a compose file can pull in remote `include:` resources);
+  - the meta tools `check_for_update` (calls api.github.com) and `validate_config` (a real
+    `POST /api/auth/login`, which creates a session and writes an audit entry).
 
   `self_check` stays available but skips its per-environment connection test
   (`POST /api/environments/{id}/test`); each environment is then reported with
-  `tested: false` and a `skipReason`. Outside read-only mode it still runs the test, so there
-  it is annotated and reported (`get_tool_manifest`) as `write`. One exception is accepted and documented: `self_check`
-  and `validate_config` probe the credentials with `POST /api/auth/login` in session mode,
-  which writes a Dockhand audit entry and counts against its login rate limit. The server
-  logs in the same way during normal operation.
+  `tested: false` and a `skipReason`. It also skips its login probe: `authValid` then says
+  whether the server's existing session or token could list the environments, and the
+  result carries `authCheck: "session"` (`"login-probe"` outside read-only mode). Outside
+  read-only mode it still runs both, so there it is annotated and reported
+  (`get_tool_manifest`) as `write`.
+
+  The only side effects accepted under read-only mode: lazy one-time initialisation that every
+  Dockhand install already does and that carries no data (creating the icon, stacks and
+  git-repos directories on first use, e.g. by `get_container_icon`, `get_stack_icon`,
+  `get_git_stack_env_files`, `get_stack_delete_preview`; the one-time backup instance id set
+  by `get_backup_instance_id`), and what every MCP call involves regardless of tool (the
+  server's own login at startup and after a 401, the bearer token's `lastUsed` update).
 - `MCP_TOOLS_ALLOW` and `MCP_TOOLS_DENY` take comma-separated entries. An entry is an exact tool
   name or a pattern where `*` matches any characters, including none, any number of times and in
   any position (`get_*`, `*_stack`, `*env*`; a bare `*` means every tool). Matching covers the
