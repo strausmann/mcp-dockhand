@@ -238,4 +238,41 @@ describe('runSelfCheck', () => {
     expect(down.overall).toBe('down');
     expect(down.toolPolicy).toEqual(summary);
   });
+
+  // Read-only mode (issue #254, security review): the per-environment connection test is
+  // POST /api/environments/{id}/test, a write, so runSelfCheck asks listEnvironments not to
+  // run it, and an untested environment must not degrade `overall`.
+  it('read-only: asks listEnvironments to skip connection tests; untested envs do not degrade', async () => {
+    const seen: Array<{ testConnections: boolean }> = [];
+    const result = await runSelfCheck({
+      toolPolicy: { ...POLICY, readOnly: true },
+      readOnly: true,
+      probeHealth: async () => {},
+      probeAuth: async () => true,
+      listEnvironments: async (opts) => {
+        seen.push(opts);
+        return [
+          { id: 1, name: 'production', reachable: false, hawserConnected: false, tested: false, skipReason: 'x' },
+        ];
+      },
+    });
+
+    expect(seen).toEqual([{ testConnections: false }]);
+    expect(result.overall).toBe('ok');
+    expect(result.environments[0]).toMatchObject({ tested: false });
+  });
+
+  it('default: asks listEnvironments to run connection tests', async () => {
+    const seen: Array<{ testConnections: boolean }> = [];
+    await runSelfCheck({
+      toolPolicy: POLICY,
+      probeHealth: async () => {},
+      probeAuth: async () => true,
+      listEnvironments: async (opts) => {
+        seen.push(opts);
+        return [];
+      },
+    });
+    expect(seen).toEqual([{ testConnections: true }]);
+  });
 });
