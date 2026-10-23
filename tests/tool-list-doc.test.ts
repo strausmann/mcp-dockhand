@@ -29,6 +29,10 @@ describe('buildToolListDoc', () => {
     expect(first.toLowerCase()).toContain('auto-generated');
   });
 
+  it('links to the README filter section', () => {
+    expect(build()).toContain('[README → Read-only mode and tool filter](../README.md#read-only-mode-and-tool-filter)');
+  });
+
   it('reports total, read and write counts', () => {
     expect(build()).toContain('**Tools:** 4 · **read:** 2 · **write:** 2');
   });

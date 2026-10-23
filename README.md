@@ -85,6 +85,9 @@ DOCKHAND_URL=https://your-server.com DOCKHAND_USERNAME=admin DOCKHAND_PASSWORD=s
 | `MCP_ALLOWED_HOSTS` | No | *(unset — Host check disabled)* | Comma-separated `Host` header allowlist for `/mcp` (DNS-rebinding protection). **Opt-in**: unset means no Host check at all (pre-existing behavior, so existing deployments aren't broken by an update). Recommended once you set it up — see [Securing the transport](#securing-the-transport) |
 | `MCP_ALLOWED_ORIGINS` | No | *(unset — Origin check disabled)* | Comma-separated `Origin` header allowlist for `/mcp`. Opt-in, same as above. Only enforced when a caller actually sends an `Origin` header at all (non-browser MCP clients typically don't) |
 | `MCP_AUTH_TOKEN` | No | *(unset — endpoint unauthenticated)* | Shared secret required as `Authorization: Bearer <token>` on every `/mcp` request. Opt-in; recommended once the endpoint is reachable beyond your own loopback — see [Securing the transport](#securing-the-transport) |
+| `MCP_READ_ONLY` | No | `false` | `true`/`1`/`yes` registers only read tools (no state change, no outbound side effect); `false`/`0`/`no`/empty keeps everything. Any other value is a startup error. See [Read-only mode and tool filter](#read-only-mode-and-tool-filter) |
+| `MCP_TOOLS_ALLOW` | No | *(unset — all tools)* | Comma-separated tool names or `*` patterns; when set, only matching tools are registered. Under `MCP_READ_ONLY`, an exact name (no `*`) also re-admits that write tool |
+| `MCP_TOOLS_DENY` | No | *(unset)* | Comma-separated tool names or `*` patterns that are never registered. Always wins over `MCP_TOOLS_ALLOW` |
 | `LOG_LEVEL` | No | `info` | `error`, `warn`, `info` or `debug`. `debug` adds one line per Dockhand request (method, endpoint template, status, duration). For requests through the client the duration spans the full response body and a `bytes` body-size field is added; the login and self-check probes (which bootstrap the client and so can't route through it) log time-to-headers without a `bytes` field. Never a path segment or a parameter value. An unrecognised value warns and falls back to `info`. |
 | `TRUSTED_PROXIES` | No | _(empty)_ | Comma-separated addresses or CIDRs allowed to set `X-Forwarded-For` / `X-Real-IP`, e.g. `10.0.0.0/8, 100.64.0.0/10`. Empty means the headers are ignored and the peer address is used. |
 
@@ -131,6 +134,64 @@ MCP_ALLOWED_HOSTS=dock-mcp.internal.example.com
 #MCP_ALLOWED_HOSTS=100.100.50.40:8222
 MCP_AUTH_TOKEN=<a long random secret, e.g. `openssl rand -hex 32`>
 ```
+
+### Read-only mode and tool filter
+
+By default every tool is registered, and what a client may do is decided only by the Dockhand
+account the server logs in with (on Dockhand's Free Edition every user is an administrator).
+Three variables narrow the tool set at startup. Filtered tools are **not registered**, so the
+client never sees them (which also saves the tokens their descriptions would use) and nothing
+has to be rejected at call time.
+
+- `MCP_READ_ONLY=true` registers only read tools: no state change in Dockhand and no outbound
+  side effect. `test_*` tools (they send real notifications and open LDAP, registry, git and
+  secret-provider connections), `scan_image`, `scan_stacks`, `scan_all_vulnerabilities` and
+  `check_container_updates` are therefore **not** read-only. A tool is read-only when its
+  Dockhand endpoint is a `GET` (except `trigger_git_webhook`, which deploys a git stack), when
+  it is a local diagnostic tool, or when it is one of the few `POST` tools that only validate
+  or preview. Anything unclassified counts as write. See [ADR-0003](docs/adr/0003-tool-read-write-classification.md).
+- `MCP_TOOLS_ALLOW` and `MCP_TOOLS_DENY` take comma-separated entries. An entry is an exact tool
+  name or a pattern where `*` matches any characters, including none, any number of times and in
+  any position (`get_*`, `*_stack`, `*env*`; a bare `*` means every tool). Matching covers the
+  whole name and is case-sensitive; no other glob or regex syntax is interpreted. Whitespace
+  around entries is trimmed and empty entries are ignored.
+
+Evaluation, once at startup:
+
+1. Start from all tools, or from the read tools only when `MCP_READ_ONLY` is set.
+2. Under `MCP_READ_ONLY`, add every **exact** `MCP_TOOLS_ALLOW` name. Patterns never re-admit a
+   write tool, so a wildcard cannot widen a read-only server by accident.
+3. If `MCP_TOOLS_ALLOW` is set, keep only the matching tools.
+4. Remove everything that matches `MCP_TOOLS_DENY`. Deny always wins.
+
+The server refuses to start (and does not fall back to registering everything) when
+`MCP_READ_ONLY` has an unrecognised value, when an `MCP_TOOLS_ALLOW` or `MCP_TOOLS_DENY` entry
+matches no tool (a typo would otherwise leave a tool exposed), or when nothing would be left.
+The resulting counts are logged at startup and reported as `toolPolicy` by `get_server_info`
+and `self_check`.
+
+```bash
+# Only tools that change nothing
+MCP_READ_ONLY=true
+
+# All read tools plus the vulnerability scan. ALLOW is a whitelist, so `*` keeps the
+# read tools and the exact name `scan_image` re-admits that one write tool
+MCP_READ_ONLY=true
+MCP_TOOLS_ALLOW=*,scan_image
+
+# Everything except the backup tools
+MCP_TOOLS_DENY=*_backup_*
+```
+
+The exact tool names, and which of them `MCP_READ_ONLY` keeps, are listed in
+[docs/tools.md](docs/tools.md); a running server answers the same question through
+`get_tool_manifest`.
+
+**This filter adds to your other controls and replaces none of them.** Dockhand's own RBAC,
+`MCP_AUTH_TOKEN` and `DOCKHAND_API_TOKEN` (or the username/password pair) keep working exactly
+as before: the filter only decides which tools are registered, not who may call `/mcp` and not
+what the Dockhand account behind the server is allowed to do. It also does not hide sensitive
+**read** tools (for example `dump_backup_snapshot_file`); list those in `MCP_TOOLS_DENY` if needed.
 
 ## Securing the server with CrowdSec
 
@@ -561,9 +622,9 @@ them wrap a single Dockhand endpoint the way the tables above do (`get_tool_mani
 
 | Tool | Description |
 |------|-------------|
-| `get_server_info` | This server's own version, git SHA, build date, uptime, MCP protocol version, and the Dockhand URL/server version it's connected to |
+| `get_server_info` | This server's own version, git SHA, build date, uptime, MCP protocol version, the Dockhand URL/server version it's connected to, and the active tool policy (`toolPolicy`: read-only flag, allow/deny patterns, registered/total counts) |
 | `check_for_update` | Compares this server's running version against the latest GitHub release (TTL-cached) |
-| `get_tool_manifest` | Lists every registered tool with its Dockhand `{method, path}`, plus the pinned Dockhand OpenAPI commit/version this server's tools were generated against |
+| `get_tool_manifest` | Lists every registered tool with its Dockhand `{method, path}` and `mode` (`read`/`write`), plus the pinned Dockhand OpenAPI commit/version this server's tools were generated against |
 | `self_check` | End-to-end diagnostic: Dockhand reachability, credential validity, and a live, per-environment reachability check (`POST /api/environments/{id}/test`, run in parallel with a 5s per-environment timeout) plus Hawser-agent-connected status, in one call |
 | `validate_config` | Checks that `DOCKHAND_URL` and a complete credential set are present — `DOCKHAND_API_TOKEN`, or `DOCKHAND_USERNAME` + `DOCKHAND_PASSWORD` — and that they authenticate successfully |
 | `get_runtime_stats` | In-process counters for this server: total/per-tool call and error counts, uptime, and the last error's tool/message/timestamp |
