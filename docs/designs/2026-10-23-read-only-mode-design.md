@@ -6,6 +6,12 @@
 **Issue:** #254
 **Implementation branch:** `feat/read-only-mode`
 
+> **Revision 2026-10-23 (security review).** The first version of this design classified 12
+> tools as read that have a side effect upstream, and claimed that no meta tool posts. Both
+> came from an incomplete scan (see "How the classification was checked"). The Classification
+> section, `self_check` behaviour, the login-probe exception and the guard tests below are
+> the corrected state.
+
 ## Problem
 
 mcp-dockhand registers about 390 tools, read and write, for every MCP client. Who may do what
@@ -81,9 +87,12 @@ Everything else is write, **including an unknown name** (fail-safe).
 
 | Set | Members (at time of writing) | Why |
 |---|---|---|
-| `WRITE_GET_TOOLS` | `trigger_git_webhook` | A GET that triggers a git stack deploy. |
-| `META_TOOL_NAMES` (existing, `src/tools/meta.ts`) | `check_for_update`, `get_runtime_stats`, `get_server_info`, `get_tool_manifest`, `self_check`, `validate_config` | No Dockhand endpoint. Read/diagnostic only. `self_check`/`validate_config` do a login probe, which is not a state change. |
-| `READ_ONLY_POST_TOOLS` | `validate_stack_compose`, `validate_stack_env`, `validate_stack_path`, `check_stack_path_change`, `preview_backup_restore`, `batch_get_selfhst_icons`, `list_git_remote_branches` | POST for transport reasons only: they validate, preview or read, with no stored result and no outbound side effect. |
+| `WRITE_GET_TOOLS` | `trigger_git_webhook`, `get_git_stack_webhook`, `get_git_webhook` | Webhook triggers: they deploy, or write an audit entry. `get_git_stack_webhook` shares its endpoint with `trigger_git_webhook`. |
+| | `browse_volume`, `export_volume`, `get_volume_file_content` | Create and start a volume helper container on the Docker host, pulling its image when missing. |
+| | `get_container_shells`, `get_container_top`, `list_container_files` | Exec in the user's container (`get_container_top` only when the caller holds the exec permission, which an admin, and every caller with Dockhand auth disabled, always does). |
+| | `probe_backup_stack_dir` | Pulls the backup helper image and runs a helper container. |
+| `META_TOOL_NAMES` (existing, `src/tools/meta.ts`) | `check_for_update`, `get_runtime_stats`, `get_server_info`, `get_tool_manifest`, `self_check`, `validate_config` | No single Dockhand endpoint; diagnostic. Two exceptions to "changes nothing": the login probe (below) and `self_check`'s connection test, which is skipped under `MCP_READ_ONLY`. |
+| `READ_ONLY_POST_TOOLS` | `validate_stack_compose`, `validate_stack_env`, `validate_stack_path`, `check_stack_path_change` | POST for transport reasons only: they validate or compare, with no stored result, no Docker daemon call and no outbound request. |
 
 The following are deliberately **not** read-only, under the strict definition agreed for #254:
 
@@ -92,14 +101,47 @@ The following are deliberately **not** read-only, under the strict definition ag
 - `scan_image`, `scan_stacks` and `scan_all_vulnerabilities`: they store results and run
   long.
 - `check_container_updates`: it rewrites the pending-updates list.
+- `list_git_remote_branches`: it runs `git ls-remote` against a caller-chosen URL with a
+  caller-chosen stored credential, an outbound call that can send that credential anywhere.
+- `preview_backup_restore`: it runs restic and, with a restore mode, per-target helper
+  containers.
+- `batch_get_selfhst_icons`: it fetches icons from the selfh.st CDN and writes Dockhand's disk
+  cache.
+
+**`self_check` under `MCP_READ_ONLY`.** Its per-environment connection test is
+`POST /api/environments/{id}/test`, the endpoint of `test_environment`; upstream it opens
+Docker/Hawser connections and updates hawser fields. Under `MCP_READ_ONLY`, `self_check` skips
+it and reports the environments from the GET calls only. Each environment then carries
+`tested: false` and a `skipReason`, and an untested environment does not degrade `overall`.
+Without `MCP_READ_ONLY` nothing changes.
+
+**Login probe (accepted exception).** `self_check` and `validate_config` probe the
+credentials with `POST /api/auth/login` (session mode; token mode uses a GET). Upstream that
+writes an audit entry and counts against the login rate limiter. This is accepted and
+documented, not hidden: the server logs in exactly this way during normal operation, so the
+probe adds nothing a read-only server does not already do.
 
 The universe `U` is `keys(TOOL_ENDPOINT_MAP) ∪ META_TOOL_NAMES`. A test asserts that it equals the
 set of names actually registered.
 
-The classification was checked against the code, not only the method names. Every
-`registerTool` body of a GET-mapped or meta tool was scanned for `client.post/put/patch/delete`
-calls, and none was found. The only GET with a side effect is `trigger_git_webhook`, which is
-known from the shared-endpoint table in ADR-0002.
+### How the classification was checked
+
+The first version of this section said every `registerTool` body of a GET-mapped or meta tool
+had been scanned for `client.post/put/patch/delete`, that none was found, and that the only GET
+with a side effect was `trigger_git_webhook`. That scan was incomplete. It looked only at
+`registerTool` bodies in this repo, so it missed helpers they call (`runSelfCheck`'s
+environment listing posts `/api/environments/{id}/test`) and everything Dockhand does inside a
+GET handler (helper containers, exec, webhook triggers). The security review read the upstream
+handlers at the pinned commit and found the cases now listed above.
+
+Three tests now guard against a repeat:
+
+- No read tool shares `{method, path}` with a write tool (`tests/tool-policy-coverage.test.ts`).
+  That alone would have caught `get_git_stack_webhook`.
+- Every `READ_ONLY_POST_TOOLS` entry maps to a POST, every `WRITE_GET_TOOLS` entry to a GET.
+- Every meta tool handler runs against a recording client with `fetch` stubbed, under
+  `MCP_READ_ONLY` and the default policy. Any non-GET request that is not on an explicit,
+  commented allowlist fails the test (`tests/tools/meta.read-only-guard.test.ts`).
 
 ## Integration
 
@@ -116,7 +158,9 @@ known from the shared-endpoint table in ADR-0002.
 - `get_server_info` and `self_check` report `toolPolicy: { readOnly, allow, deny, registered, total }`.
   The values are names and patterns only, never secrets.
 - Startup log, one `info` line: mode, registered/total count. One `warn` line lists the write
-  tools re-admitted through exact ALLOW names under READ_ONLY.
+  tools re-admitted through exact ALLOW names under READ_ONLY. Another `warn` line names any
+  env variable that looks like one of the three policy variables but is not spelled exactly
+  (`MCP_READONLY`, `mcp_read_only`); such a variable is ignored, so the operator is told.
 
 ## Error handling (startup, fatal)
 
@@ -140,8 +184,11 @@ the operator expects to have but does not.
   - regex metacharacters in entries treated literally;
   - trimming and empty entries;
   - every fatal case, plus unknown name ⇒ write.
-- Coverage test: the registered tool names equal `U`, every name is classified, and the three
-  exception sets contain only existing tools.
+- Coverage test: the registered tool names equal `U`, every name is classified, the three
+  exception sets contain only existing tools of the expected method, and no read tool shares an
+  endpoint with a write tool.
+- Meta guard: the meta tool handlers make no unlisted non-GET request (see "How the
+  classification was checked").
 - Guard test: a snapshot list of all GET-mapped read tools. A new GET tool fails it until it
   is added either to the snapshot (read) or to `WRITE_GET_TOOLS`. That catches the next
   `trigger_git_webhook`. New POST/PUT/DELETE tools need no action, because they default to
