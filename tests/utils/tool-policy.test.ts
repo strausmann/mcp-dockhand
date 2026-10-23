@@ -33,15 +33,23 @@ function registered(env: Record<string, string | undefined>): string[] {
 
 describe('constants', () => {
   it('pin the documented lists', () => {
-    expect(WRITE_GET_TOOLS).toEqual(['trigger_git_webhook']);
+    expect(WRITE_GET_TOOLS).toEqual([
+      'trigger_git_webhook',
+      'get_git_stack_webhook',
+      'get_git_webhook',
+      'browse_volume',
+      'export_volume',
+      'get_volume_file_content',
+      'get_container_shells',
+      'get_container_top',
+      'list_container_files',
+      'probe_backup_stack_dir',
+    ]);
     expect(READ_ONLY_POST_TOOLS).toEqual([
       'validate_stack_compose',
       'validate_stack_env',
       'validate_stack_path',
       'check_stack_path_change',
-      'preview_backup_restore',
-      'batch_get_selfhst_icons',
-      'list_git_remote_branches',
     ]);
   });
 });
