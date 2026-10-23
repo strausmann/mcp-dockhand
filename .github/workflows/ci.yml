@@ -48,7 +48,8 @@ jobs:
       #
       # If this fails: run `npm run api:coverage-doc`, `npm run api:tool-endpoint-map`,
       # `node scripts/generate-body-contract-doc.mjs` and `npm run docs:tools` (needs
-      # `npm run build` first), then commit the result.
+      # `npm run build` first), then commit the result. A new derived doc must also be
+      # regenerated and committed by api-schema-sync.yml and drift-bump.yml.
       - name: Derived docs are in sync with the code
         run: |
           npm run api:coverage-doc
