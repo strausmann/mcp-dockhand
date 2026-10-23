@@ -44,7 +44,9 @@ function fakeServer() {
   return {
     tools,
     // Mirrors the subset of McpServer.tool() that registerTool() calls.
-    tool(name: string, description: string, schema: unknown, handler: CapturedTool['handler']) {
+    tool(name: string, description: string, schema: unknown, ...rest: unknown[]) {
+      // The handler is the last argument (annotations sit between schema and handler).
+      const handler = rest.at(-1) as CapturedTool['handler'];
       tools.set(name, { name, description, schema, handler });
     },
   };

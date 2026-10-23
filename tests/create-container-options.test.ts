@@ -24,7 +24,7 @@ function setup() {
   let handler: ToolHandler | undefined;
   let schema: ZodShape | undefined;
   const server = {
-    tool: (name: string, _d: string, s: ZodShape, cb: ToolHandler) => {
+    tool: (name: string, _d: string, s: ZodShape, _a: unknown, cb: ToolHandler) => {
       if (name === 'create_container') {
         handler = cb;
         schema = s;
