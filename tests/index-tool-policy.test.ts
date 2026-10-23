@@ -97,6 +97,32 @@ describe('src/index.ts tool policy startup', () => {
     expect(registeredAtStart).toBe(false);
     const policyLine = calls.map((c) => c.trim()).find((c) => c.includes('"tool policy"'));
     expect(policyLine).toBeDefined();
-    expect(JSON.parse(policyLine!)).toMatchObject({ component: 'tools', readOnly: true });
+    const info = JSON.parse(policyLine!);
+    expect(info).toMatchObject({ component: 'tools', readOnly: true });
+    expect(info.registered).toBeGreaterThan(0);
+    expect(info.registered).toBeLessThan(info.total);
+  });
+
+  it('exact MCP_TOOLS_ALLOW re-admitting a write tool under MCP_READ_ONLY logs a warn', async () => {
+    vi.doMock('../src/server.js', () => ({ createServer: vi.fn().mockReturnValue(new Promise(() => {})) }));
+    const calls: string[] = [];
+    vi.spyOn(fs, 'writeSync').mockImplementation((fd: unknown, buffer: unknown) => {
+      if (fd === 2) {
+        calls.push(String(buffer));
+        return Buffer.byteLength(String(buffer));
+      }
+      return 0;
+    });
+    process.env['MCP_READ_ONLY'] = 'true';
+    process.env['MCP_TOOLS_ALLOW'] = 'cancel_job';
+
+    await import('../src/index.js');
+    await new Promise((r) => setTimeout(r, 0));
+
+    const warnLine = calls
+      .map((c) => c.trim())
+      .find((c) => c.includes('write tools re-admitted under MCP_READ_ONLY via exact MCP_TOOLS_ALLOW names'));
+    expect(warnLine).toBeDefined();
+    expect(JSON.parse(warnLine!)).toMatchObject({ level: 'warn', component: 'tools', tools: ['cancel_job'] });
   });
 });
