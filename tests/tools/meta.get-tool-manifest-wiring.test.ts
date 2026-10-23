@@ -19,6 +19,7 @@ import {
   buildToolPolicy,
   configureToolPolicy,
   defaultToolPolicy,
+  WRITE_META_TOOLS,
 } from '../../src/utils/tool-policy.js';
 
 interface CapturedTool {
@@ -90,8 +91,9 @@ describe('get_tool_manifest registration wiring', () => {
 
     for (const metaName of META_TOOL_NAMES) {
       const entry = manifest.tools.find((t) => t.name === metaName);
-      // self_check runs its connection-test POST outside read-only (READ_ONLY_ADAPTIVE_TOOLS).
-      const mode = metaName === 'self_check' ? 'write' : 'read';
+      // self_check runs its connection-test POST outside read-only (READ_ONLY_ADAPTIVE_TOOLS);
+      // WRITE_META_TOOLS are write in every mode.
+      const mode = metaName === 'self_check' || WRITE_META_TOOLS.includes(metaName) ? 'write' : 'read';
       expect(entry, metaName).toEqual({ name: metaName, method: null, path: null, mode, registered: true });
     }
   });

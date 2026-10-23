@@ -15,6 +15,7 @@ import {
   buildToolPolicy,
   configureToolPolicy,
   defaultToolPolicy,
+  WRITE_META_TOOLS,
   type ToolPolicy,
 } from '../../src/utils/tool-policy.js';
 import { logger } from '../../src/utils/logger.js';
@@ -74,12 +75,12 @@ function collectHandlers(): Map<string, Handler> {
   return handlers;
 }
 
-/** Runs every meta handler; returns the requests each one made. */
+/** Runs every meta handler the policy registers; returns the requests each one made. */
 async function runAll(policy: ToolPolicy): Promise<Map<string, string[]>> {
   configureToolPolicy(policy);
   const handlers = collectHandlers();
   const byTool = new Map<string, string[]>();
-  for (const name of META_TOOL_NAMES) {
+  for (const name of META_TOOL_NAMES.filter((n) => policy.isRegistered(n))) {
     const handler = handlers.get(name);
     expect(handler, `${name} registered`).toBeDefined();
     calls = [];
@@ -127,7 +128,9 @@ describe('meta tools make no unlisted non-GET request', () => {
     );
     const byTool = await runAll(policy);
 
-    for (const name of META_TOOL_NAMES) {
+    // check_for_update and validate_config are write (WRITE_META_TOOLS): not registered.
+    expect([...byTool.keys()]).toEqual(META_TOOL_NAMES.filter((n) => !WRITE_META_TOOLS.includes(n)));
+    for (const name of byTool.keys()) {
       const unlisted = nonGet(byTool.get(name)!).filter((c) => !(NON_GET_ALLOWLIST[name] ?? []).includes(c));
       expect(unlisted, name).toEqual([]);
     }

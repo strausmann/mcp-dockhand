@@ -13,8 +13,9 @@ import { META_TOOL_NAMES } from './meta-tool-names.js';
 
 /**
  * GET tools with a side effect, classified `write` despite the method. Read-only means no
- * state change in Dockhand or on the Docker host and no outbound side effect; each entry
- * below breaks that upstream (Dockhand handler at the pinned commit).
+ * state change in Dockhand or on the Docker host and no outbound network access (even a
+ * read-only one); each entry below breaks that upstream (Dockhand handler at the pinned
+ * commit). ADR-0003 lists the reasons and the accepted exceptions.
  */
 export const WRITE_GET_TOOLS: readonly string[] = [
   'trigger_git_webhook', // webhook trigger: deploys the git stack
@@ -27,15 +28,33 @@ export const WRITE_GET_TOOLS: readonly string[] = [
   'get_container_top', // exec `ps` in the user's container (when the caller holds exec)
   'list_container_files', // exec `ls` in the user's container
   'probe_backup_stack_dir', // pulls the backup helper image and runs a helper container
+  'get_selfhst_icon', // fetches the icon from the selfh.st CDN, writes it (or a tombstone) to the icon cache
+  'get_selfhst_icon_manifest', // fetches the manifest from the selfh.st CDN and caches it
+  'get_git_repository_sync_status', // checkForUpdates runs `git fetch origin <branch>`
+  'get_container_file_content', // exec `cat` in the user's container
+  'get_scanner_settings', // runs each scanner image as a container for its version; queries the registry
+  'get_oidc_login_url', // fetches the IdP discovery document, sets a login-state cookie, redirects to the IdP
+  'get_container_version_notes', // fetches release notes from the GitHub/forge API (with GITHUB_TOKEN)
+  'get_registry_catalog', // queries the registry (private ones with stored credentials)
+  'get_registry_tags', // queries the registry (private ones with stored credentials)
+  'get_registry_tag_info', // queries the registry (private ones with stored credentials)
+  'search_registry', // queries the registry (private ones with stored credentials)
+  'list_templates', // fetches every enabled template source URL and a sitemap
+  'list_backup_snapshots', // runs restic against the backup repository, writes restic's cache
+  'browse_backup_snapshot', // runs restic against the backup repository, writes restic's cache
+  'download_backup_snapshot_file', // runs restic against the backup repository, writes restic's cache
+  'dump_backup_snapshot_file', // runs restic against the backup repository, writes restic's cache
+  'get_backup_snapshot_metadata', // runs restic against the backup repository, writes restic's cache
+  'diff_backup_snapshots', // runs restic against the backup repository, writes restic's cache
 ];
 
 /**
  * POST tools that only validate or compare (POST for transport reasons): no Dockhand state
- * change, no Docker daemon call, no outbound request. validate_stack_compose runs
- * `docker compose config` on a throwaway temp copy.
+ * change, no Docker daemon call, no outbound request. validate_stack_compose is not here:
+ * a caller-supplied compose file may carry remote `include:` resources that
+ * `docker compose config` would fetch.
  */
 export const READ_ONLY_POST_TOOLS: readonly string[] = [
-  'validate_stack_compose',
   'validate_stack_env',
   'validate_stack_path',
   'check_stack_path_change',
@@ -49,6 +68,14 @@ export const READ_ONLY_POST_TOOLS: readonly string[] = [
  * annotations and the manifest never advertise the POST-issuing variant as read-only.
  */
 export const READ_ONLY_ADAPTIVE_TOOLS: readonly string[] = ['self_check'];
+
+/**
+ * Meta tools (no Dockhand endpoint of their own) that are not read, checked before the
+ * meta-tools-are-read rule in classifyTool:
+ *   - check_for_update: this server calls api.github.com (outbound)
+ *   - validate_config: a real POST /api/auth/login (session row, lastLogin, audit entry)
+ */
+export const WRITE_META_TOOLS: readonly string[] = ['check_for_update', 'validate_config'];
 
 export class ToolPolicyError extends Error {
   constructor(message: string) {
@@ -75,6 +102,7 @@ export function classifyTool(
   endpointMap: EndpointMap,
   metaToolNames: readonly string[],
 ): 'read' | 'write' {
+  if (WRITE_META_TOOLS.includes(name)) return 'write';
   if (metaToolNames.includes(name) || READ_ONLY_POST_TOOLS.includes(name)) return 'read';
   const entry = Object.prototype.hasOwnProperty.call(endpointMap, name) ? endpointMap[name] : undefined;
   if (entry && entry.method.toUpperCase() === 'GET' && !WRITE_GET_TOOLS.includes(name)) return 'read';

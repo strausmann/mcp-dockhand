@@ -4,7 +4,7 @@
 
 Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tools are registered; see [README → Read-only mode and tool filter](../README.md#read-only-mode-and-tool-filter). Endpoints and summaries come from the Dockhand OpenAPI spec pinned at commit `9efea8ba2e1e8779441a9b99c101a03f19ca515f`.
 
-**Tools:** 390 · **read:** 172 · **write:** 218
+**Tools:** 390 · **read:** 151 · **write:** 239
 
 | Tool | Mode | Method | Path | Summary |
 | --- | --- | --- | --- | --- |
@@ -16,11 +16,11 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `batch_get_selfhst_icons` | write | POST | `/api/icons/selfhst/batch` | Resolve multiple selfh.st app icons in one request (avoids per-icon requests a WAF flags as crawling) |
 | `batch_update_containers` | write | POST | `/api/containers/batch-update` | Recreate a set of containers with their latest images, preserving all settings (requires the 'create' permission) |
 | `batch_update_containers_stream` | write | POST | `/api/containers/batch-update-stream` | Recreate a set of containers with live streaming progress (Server-Sent Events), optionally blocking on vulnerability criteria (requires the 'create' permission) |
-| `browse_backup_snapshot` | read | GET | `/api/backup/snapshots/{id}/browse` | List directory entries at a path inside a snapshot (job-polled) |
+| `browse_backup_snapshot` | write | GET | `/api/backup/snapshots/{id}/browse` | List directory entries at a path inside a snapshot (job-polled) |
 | `browse_volume` | write | GET | `/api/volumes/{name}/browse` | Browse a directory inside a Docker volume via a cached helper container; the volume is mounted read-only when in use by other containers |
 | `cancel_job` | write | DELETE | `/api/jobs/{id}` | Request cancellation of a running background job (owner or admin only) |
 | `check_container_updates` | write | POST | `/api/containers/check-updates` | Trigger a fresh image-update check across all (non-hidden, non-podman-infra) containers in an environment |
-| `check_for_update` | read | — | — | — |
+| `check_for_update` | write | — | — | — |
 | `check_stack_env_collisions` | read | GET | `/api/stacks/{name}/env` | Get a stack's env vars plus injected provider keys |
 | `check_stack_path_change` | read | POST | `/api/stacks/{name}/check-path-change` | Check whether a proposed compose path moves the stack to a different directory and how many files the old directory still holds |
 | `chmod_container_file` | write | POST | `/api/containers/{id}/files/chmod` | Change the mode (permissions) of a file or directory inside a container (requires the 'exec' permission) |
@@ -88,13 +88,13 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `deploy_git_stack_stream` | write | POST | `/api/git/stacks/{id}/deploy-stream` | Deploy a git stack with live progress; streams SSE, or returns a jobId to poll (Accept negotiated) |
 | `deploy_stack` | write | POST | `/api/stacks/{name}/deploy` | Deploy (docker compose up) a stack, optionally pulling images, building, and force-recreating; progress and the final result stream over Server-Sent Events |
 | `detect_docker_socket` | read | GET | `/api/environments/detect-socket` | Detect common Docker/Podman socket paths that exist on the Dockhand host |
-| `diff_backup_snapshots` | read | GET | `/api/backup/snapshots/diff` | Diff two snapshots' file trees (added/changed/removed) - job-polled |
+| `diff_backup_snapshots` | write | GET | `/api/backup/snapshots/diff` | Diff two snapshots' file trees (added/changed/removed) - job-polled |
 | `disable_user_mfa` | write | DELETE | `/api/users/{id}/mfa` | Disable MFA for a user |
 | `disconnect_container_from_network` | write | POST | `/api/networks/{id}/disconnect` | Disconnect a container from a Docker network (optionally forcing the disconnect) |
 | `down_stack` | write | POST | `/api/stacks/{name}/down` | Take a stack down (docker compose down — removes containers, keeps files), asynchronously |
-| `download_backup_snapshot_file` | read | GET | `/api/backup/snapshots/{id}/dump` | Read a single file (or archive) out of a snapshot (job-polled restic dump) |
+| `download_backup_snapshot_file` | write | GET | `/api/backup/snapshots/{id}/dump` | Read a single file (or archive) out of a snapshot (job-polled restic dump) |
 | `download_container_file` | read | GET | `/api/containers/{id}/files/download` | Download a file or directory from a container as a tar (optionally gzip-compressed) archive attachment |
-| `dump_backup_snapshot_file` | read | GET | `/api/backup/snapshots/{id}/dump` | Read a single file (or archive) out of a snapshot (job-polled restic dump) |
+| `dump_backup_snapshot_file` | write | GET | `/api/backup/snapshots/{id}/dump` | Read a single file (or archive) out of a snapshot (job-polled restic dump) |
 | `enable_user_mfa` | write | POST | `/api/users/{id}/mfa` | Set up or verify MFA for a user (action=setup regenerates a secret; action=verify confirms a code) |
 | `exec_container` | write | POST | `/api/containers/{id}/exec` | Create a Docker exec instance in a container and return its ID plus the Docker connection info for a terminal WebSocket |
 | `execute_batch` | write | POST | `/api/batch` | Run a bulk operation (start/stop/restart/pause/unpause/remove/down, depending on entity type) across many containers, images, volumes, networks, or stacks; clients that send Accept application/json get a synchronous summary, others get a jobId and progress over Server-Sent Events |
@@ -119,14 +119,14 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `get_backup_config` | read | GET | `/api/backup/configs/{id}` | Fetch a single backup configuration by id, enforcing environment-scoped access |
 | `get_backup_destination` | read | GET | `/api/backup/destinations/{id}` | Fetch one backup destination; cloud env vars and public SSH known_hosts data require manage permission, while passwords, TLS PEMs, and SSH private keys are always stripped |
 | `get_backup_instance_id` | read | GET | `/api/backup/instance` | This install's stable backup instance id, used to tell own snapshots from foreign orphans |
-| `get_backup_snapshot_metadata` | read | GET | `/api/backup/snapshots/{id}/metadata` | The snapshot's redacted metadata layout (job-polled restic dump) |
+| `get_backup_snapshot_metadata` | write | GET | `/api/backup/snapshots/{id}/metadata` | The snapshot's redacted metadata layout (job-polled restic dump) |
 | `get_changelog` | read | GET | `/api/changelog` | Return the bundled Dockhand changelog data |
 | `get_config_set` | read | GET | `/api/config-sets/{id}` | Fetch a single config set by its numeric ID |
 | `get_container` | read | GET | `/api/containers/{id}` | Return the full Docker inspect payload for a single container |
 | `get_container_activity` | read | GET | `/api/activity/containers` | List distinct container names that appear in the activity log, for filter dropdowns |
 | `get_container_auto_update` | read | GET | `/api/auto-update/{containerName}` | Get the auto-update setting for a container (returns sensible defaults when none is stored) |
 | `get_container_compose` | read | GET | `/api/containers/{id}/compose` | Generate a docker-compose service definition from a running container's inspect (requires the 'view' permission) |
-| `get_container_file_content` | read | GET | `/api/containers/{id}/files/content` | Read the content of a single file inside a container (max 1 MB) |
+| `get_container_file_content` | write | GET | `/api/containers/{id}/files/content` | Read the content of a single file inside a container (max 1 MB) |
 | `get_container_icon` | read | GET | `/api/container-icons/{name}` | Get a container's uploaded custom icon (raw image/webp bytes, not JSON) |
 | `get_container_icon_overrides` | read | GET | `/api/container-icons` | List all container icon overrides for an environment as a name -> icon map |
 | `get_container_logs` | read | GET | `/api/containers/{id}/logs` | Return the last N lines of a container's combined stdout/stderr logs as a single string |
@@ -136,7 +136,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `get_container_tags` | read | GET | `/api/container-tags/{name}` | Get the tag ids assigned to one container (by name) |
 | `get_container_top` | write | GET | `/api/containers/{id}/top` | List the processes running inside a container (via `ps` in the container, falling back to the Docker top API) |
 | `get_container_update_check` | read | GET | `/api/containers/check-updates` | Read the cached pending image-update records for an environment (no fresh check; requires the 'view' permission) |
-| `get_container_version_notes` | read | GET | `/api/containers/{id}/version-notes` | Resolve GitHub release notes for the versions a semver update-check surfaced (requires the 'view' permission) |
+| `get_container_version_notes` | write | GET | `/api/containers/{id}/version-notes` | Resolve GitHub release notes for the versions a semver update-check surfaced (requires the 'view' permission) |
 | `get_containers_stats` | read | GET | `/api/containers/stats` | Return a CPU/memory/network/block-IO stats snapshot for every running container in an environment (requires the 'view' permission) |
 | `get_dashboard_preferences` | read | GET | `/api/dashboard/preferences` | Get the current user's dashboard preferences (grid layout, lock state, view mode) |
 | `get_dashboard_stats` | read | GET | `/api/dashboard/stats` | Get aggregated dashboard statistics per environment (containers, images, volumes, stacks, metrics) |
@@ -155,7 +155,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `get_general_settings` | read | GET | `/api/settings/general` | Get global (instance-wide) general settings |
 | `get_git_credential` | read | GET | `/api/git/credentials/{id}` | Get a single git credential by ID with secrets stripped (only hasPassword/hasSshKey flags returned) |
 | `get_git_repository` | read | GET | `/api/git/repositories/{id}` | Get a single git repository by ID |
-| `get_git_repository_sync_status` | read | GET | `/api/git/repositories/{id}/sync` | Check whether the tracked branch has new commits upstream without pulling them |
+| `get_git_repository_sync_status` | write | GET | `/api/git/repositories/{id}/sync` | Check whether the tracked branch has new commits upstream without pulling them |
 | `get_git_stack` | read | GET | `/api/git/stacks/{id}` | Get one git stack |
 | `get_git_stack_env_files` | read | GET | `/api/git/stacks/{id}/env-files` | List the .env files present in a git stack's cloned repository |
 | `get_git_stack_webhook` | write | GET | `/api/git/stacks/{id}/webhook` | GET webhook trigger for a git stack, with the secret passed as the `secret` query parameter |
@@ -172,7 +172,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `get_navigation_settings` | read | GET | `/api/settings/navigation` | Get the effective navigation preferences (landing page, env-click target) plus the raw global and per-user values |
 | `get_network` | read | GET | `/api/networks/{id}` | Inspect a Docker network by ID (a malformed ID is rejected with 400 by input validation) |
 | `get_notification` | read | GET | `/api/notifications/{id}` | Get a single notification setting by ID, with any SMTP password masked |
-| `get_oidc_login_url` | read | GET | `/api/auth/oidc/{id}/initiate` | Start the OIDC login flow for a provider — on success throws a 302 redirect to the IdP authorization URL |
+| `get_oidc_login_url` | write | GET | `/api/auth/oidc/{id}/initiate` | Start the OIDC login flow for a provider — on success throws a 302 redirect to the IdP authorization URL |
 | `get_oidc_provider` | read | GET | `/api/auth/oidc/{id}` | Get a single OIDC provider configuration by id (client secret is masked) |
 | `get_openapi_spec` | read | GET | `/api/docs` | The full OpenAPI 3.0 specification for the Dockhand REST API (unauthenticated) |
 | `get_pending_updates` | read | GET | `/api/containers/pending-updates` | List the containers in an environment that have a pending image update recorded (requires the 'view' permission) |
@@ -181,18 +181,18 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `get_profile_preferences` | read | GET | `/api/profile/preferences` | Get the current user's UI preferences (theme, fonts, editor options) |
 | `get_prometheus_metrics` | read | GET | `/metrics` | Prometheus metrics endpoint (disabled and 404s unless EXPORT_METRICS=true; public if app auth is disabled, otherwise requires a session or bearer token) |
 | `get_registry` | read | GET | `/api/registries/{id}` | Get a single registry by ID with the password stripped (only a hasCredentials flag) |
-| `get_registry_catalog` | read | GET | `/api/registry/catalog` | List repositories in a registry's V2 catalog (with Harbor project-API fallback), paginated |
-| `get_registry_tag_info` | read | GET | `/api/registry/tag-info` | Resolve the compressed size and creation date of a single registry tag from its manifest (lazy per-tag fetch for the registry browser) |
-| `get_registry_tags` | read | GET | `/api/registry/tags` | List the tags of an image from Docker Hub or a configured registry (paginated for Docker Hub) |
+| `get_registry_catalog` | write | GET | `/api/registry/catalog` | List repositories in a registry's V2 catalog (with Harbor project-API fallback), paginated |
+| `get_registry_tag_info` | write | GET | `/api/registry/tag-info` | Resolve the compressed size and creation date of a single registry tag from its manifest (lazy per-tag fetch for the registry browser) |
+| `get_registry_tags` | write | GET | `/api/registry/tags` | List the tags of an image from Docker Hub or a configured registry (paginated for Docker Hub) |
 | `get_role` | read | GET | `/api/roles/{id}` | Get a single role by id; needs admin or users:view, plus an enterprise license |
 | `get_runtime_stats` | read | — | — | — |
-| `get_scanner_settings` | read | GET | `/api/settings/scanner` | Get the vulnerability-scanner settings for an environment, plus (unless settingsOnly) scanner availability, versions and optional update info |
+| `get_scanner_settings` | write | GET | `/api/settings/scanner` | Get the vulnerability-scanner settings for an environment, plus (unless settingsOnly) scanner availability, versions and optional update info |
 | `get_schedule_execution` | read | GET | `/api/schedules/executions/{id}` | Get a single schedule execution, including its logs |
 | `get_schedule_executions` | read | GET | `/api/schedules/executions` | List schedule execution history, filterable and paginated |
 | `get_schedule_settings` | read | GET | `/api/schedules/settings` | Get the schedules-page display preference (hide system jobs), per-user with a global fallback |
 | `get_secret_provider` | read | GET | `/api/secret-providers/{id}` | Get one secret provider with its non-secret config coordinates (the token is redacted out) |
-| `get_selfhst_icon` | read | GET | `/api/icons/selfhst/{ref}` | Get a selfh.st app icon, fetched once from the CDN and cached on disk |
-| `get_selfhst_icon_manifest` | read | GET | `/api/icons/selfhst-manifest` | Get the selfh.st icon manifest (index.json), cached on disk with a 7-day TTL |
+| `get_selfhst_icon` | write | GET | `/api/icons/selfhst/{ref}` | Get a selfh.st app icon, fetched once from the CDN and cached on disk |
+| `get_selfhst_icon_manifest` | write | GET | `/api/icons/selfhst-manifest` | Get the selfh.st icon manifest (index.json), cached on disk with a 7-day TTL |
 | `get_semver_settings` | read | GET | `/api/settings/semver` | Get the global newer-version-tag (semver) detection config |
 | `get_server_info` | read | — | — | — |
 | `get_sidebar_preferences` | read | GET | `/api/preferences/sidebar` | Retrieve the saved sidebar menu preferences (order and hidden items) |
@@ -231,7 +231,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `list_auth_tokens` | read | GET | `/api/auth/tokens` | List the authenticated user's API tokens (never returns the hash/secret) |
 | `list_backup_configs` | read | GET | `/api/backup/configs` | List backup configurations, optionally filtered by type, target and environment (enterprise callers only see configs for environments they can access) |
 | `list_backup_destinations` | read | GET | `/api/backup/destinations` | List all backup destinations without passwords, SSH data, TLS PEMs, or cloud-credential env vars |
-| `list_backup_snapshots` | read | GET | `/api/backup/snapshots` | List restic snapshots for a backup config or a single destination (job-polled) |
+| `list_backup_snapshots` | write | GET | `/api/backup/snapshots` | List restic snapshots for a backup config or a single destination (job-polled) |
 | `list_config_sets` | read | GET | `/api/config-sets` | List all config sets (reusable bundles of env vars, labels, ports, volumes, and runtime defaults) |
 | `list_container_files` | write | GET | `/api/containers/{id}/files` | List the contents of a directory inside a container's filesystem |
 | `list_container_tags` | read | GET | `/api/container-tags` | List all container tag assignments for an environment as a name -> tagIds map |
@@ -260,7 +260,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `list_system_files` | read | GET | `/api/system/files` | List the entries of a directory on Dockhand's local filesystem (protected paths are hidden) |
 | `list_tags` | read | GET | `/api/tags` | List the global tag catalog (name + colour) |
 | `list_template_sources` | read | GET | `/api/templates/sources` | List all configured template sources (built-in and custom) |
-| `list_templates` | read | GET | `/api/templates` | Return the normalized app templates aggregated from all enabled template sources (server-side cached for 1 hour) |
+| `list_templates` | write | GET | `/api/templates` | Return the normalized app templates aggregated from all enabled template sources (server-side cached for 1 hour) |
 | `list_users` | read | GET | `/api/users` | List all local/SSO users |
 | `list_volumes` | read | GET | `/api/volumes` | List Docker volumes for an environment; returns an empty array when no environment is specified |
 | `list_vulnerabilities` | read | GET | `/api/vulnerabilities` | A filtered, sorted page of aggregated vulnerability findings for an environment |
@@ -309,7 +309,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `scan_all_vulnerabilities` | write | POST | `/api/vulnerabilities/scan-all` | Scan every image in an environment for vulnerabilities, streaming per-image progress as Server-Sent Events |
 | `scan_image` | write | POST | `/api/images/scan` | Start a vulnerability scan of an image and stream scan progress as Server-Sent Events, persisting the results |
 | `scan_stacks` | write | POST | `/api/stacks/scan` | Scan a given filesystem path (or all configured external paths when none is given) for compose stacks, flagging which discovered stacks are already running |
-| `search_registry` | read | GET | `/api/registry/search` | Search for images by name in Docker Hub or a configured private registry (direct + catalog fallback) |
+| `search_registry` | write | GET | `/api/registry/search` | Search for images by name in Docker Hub or a configured private registry (direct + catalog fallback) |
 | `self_check` | read | — | — | Read only under MCP_READ_ONLY, where it skips its side effect; write otherwise (see README). |
 | `set_container_auto_update` | write | POST | `/api/auto-update/{containerName}` | Create or update a container's auto-update setting; enabled=false deletes it and its schedule |
 | `set_container_icon` | write | POST | `/api/container-icons/{name}` | Set a container's icon override - either a name reference or an uploaded image |
@@ -391,8 +391,8 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `update_template_source` | write | PUT | `/api/templates/sources` | Update a template source — toggle enabled, or change its name/URL (only provided fields are changed) |
 | `update_user` | write | PUT | `/api/users/{id}` | Update a user (self-edit is always allowed; admin/active changes require admin; demoting or deactivating the last admin needs confirmDisableAuth) |
 | `upload_container_file` | write | POST | `/api/containers/{id}/files/upload` | Upload one or more files into a container directory (requires the 'exec' permission) |
-| `validate_config` | read | — | — | — |
-| `validate_stack_compose` | read | POST | `/api/stacks/{name}/validate` | Run the Compose Validate preflight linter on a compose file and return findings with severities and line numbers (requires the 'view' permission) |
+| `validate_config` | write | — | — | — |
+| `validate_stack_compose` | write | POST | `/api/stacks/{name}/validate` | Run the Compose Validate preflight linter on a compose file and return findings with severities and line numbers (requires the 'view' permission) |
 | `validate_stack_env` | read | POST | `/api/stacks/{name}/env/validate` | Validate a stack's defined environment variables against the variables required/optional by its compose file (compose content and the defined variable list may be supplied in the body, otherwise loaded from the saved file/DB) |
 | `validate_stack_path` | read | POST | `/api/stacks/validate-path` | Validate a candidate external stack path (exists, is a directory, no overlap with already-configured paths); validation failures are returned as 200 with valid=false |
 | `verify_backup_destination` | write | POST | `/api/backup/destinations/{id}/verify` | Verify the integrity of a destination's backups by reading a data subset, streaming progress as a Server-Sent Events job |
