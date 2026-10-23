@@ -101,6 +101,26 @@ function parseList(raw: string | undefined): string[] {
     .filter((s) => s !== '');
 }
 
+const POLICY_VAR_NAMES = ['MCP_READ_ONLY', 'MCP_TOOLS_ALLOW', 'MCP_TOOLS_DENY'] as const;
+
+const squash = (name: string) => name.toUpperCase().replace(/_/g, '');
+
+/**
+ * Env names that look like a policy variable but are not spelled exactly (MCP_READONLY,
+ * mcp_read_only, ...). Such a variable is silently ignored, so the operator's intended
+ * restriction would not apply: the caller warns. Returns names only, never values.
+ */
+export function findMisspelledPolicyVars(
+  env: Record<string, string | undefined>,
+): Array<{ name: string; expected: string }> {
+  const found: Array<{ name: string; expected: string }> = [];
+  for (const name of Object.keys(env)) {
+    const expected = POLICY_VAR_NAMES.find((v) => v !== name && squash(v) === squash(name));
+    if (expected) found.push({ name, expected });
+  }
+  return found;
+}
+
 export function buildToolPolicy(
   env: Record<string, string | undefined>,
   universe: { endpointMap: EndpointMap; metaToolNames: readonly string[] },

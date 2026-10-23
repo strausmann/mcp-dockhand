@@ -9,6 +9,7 @@ import {
   defaultToolPolicy,
   configureToolPolicy,
   currentToolPolicy,
+  findMisspelledPolicyVars,
 } from '../../src/utils/tool-policy.js';
 import { TOOL_ENDPOINT_MAP } from '../../src/openapi/tool-endpoint-map.js';
 import { META_TOOL_NAMES } from '../../src/tools/meta.js';
@@ -212,5 +213,35 @@ describe('default / configured policy', () => {
     } finally {
       configureToolPolicy(defaultToolPolicy());
     }
+  });
+});
+
+describe('findMisspelledPolicyVars', () => {
+  it('flags near-miss names (case, underscores) with the variable they resemble', () => {
+    expect(
+      findMisspelledPolicyVars({
+        MCP_READONLY: 'true',
+        mcp_read_only: 'true',
+        MCPTOOLS_ALLOW: 'get_*',
+        MCP_TOOLSDENY: 'x',
+      }),
+    ).toEqual([
+      { name: 'MCP_READONLY', expected: 'MCP_READ_ONLY' },
+      { name: 'mcp_read_only', expected: 'MCP_READ_ONLY' },
+      { name: 'MCPTOOLS_ALLOW', expected: 'MCP_TOOLS_ALLOW' },
+      { name: 'MCP_TOOLSDENY', expected: 'MCP_TOOLS_DENY' },
+    ]);
+  });
+
+  it('ignores the exact names and unrelated variables', () => {
+    expect(
+      findMisspelledPolicyVars({
+        MCP_READ_ONLY: 'true',
+        MCP_TOOLS_ALLOW: 'a',
+        MCP_TOOLS_DENY: 'b',
+        MCP_PORT: '8080',
+        READ_ONLY: 'true',
+      }),
+    ).toEqual([]);
   });
 });
