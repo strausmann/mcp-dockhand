@@ -11,6 +11,7 @@ import {
   currentToolPolicy,
   findMisspelledPolicyVars,
   READ_ONLY_ADAPTIVE_TOOLS,
+  WRITE_META_TOOLS,
   effectiveMode,
 } from '../../src/utils/tool-policy.js';
 import { TOOL_ENDPOINT_MAP } from '../../src/openapi/tool-endpoint-map.js';
@@ -47,13 +48,50 @@ describe('constants', () => {
       'get_container_top',
       'list_container_files',
       'probe_backup_stack_dir',
+      'get_selfhst_icon',
+      'get_selfhst_icon_manifest',
+      'get_git_repository_sync_status',
+      'get_container_file_content',
+      'get_scanner_settings',
+      'get_oidc_login_url',
+      'get_container_version_notes',
+      'get_registry_catalog',
+      'get_registry_tags',
+      'get_registry_tag_info',
+      'search_registry',
+      'list_templates',
+      'list_backup_snapshots',
+      'browse_backup_snapshot',
+      'download_backup_snapshot_file',
+      'dump_backup_snapshot_file',
+      'get_backup_snapshot_metadata',
+      'diff_backup_snapshots',
     ]);
     expect(READ_ONLY_POST_TOOLS).toEqual([
-      'validate_stack_compose',
       'validate_stack_env',
       'validate_stack_path',
       'check_stack_path_change',
     ]);
+    expect(WRITE_META_TOOLS).toEqual(['check_for_update', 'validate_config']);
+  });
+});
+
+describe('write meta tools (exhaustive audit, PR #318)', () => {
+  const real = { endpointMap: TOOL_ENDPOINT_MAP, metaToolNames: META_TOOL_NAMES };
+
+  it.each(['check_for_update', 'validate_config'])('%s is write despite being a meta tool', (name) => {
+    expect(META_TOOL_NAMES).toContain(name);
+    expect(classifyTool(name, TOOL_ENDPOINT_MAP, META_TOOL_NAMES)).toBe('write');
+    expect(effectiveMode(name, false, TOOL_ENDPOINT_MAP, META_TOOL_NAMES)).toBe('write');
+  });
+
+  it('MCP_READ_ONLY drops them; an exact ALLOW name re-admits one', () => {
+    const p = buildToolPolicy({ MCP_READ_ONLY: 'true' }, real);
+    expect(p.isRegistered('check_for_update')).toBe(false);
+    expect(p.isRegistered('validate_config')).toBe(false);
+    expect(p.isRegistered('get_server_info')).toBe(true);
+    const q = buildToolPolicy({ MCP_READ_ONLY: 'true', MCP_TOOLS_ALLOW: 'validate_config' }, real);
+    expect(q.summary.readmittedWriteTools).toEqual(['validate_config']);
   });
 });
 
