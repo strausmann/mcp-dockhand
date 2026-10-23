@@ -2,7 +2,7 @@
 
 # Tools
 
-Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tools are registered. Endpoints and summaries come from the Dockhand OpenAPI spec pinned at commit `9efea8ba2e1e8779441a9b99c101a03f19ca515f`.
+Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tools are registered; see [README → Read-only mode and tool filter](../README.md#read-only-mode-and-tool-filter). Endpoints and summaries come from the Dockhand OpenAPI spec pinned at commit `9efea8ba2e1e8779441a9b99c101a03f19ca515f`.
 
 **Tools:** 390 · **read:** 184 · **write:** 206
 
