@@ -4,25 +4,47 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-openapi.json` (via `deriveRoutesFromOpenapi()`).
 
-**Erzeugt:** 2026-10-22T11:16:53.254Z
-**Dockhand-Upstream-Commit:** `9efea8ba2e1e8779441a9b99c101a03f19ca515f`
-**Schema-Endpunkte gesamt:** 282
+**Erzeugt:** 2026-10-26T06:32:27.991Z
+**Dockhand-Upstream-Commit:** `0f328c115cc0f696e255a7033dea530649242995`
+**Schema-Endpunkte gesamt:** 285
 
 ## Coverage
 
-**100.0%** (379/379 in-Scope-Endpunkte haben ein MCP-Tool)
+**98.4%** (379/385 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
 | COVERED | 379 |
-| MISSING_TOOL | 0 |
+| MISSING_TOOL | 6 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 26 |
 
-## MISSING_TOOL
+## MISSING_TOOL — nach Bereich
 
-Keine — alle in-Scope-Endpunkte haben ein MCP-Tool.
+Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
+ersten Pfad-Segment nach `/api/`:
+
+### preferences (2)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/preferences/language` | - |
+| PUT | `/api/preferences/language` | - |
+
+### scheduled-actions (2)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/scheduled-actions/{containerName}` | containerName |
+| PUT | `/api/scheduled-actions/{containerName}` | containerName |
+
+### settings (2)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/settings/pinned-digest-report` | - |
+| POST | `/api/settings/pinned-digest-report` | - |
 
 ## Deliberately omitted (with reason)
 
