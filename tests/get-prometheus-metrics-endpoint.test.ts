@@ -20,7 +20,7 @@ type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 function setupHandlers() {
   const handlers = new Map<string, ToolHandler>();
   const server = {
-    tool: (n: string, _d: string, _s: unknown, cb: ToolHandler) => handlers.set(n, cb),
+    tool: (n: string, _d: string, _s: unknown, _a: unknown, cb: ToolHandler) => handlers.set(n, cb),
   };
   const client = {
     get: vi.fn().mockResolvedValue('# HELP dockhand_up 1\n# TYPE dockhand_up gauge\ndockhand_up 1\n'),

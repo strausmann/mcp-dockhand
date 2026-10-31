@@ -59,12 +59,18 @@ jobs:
         id: bump
         run: node scripts/bump-openapi-pin.mjs
 
+      # Every derived doc must be regenerated here: ci.yml's "Derived docs are in sync
+      # with the code" step diffs them on the bump PR, and docs/tools.md embeds the pinned
+      # commit, so a missing one fails every bot PR. When adding a new derived doc, add it
+      # to ci.yml, api-schema-sync.yml and this workflow (regenerate, `git add`, PR body).
+      # docs:tools imports from dist/, hence the build after the endpoint map.
       - name: Refresh the OpenAPI spec and derived artifacts
         if: steps.bump.outputs.changed == 'true'
         run: |
           node scripts/fetch-openapi.mjs
           npm run api:coverage-doc
           npm run api:tool-endpoint-map
+          npm run build && npm run docs:tools
           node scripts/generate-body-contract-doc.mjs
 
       - name: Check for an existing open PR for this commit
@@ -102,7 +108,8 @@ jobs:
             docs/dockhand-openapi.json \
             docs/coverage.md \
             src/openapi/tool-endpoint-map.ts \
-            docs/body-contract-report.md
+            docs/body-contract-report.md \
+            docs/tools.md
           git commit -m "chore(api): bump pinned Dockhand OpenAPI source commit (automated)"
           git push --force-with-lease -u origin "$BRANCH"
 
@@ -120,7 +127,7 @@ jobs:
           \`${PREVIOUS_SHA}\` to \`${NEW_SHA}\` (upstream \`main\` HEAD at run time), and
           regenerates the derived body-contract artifacts: \`docs/dockhand-openapi.json\`,
           \`docs/coverage.md\`, \`src/openapi/tool-endpoint-map.ts\`,
-          \`docs/body-contract-report.md\`.
+          \`docs/body-contract-report.md\`, \`docs/tools.md\`.
 
           This PR runs the body-contract hard gate ("Body-contract validation against
           Dockhand OpenAPI (hard gate)" in \`ci.yml\`) against the refreshed spec -- any
