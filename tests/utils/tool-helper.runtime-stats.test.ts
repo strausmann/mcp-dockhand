@@ -18,8 +18,9 @@ function fakeServer() {
   const tools = new Map<string, CapturedTool>();
   return {
     tools,
-    tool(name: string, _description: string, _schema: unknown, handler: CapturedTool['handler']) {
-      tools.set(name, { name, handler });
+    tool(name: string, ...rest: unknown[]) {
+      // The handler is the last argument; extra arguments may precede it.
+      tools.set(name, { name, handler: rest.at(-1) as CapturedTool['handler'] });
     },
   };
 }

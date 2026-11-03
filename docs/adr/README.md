@@ -9,6 +9,7 @@ ADR nach dem Schema `NNNN-<slug>.md`.
 |-----|-------|--------|-------|
 | [0001](0001-omission-registry.md) | Omission-Registry für bewusst nicht gespiegelte Dockhand-Endpunkte | accepted | 2026-08-10 |
 | [0002](0002-description-override-map.md) | Description-override map for shared-endpoint tools | accepted | 2026-08-10 |
+| [0003](0003-tool-read-write-classification.md) | Read/Write-Klassifizierung der Tools für Read-only-Modus und Tool-Filter | accepted | 2026-10-23 |
 
 ## Wann ein ADR anlegen?
 

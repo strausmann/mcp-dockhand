@@ -34,7 +34,7 @@ interface MockClient {
 function setup(toolName: string): { handler: ToolHandler; client: MockClient } {
   const handlers = new Map<string, ToolHandler>();
   const server = {
-    tool: (name: string, _description: string, _schema: unknown, cb: ToolHandler) => {
+    tool: (name: string, _description: string, _schema: unknown, _a: unknown, cb: ToolHandler) => {
       handlers.set(name, cb);
     },
   };
@@ -174,7 +174,7 @@ describe('get_stack_env_raw — #198: returns the file, not the envelope', () =>
   function setupRaw() {
     const handlers = new Map<string, ToolHandler>();
     const server = {
-      tool: (name: string, _d: string, _s: unknown, cb: ToolHandler) => {
+      tool: (name: string, _d: string, _s: unknown, _a: unknown, cb: ToolHandler) => {
         handlers.set(name, cb);
       },
     };
