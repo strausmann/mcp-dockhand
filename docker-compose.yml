@@ -16,6 +16,10 @@ services:
       # (getRequestBodyLimitConfig treats "" as unset). Raise it so load_image can
       # accept larger base64-inflated tars. See README / .env.example.
       - MCP_MAX_REQUEST_BODY_BYTES=${MCP_MAX_REQUEST_BODY_BYTES:-}
+      # Optional tool filter (see README, "Read-only mode and tool filter"). Uncomment to use.
+      # - MCP_READ_ONLY=true
+      # - MCP_TOOLS_ALLOW=*,scan_image
+      # - MCP_TOOLS_DENY=*_backup_*
     healthcheck:
       # 127.0.0.1, not localhost: avoids the IPv6-loopback resolution issue
       # on Alpine/musl (see Dockerfile HEALTHCHECK comment, fixes #92, #84).

@@ -38,7 +38,7 @@ function jsonOut(res: unknown): Record<string, unknown> {
 
 function setup() {
   const handlers = new Map<string, ToolHandler>();
-  const server = { tool: (n: string, _d: string, _s: unknown, cb: ToolHandler) => handlers.set(n, cb) };
+  const server = { tool: (n: string, _d: string, _s: unknown, _a: unknown, cb: ToolHandler) => handlers.set(n, cb) };
   const client = {
     get: vi.fn(),
     post: vi.fn(),
@@ -56,7 +56,7 @@ describe('get_semver_settings / update_semver_settings (#227)', () => {
   // is the post-implementation check: both tools are, in fact, registered.
   it('both tools are registered', () => {
     const handlers = new Map<string, ToolHandler>();
-    const server = { tool: (n: string, _d: string, _s: unknown, cb: ToolHandler) => handlers.set(n, cb) };
+    const server = { tool: (n: string, _d: string, _s: unknown, _a: unknown, cb: ToolHandler) => handlers.set(n, cb) };
     const client = { get: vi.fn(), post: vi.fn() };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     registerSettingsTools(server as any, client as any);

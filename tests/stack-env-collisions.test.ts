@@ -7,7 +7,7 @@ function jsonOut(res: unknown): Record<string, unknown> {
 }
 function setup() {
   const handlers = new Map<string, ToolHandler>();
-  const server = { tool: (n: string, _d: string, _s: unknown, cb: ToolHandler) => handlers.set(n, cb) };
+  const server = { tool: (n: string, _d: string, _s: unknown, _a: unknown, cb: ToolHandler) => handlers.set(n, cb) };
   const client = { get: vi.fn(), put: vi.fn() };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   registerStackTools(server as any, client as any);

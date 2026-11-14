@@ -24,7 +24,7 @@ function jsonOut(res: unknown): unknown {
 function setup(): { handlers: Map<string, ToolHandler>; client: MockClient } {
   const handlers = new Map<string, ToolHandler>();
   const server = {
-    tool: (name: string, _d: string, _s: Record<string, unknown>, cb: ToolHandler) => {
+    tool: (name: string, _d: string, _s: Record<string, unknown>, _a: unknown, cb: ToolHandler) => {
       handlers.set(name, cb);
     },
   };

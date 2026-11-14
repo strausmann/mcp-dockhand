@@ -42,7 +42,7 @@ function setupHandlers<TServer, TClient>(
   register: (server: TServer, client: TClient) => void,
 ) {
   const handlers = new Map<string, ToolHandler>();
-  const server = { tool: (n: string, _d: string, _s: unknown, cb: ToolHandler) => handlers.set(n, cb) };
+  const server = { tool: (n: string, _d: string, _s: unknown, _a: unknown, cb: ToolHandler) => handlers.set(n, cb) };
   const client = {
     get: vi.fn().mockResolvedValue({}),
     post: vi.fn().mockResolvedValue({ success: true }),

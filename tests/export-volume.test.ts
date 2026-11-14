@@ -24,7 +24,7 @@ const TAR = Buffer.from('fake-volume-tar-bytes');
 function setup(): { handlers: Map<string, ToolHandler>; client: MockClient } {
   const handlers = new Map<string, ToolHandler>();
   const server = {
-    tool: (name: string, _d: string, _s: unknown, cb: ToolHandler) => {
+    tool: (name: string, _d: string, _s: unknown, _a: unknown, cb: ToolHandler) => {
       handlers.set(name, cb);
     },
   };

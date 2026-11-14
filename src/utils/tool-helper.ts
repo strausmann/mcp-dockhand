@@ -12,6 +12,7 @@ import { describeTool } from '../openapi/describe-tool.js';
 import { recordCall, recordError } from './runtime-stats.js';
 import { runWithLogContext, log, currentLogContext } from './log-context.js';
 import { TOOL_ENDPOINT_MAP } from '../openapi/tool-endpoint-map.js';
+import { currentToolPolicy } from './tool-policy.js';
 
 // Re-export response helpers for convenience
 export { jsonResponse, textResponse, errorResponse };
@@ -39,9 +40,16 @@ export function registerTool<T extends ZodShape>(
   schema: T,
   callback: (args: z.output<z.ZodObject<T>>) => Promise<ToolResponse>
 ): void {
+  // MCP_READ_ONLY / MCP_TOOLS_ALLOW / MCP_TOOLS_DENY (issue #254): a filtered tool is
+  // never registered, so it is absent from tools/list and cannot be called.
+  const policy = currentToolPolicy();
+  if (!policy.isRegistered(name)) return;
   const description = describeTool(name);
+  // MCP tool annotations (spec hints for clients), from the read/write classification.
+  const readOnlyHint = policy.mode(name) === 'read';
+  const annotations = { readOnlyHint, destructiveHint: !readOnlyHint };
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  (server as any).tool(name, description, schema, async (args: any) => {
+  (server as any).tool(name, description, schema, annotations, async (args: any) => {
     recordCall(name);
     const outer = currentLogContext();
     const started = Date.now();
