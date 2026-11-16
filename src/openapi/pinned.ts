@@ -9,4 +9,4 @@
  * `SOURCE_COMMIT` — update both together whenever the pinned commit changes.
  */
 
-export const PINNED_DOCKHAND_OPENAPI_COMMIT = '9efea8ba2e1e8779441a9b99c101a03f19ca515f';
+export const PINNED_DOCKHAND_OPENAPI_COMMIT = '037a75f06bee759740b00801f059b483930e04e8';
