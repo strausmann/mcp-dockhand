@@ -79,6 +79,27 @@ jobs:
         if: always()
         run: node scripts/generate-coverage-doc.mjs
 
+      - name: Generate tool list
+        # docs/tools.md hängt von Tool-Registrierungen und gepinnter Spec ab; das Skript
+        # importiert aus dist/, daher zuerst bauen.
+        if: always()
+        run: |
+          npm run build
+          npm run docs:tools
+
+      - name: Commit tool list update
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet docs/tools.md; then
+            git add docs/tools.md
+            git commit -m "docs(tools): update tool list (automated)"
+            git push
+          else
+            echo "docs/tools.md unverändert — kein Commit"
+          fi
+
       - name: Commit coverage doc update
         if: always()
         run: |

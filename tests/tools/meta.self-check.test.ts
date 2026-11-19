@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { runSelfCheck } from '../../src/tools/meta.js';
 import type { SelfCheckEnvironment } from '../../src/tools/meta.js';
+import type { ToolPolicySummary } from '../../src/utils/tool-policy.js';
 
 /**
  * Walks an arbitrary JSON-like value and yields a dotted path for every key/leaf it
@@ -18,9 +19,19 @@ function walkEntries(value: unknown, path = 'result'): Array<[string, unknown]> 
   return entries;
 }
 
+const POLICY: ToolPolicySummary = {
+  readOnly: false,
+  allow: [],
+  deny: [],
+  registered: 3,
+  total: 3,
+  readmittedWriteTools: [],
+};
+
 describe('runSelfCheck', () => {
   it('reports ok when Dockhand is reachable, auth is valid, and all environments are reachable', async () => {
     const result = await runSelfCheck({
+      toolPolicy: POLICY,
       probeHealth: async () => {},
       probeAuth: async () => true,
       listEnvironments: async () => [
@@ -39,6 +50,7 @@ describe('runSelfCheck', () => {
 
   it('reports degraded when the auth probe signals an invalid credential (401)', async () => {
     const result = await runSelfCheck({
+      toolPolicy: POLICY,
       probeHealth: async () => {},
       probeAuth: async () => false,
       listEnvironments: async () => [
@@ -53,6 +65,7 @@ describe('runSelfCheck', () => {
 
   it('reports degraded when at least one environment is unreachable, even with valid auth', async () => {
     const result = await runSelfCheck({
+      toolPolicy: POLICY,
       probeHealth: async () => {},
       probeAuth: async () => true,
       listEnvironments: async () => [
@@ -70,6 +83,7 @@ describe('runSelfCheck', () => {
     let envProbeCalled = false;
 
     const result = await runSelfCheck({
+      toolPolicy: POLICY,
       probeHealth: async () => {
         throw new Error('ECONNREFUSED');
       },
@@ -94,6 +108,7 @@ describe('runSelfCheck', () => {
 
   it('reports down when the health probe times out (rejects)', async () => {
     const result = await runSelfCheck({
+      toolPolicy: POLICY,
       probeHealth: async () => {
         return Promise.reject(new Error('timeout'));
       },
@@ -107,6 +122,7 @@ describe('runSelfCheck', () => {
 
   it('never includes secret values (e.g. tokens) in the result — outcome-only verification', async () => {
     const result = await runSelfCheck({
+      toolPolicy: POLICY,
       probeHealth: async () => {},
       probeAuth: async () => true,
       listEnvironments: async () => [{ id: 1, name: 'production', reachable: true, hawserConnected: true }],
@@ -127,6 +143,7 @@ describe('runSelfCheck', () => {
 
   it('degrades gracefully (does not throw) if the environments probe itself fails', async () => {
     const result = await runSelfCheck({
+      toolPolicy: POLICY,
       probeHealth: async () => {},
       probeAuth: async () => true,
       listEnvironments: async () => {
@@ -141,6 +158,7 @@ describe('runSelfCheck', () => {
 
   it('returns degraded within the phase deadline (not a hang) when the auth probe never resolves (Fix round 3, Finding 2)', async () => {
     const result = await runSelfCheck({
+      toolPolicy: POLICY,
       probeHealth: async () => {},
       probeAuth: () => new Promise<boolean>(() => {}), // never settles
       listEnvironments: async () => [{ id: 1, name: 'production', reachable: true, hawserConnected: true }],
@@ -154,6 +172,7 @@ describe('runSelfCheck', () => {
 
   it('returns degraded within the phase deadline (not a hang) when the environments probe never resolves', async () => {
     const result = await runSelfCheck({
+      toolPolicy: POLICY,
       probeHealth: async () => {},
       probeAuth: async () => true,
       listEnvironments: () => new Promise<SelfCheckEnvironment[]>(() => {}), // never settles
@@ -168,6 +187,7 @@ describe('runSelfCheck', () => {
 
   it('returns down within the phase deadline (not a hang) when the health probe never resolves', async () => {
     const result = await runSelfCheck({
+      toolPolicy: POLICY,
       probeHealth: () => new Promise<void>(() => {}), // never settles
       probeAuth: async () => true,
       listEnvironments: async () => [],
@@ -181,6 +201,7 @@ describe('runSelfCheck', () => {
   it('uses the injected clock to measure latency deterministically', async () => {
     const timestamps = [1000, 1250];
     const result = await runSelfCheck({
+      toolPolicy: POLICY,
       probeHealth: async () => {},
       probeAuth: async () => true,
       listEnvironments: async () => [],
@@ -188,5 +209,125 @@ describe('runSelfCheck', () => {
     });
 
     expect(result.latencyMs).toBe(250);
+  });
+  it('echoes the injected tool policy summary on every outcome, including down', async () => {
+    const summary: ToolPolicySummary = {
+      readOnly: true,
+      allow: ['cancel_job'],
+      deny: ['delete_*'],
+      registered: 2,
+      total: 5,
+      readmittedWriteTools: ['cancel_job'],
+    };
+    const ok = await runSelfCheck({
+      toolPolicy: summary,
+      probeHealth: async () => {},
+      probeAuth: async () => true,
+      listEnvironments: async () => [],
+    });
+    expect(ok.toolPolicy).toEqual(summary);
+
+    const down = await runSelfCheck({
+      toolPolicy: summary,
+      probeHealth: async () => {
+        throw new Error('unreachable');
+      },
+      probeAuth: async () => true,
+      listEnvironments: async () => [],
+    });
+    expect(down.overall).toBe('down');
+    expect(down.toolPolicy).toEqual(summary);
+  });
+
+  // Read-only mode (issue #254, security review): the per-environment connection test is
+  // POST /api/environments/{id}/test, a write, so runSelfCheck asks listEnvironments not to
+  // run it, and an untested environment must not degrade `overall`.
+  it('read-only: asks listEnvironments to skip connection tests; untested envs do not degrade', async () => {
+    const seen: Array<{ testConnections: boolean }> = [];
+    const result = await runSelfCheck({
+      toolPolicy: { ...POLICY, readOnly: true },
+      readOnly: true,
+      probeHealth: async () => {},
+      probeAuth: async () => true,
+      listEnvironments: async (opts) => {
+        seen.push(opts);
+        return [
+          { id: 1, name: 'production', reachable: false, hawserConnected: false, tested: false, skipReason: 'x' },
+        ];
+      },
+    });
+
+    expect(seen).toEqual([{ testConnections: false }]);
+    expect(result.overall).toBe('ok');
+    expect(result.environments[0]).toMatchObject({ tested: false });
+  });
+
+  // Read-only mode (exhaustive audit, PR #318): POST /api/auth/login creates a session row,
+  // updates lastLogin and writes an audit entry, so the login probe is not run. Auth is
+  // judged from the authenticated GET /api/environments call instead.
+  it('read-only: never runs the login probe; a listed environment set means auth is valid', async () => {
+    let probed = 0;
+    const result = await runSelfCheck({
+      toolPolicy: { ...POLICY, readOnly: true },
+      readOnly: true,
+      probeHealth: async () => {},
+      probeAuth: async () => {
+        probed += 1;
+        return false;
+      },
+      listEnvironments: async () => [
+        { id: 1, name: 'production', reachable: false, hawserConnected: false, tested: false, skipReason: 'x' },
+      ],
+    });
+
+    expect(probed).toBe(0);
+    expect(result.authValid).toBe(true);
+    expect(result.authCheck).toBe('session');
+    expect(result.overall).toBe('ok');
+  });
+
+  it('read-only: a rejected environments call (e.g. 401) means auth is not valid', async () => {
+    let probed = 0;
+    const result = await runSelfCheck({
+      toolPolicy: { ...POLICY, readOnly: true },
+      readOnly: true,
+      probeHealth: async () => {},
+      probeAuth: async () => {
+        probed += 1;
+        return true;
+      },
+      listEnvironments: async () => {
+        throw new Error('Dockhand API error: GET /api/environments returned 401: Unauthorized');
+      },
+    });
+
+    expect(probed).toBe(0);
+    expect(result.authValid).toBe(false);
+    expect(result.authCheck).toBe('session');
+    expect(result.overall).toBe('degraded');
+  });
+
+  it('default: checks auth with the login probe', async () => {
+    const result = await runSelfCheck({
+      toolPolicy: POLICY,
+      probeHealth: async () => {},
+      probeAuth: async () => true,
+      listEnvironments: async () => [],
+    });
+    expect(result.authCheck).toBe('login-probe');
+  });
+
+  it('default: asks listEnvironments to run connection tests', async () => {
+    const seen: Array<{ testConnections: boolean }> = [];
+    await runSelfCheck({
+      toolPolicy: POLICY,
+      probeHealth: async () => {},
+      probeAuth: async () => true,
+      listEnvironments: async (opts) => {
+        seen.push(opts);
+        return [];
+      },
+    });
+    expect(seen).toEqual([{ testConnections: true }]);
   });
 });
