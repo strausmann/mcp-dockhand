@@ -10,6 +10,7 @@ import { normalizeBaseUrl } from '../utils/url.js';
 import { redactQueryStrings } from '../utils/redact.js';
 import { log } from '../utils/log-context.js';
 import { matchRoute } from '../openapi/match-route.js';
+import { specInfoVersion } from '../openapi/spec-loader.js';
 
 /** Timeout for SSE streaming responses (5 minutes). */
 const SSE_TIMEOUT_MS = 300_000;
@@ -181,10 +182,10 @@ export class DockhandClient {
         body: body !== undefined ? JSON.stringify(body) : undefined,
         signal: AbortSignal.timeout(SSE_TIMEOUT_MS),
       });
-      return this.parseSSEResponse(retryResponse);
+      return this.parseSSEResponse(retryResponse, 'POST', url);
     }
 
-    return this.parseSSEResponse(response);
+    return this.parseSSEResponse(response, 'POST', url);
   }
 
   /**
@@ -219,10 +220,10 @@ export class DockhandClient {
         body: body !== undefined ? JSON.stringify(body) : undefined,
         signal: AbortSignal.timeout(SSE_TIMEOUT_MS),
       });
-      return this.parseSSEResponse(retryResponse);
+      return this.parseSSEResponse(retryResponse, 'PUT', url);
     }
 
-    return this.parseSSEResponse(response);
+    return this.parseSSEResponse(response, 'PUT', url);
   }
 
   // --- Private helpers ---
@@ -476,6 +477,8 @@ export class DockhandClient {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
+      const unsupported = this.unsupportedEndpointMessage(method, url, response);
+      if (unsupported) throw new Error(unsupported);
       // Fix round 3, Item B: redact any URL query string BEFORE this message reaches
       // ANY of its consumers — log().error (docker logs), errorResponse (the calling
       // MCP client), and recordError/get_runtime_stats (see src/utils/redact.ts's own
@@ -525,6 +528,8 @@ export class DockhandClient {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
+      const unsupported = this.unsupportedEndpointMessage(method, url, response);
+      if (unsupported) throw new Error(unsupported);
       // Fix round 3, Item B: redact any URL query string BEFORE this message reaches
       // ANY of its consumers — log().error (docker logs), errorResponse (the calling
       // MCP client), and recordError/get_runtime_stats (see src/utils/redact.ts's own
@@ -557,12 +562,42 @@ export class DockhandClient {
       : '';
   }
 
-  private async parseSSEResponse(response: Response): Promise<SSEResult> {
+  /**
+   * A 404 that arrives as an HTML page instead of Dockhand's JSON `{ error }` means the
+   * ROUTE does not exist on the connected server: SvelteKit answers an unknown route with
+   * its HTML error page, while a Dockhand handler reporting a missing stack or container
+   * answers with JSON (as on Dockhand 1.0.24). That happens when a tool targets an
+   * endpoint newer than the running Dockhand — e.g. run_container_exec, list_stack_deploys
+   * and get_stack_delete_preview on 1.0.24. Returns a clear message for that case instead
+   * of a page of HTML, or `undefined` for every other response.
+   *
+   * Names the route TEMPLATE (from the pinned spec), never `url`, so no identifier or
+   * query value ends up in the message.
+   */
+  private unsupportedEndpointMessage(method: string, url: string, response: Response): string | undefined {
+    if (response.status !== 404) return undefined;
+    // Optional chaining: several tests mock fetch() with hand-rolled response objects.
+    const contentType = response.headers?.get?.('content-type') ?? '';
+    if (!contentType.includes('text/html')) return undefined;
+
+    const pathname = new URL(url).pathname;
+    const route = matchRoute(pathname, method) ?? coarseRoute(pathname);
+    const target = specInfoVersion();
+    return (
+      `Not supported by this Dockhand version: ${method} ${route} does not exist on the connected ` +
+      'Dockhand server (it answered 404 with its HTML "not found" page, not an API error). ' +
+      `This MCP server's tools target the Dockhand ${target ? `${target} ` : ''}API; ` +
+      'upgrade Dockhand to use this tool. get_server_info shows the running Dockhand version.'
+    );
+  }
+
+  private async parseSSEResponse(response: Response, method: string, url: string): Promise<SSEResult> {
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
+      const unsupported = this.unsupportedEndpointMessage(method, url, response);
       return {
         success: false,
-        error: `HTTP ${response.status}: ${errorBody || response.statusText}${this.authFailureHint(response.status)}`,
+        error: unsupported ?? `HTTP ${response.status}: ${errorBody || response.statusText}${this.authFailureHint(response.status)}`,
       };
     }
 
