@@ -5,6 +5,20 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.20.0](https://github.com/strausmann/mcp-dockhand/compare/v1.19.1...v1.20.0) (2026-11-24)
+
+### Features
+
+* **tools:** cover the endpoints and optional fields added in Dockhand 1.0.55-1.0.59 ([6617f96](https://github.com/strausmann/mcp-dockhand/commit/6617f969c1b7f8b006ffa7586b43c2a13bce248c)), references [#340](https://github.com/strausmann/mcp-dockhand/issues/340)
+
+### Bug Fixes
+
+* **tools:** state the real scope and side effects of the 1.0.59 tool descriptions ([a0efac4](https://github.com/strausmann/mcp-dockhand/commit/a0efac44a188ce9a322265991b504bd05c14d713)), references [#340](https://github.com/strausmann/mcp-dockhand/issues/340)
+
+### Documentation
+
+* **api:** regenerate coverage and body-contract report for the 1.0.59 tools ([1e4876e](https://github.com/strausmann/mcp-dockhand/commit/1e4876ef55d6e6838aec83833337dd8467afafdb)), references [#340](https://github.com/strausmann/mcp-dockhand/issues/340)
+
 ## [1.19.1](https://github.com/strausmann/mcp-dockhand/compare/v1.19.0...v1.19.1) (2026-11-24)
 
 ### Bug Fixes
