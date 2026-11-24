@@ -87,21 +87,32 @@ export function stripWebhookSecret(payload: unknown): unknown {
   if (typeof payload !== 'object' || payload === null) return payload;
   const out: Record<string, unknown> = {};
   const src = payload as Record<string, unknown>;
+  // defineProperty, not `out[key] = …`: a JSON key named `__proto__` is an own data
+  // property after JSON.parse, and plain assignment would hit the prototype setter and
+  // silently drop it (security audit run 8).
+  const put = (key: string, value: unknown) =>
+    Object.defineProperty(out, key, { value, enumerable: true, writable: true, configurable: true });
   for (const [key, value] of Object.entries(src)) {
     if (key === 'webhookSecret') continue;
-    out[key] = stripWebhookSecret(value);
+    put(key, stripWebhookSecret(value));
   }
   if (Object.prototype.hasOwnProperty.call(src, 'webhookSecret')) {
-    out.hasWebhookSecret = src.hasWebhookSecret ?? !!src.webhookSecret;
+    put('hasWebhookSecret', src.hasWebhookSecret ?? !!src.webhookSecret);
   }
   return out;
 }
 
 /**
- * Every tool in this file answers through this, so a webhook secret cannot reach a
- * caller from any git stack / repository / webhook / credential response, at any depth
- * (security-review follow-up to #326: the first version only covered eight call sites
- * and the top level).
+ * Tools whose responses carry git stack / repository rows — or deploy/sync/webhook results
+ * that could embed one — answer through this, so a stored webhook secret never reaches the
+ * caller at any depth (security-review follow-up to #326).
+ *
+ * Deliberately NOT used for responses whose keys are user data rather than row fields
+ * (security audit run 8, LOW): request_git_preview_env returns `{ vars, sources }` keyed by
+ * the repository's env variable names, get_git_stack_env_files lists files, and the
+ * credential/branch/connection-test tools return no git stack or repository row. Rewriting
+ * those would turn a user variable named `webhookSecret` into an invented
+ * `hasWebhookSecret: true`.
  */
 function respond(payload: unknown) {
   return jsonResponse(stripWebhookSecret(payload));
@@ -147,7 +158,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'get_git_stack_env_files',
     { stackId: z.number().describe('Git stack ID') },
     async ({ stackId }) => {
-      return respond(await client.get(`/api/git/stacks/${encodePath(stackId)}/env-files`));
+      return jsonResponse(await client.get(`/api/git/stacks/${encodePath(stackId)}/env-files`));
     }
   );
 
@@ -184,7 +195,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'list_git_credentials',
     {},
     async () => {
-      return respond(await client.get('/api/git/credentials'));
+      return jsonResponse(await client.get('/api/git/credentials'));
     }
   );
 
@@ -205,14 +216,14 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       if (password !== undefined) body.password = password;
       if (sshKey !== undefined) body.sshKey = sshKey;
       if (token !== undefined) body.token = token;
-      return respond(await client.post('/api/git/credentials', body));
+      return jsonResponse(await client.post('/api/git/credentials', body));
     }
   );
 
   registerTool(server, 'get_git_credential',
     { credentialId: z.number().describe('Credential ID') },
     async ({ credentialId }) => {
-      return respond(await client.get(`/api/git/credentials/${encodePath(credentialId)}`));
+      return jsonResponse(await client.get(`/api/git/credentials/${encodePath(credentialId)}`));
     }
   );
 
@@ -236,14 +247,14 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       if (password !== undefined) body.password = password;
       if (sshKey !== undefined) body.sshKey = sshKey;
       if (token !== undefined) body.token = token;
-      return respond(await client.put(`/api/git/credentials/${encodePath(credentialId)}`, body));
+      return jsonResponse(await client.put(`/api/git/credentials/${encodePath(credentialId)}`, body));
     }
   );
 
   registerTool(server, 'delete_git_credential',
     { credentialId: z.number().describe('Credential ID') },
     async ({ credentialId }) => {
-      return respond(await client.delete(`/api/git/credentials/${encodePath(credentialId)}`));
+      return jsonResponse(await client.delete(`/api/git/credentials/${encodePath(credentialId)}`));
     }
   );
 
@@ -284,7 +295,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       if (repositoryId !== undefined) body.repositoryId = repositoryId;
       if (url !== undefined) body.url = url;
       if (credentialId !== undefined) body.credentialId = credentialId;
-      return respond(await client.post('/api/git/branches', body));
+      return jsonResponse(await client.post('/api/git/branches', body));
     }
   );
 
@@ -339,7 +350,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     async ({ url, credentialId }) => {
       const body: Record<string, unknown> = { url };
       if (credentialId) body.credentialId = credentialId;
-      return respond(await client.post('/api/git/repositories/test', body));
+      return jsonResponse(await client.post('/api/git/repositories/test', body));
     }
   );
 
@@ -359,7 +370,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       if (branch !== undefined) body.branch = branch;
       if (credentialId !== undefined) body.credentialId = credentialId;
       if (envFilePath !== undefined) body.envFilePath = envFilePath;
-      return respond(await client.post('/api/git/preview-env', body));
+      return jsonResponse(await client.post('/api/git/preview-env', body));
     }
   );
 
