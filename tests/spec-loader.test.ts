@@ -42,13 +42,14 @@ describe('specOperation', () => {
 describe('specInfoVersion', () => {
   it("returns the real spec's info.version (used by get_tool_manifest, src/tools/meta.ts)", () => {
     // Same committed spec every other test in this file resolves operations against
-    // (docs/dockhand-openapi.json) — its info.version is currently "1.0.53". Re-pin this
-    // literal whenever scripts/fetch-openapi.mjs (SOURCE_COMMIT) is bumped, same as
+    // (docs/dockhand-openapi.json) — its info.version is currently "1.0.59" (pin: the
+    // v1.0.59 release tag, 0b194bd). Re-pin this literal whenever
+    // scripts/fetch-openapi.mjs (SOURCE_COMMIT) is bumped, same as
     // PINNED_DOCKHAND_OPENAPI_COMMIT in src/openapi/pinned.ts.
     //
-    // The pin is the v1.0.54 release tag (9efea8b), but upstream last regenerated
-    // src/lib/openapi.generated.json before the release commit bumped package.json, so
-    // the shipped spec still says "1.0.53". The literal mirrors the spec as shipped.
-    expect(specInfoVersion()).toBe('1.0.53');
+    // Upstream does not always regenerate src/lib/openapi.generated.json before the
+    // release commit bumps package.json (the v1.0.54 tag shipped a spec saying "1.0.53"),
+    // so the literal mirrors the spec as shipped, not the tag name.
+    expect(specInfoVersion()).toBe('1.0.59');
   });
 });

@@ -4,25 +4,72 @@
 > Wird täglich vom Workflow `.github/workflows/api-schema-sync.yml` neu erzeugt und bei
 > Änderung committet. Grundlage: `docs/dockhand-openapi.json` (via `deriveRoutesFromOpenapi()`).
 
-**Erzeugt:** 2026-10-22T11:16:53.254Z
-**Dockhand-Upstream-Commit:** `9efea8ba2e1e8779441a9b99c101a03f19ca515f`
-**Schema-Endpunkte gesamt:** 282
+**Erzeugt:** 2026-11-24T16:52:32.075Z
+**Dockhand-Upstream-Commit:** `0b194bd584a9c13fa97646ff8679b089e284a2af`
+**Schema-Endpunkte gesamt:** 289
 
 ## Coverage
 
-**100.0%** (379/379 in-Scope-Endpunkte haben ein MCP-Tool)
+**97.2%** (379/390 in-Scope-Endpunkte haben ein MCP-Tool)
 
 | Status | Anzahl |
 |--------|--------|
 | COVERED | 379 |
-| MISSING_TOOL | 0 |
+| MISSING_TOOL | 11 |
 | Deliberately omitted (Registry, siehe unten) | 2 |
 | ORPHANED_TOOL | 0 |
 | Bewusst ausgeschlossen (Streams, Callbacks, interne Routen) | 26 |
 
-## MISSING_TOOL
+## MISSING_TOOL — nach Bereich
 
-Keine — alle in-Scope-Endpunkte haben ein MCP-Tool.
+Endpunkte, die laut Schema existieren, aber (noch) kein MCP-Tool haben — gruppiert nach dem
+ersten Pfad-Segment nach `/api/`:
+
+### auth (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| POST | `/api/auth/oidc/backchannel-logout` | - |
+
+### exposure-status (2)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/exposure-status` | - |
+| POST | `/api/exposure-status` | - |
+
+### git (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| POST | `/api/git/stacks/{id}/detach` | id |
+
+### preferences (2)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/preferences/language` | - |
+| PUT | `/api/preferences/language` | - |
+
+### scheduled-actions (2)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/scheduled-actions/{containerName}` | containerName |
+| PUT | `/api/scheduled-actions/{containerName}` | containerName |
+
+### settings (2)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| GET | `/api/settings/pinned-digest-report` | - |
+| POST | `/api/settings/pinned-digest-report` | - |
+
+### stacks (1)
+
+| HTTP | Pfad | Path-Parameter |
+|------|------|----------------|
+| POST | `/api/stacks/{name}/attach` | name |
 
 ## Deliberately omitted (with reason)
 
