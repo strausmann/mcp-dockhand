@@ -40,6 +40,19 @@ export function registerSystemTools(server: McpServer, client: DockhandClient): 
     }
   );
 
+  // --- Unsecured-exposure warning (Dockhand 1.0.55+, #340) ---
+  //
+  // Ground truth: Finsys/dockhand v1.0.59, src/routes/api/exposure-status/+server.ts.
+  // GET is a pure read: {warn, dismissed}. POST (dismiss the warning) is deliberately
+  // NOT a tool — see docs/omitted-endpoints.json.
+
+  registerTool(server, 'get_exposure_status',
+    {},
+    async () => {
+      return jsonResponse(await client.get('/api/exposure-status'));
+    }
+  );
+
   // --- System Info ---
 
   registerTool(server, 'get_host_info',

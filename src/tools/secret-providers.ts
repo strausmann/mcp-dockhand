@@ -105,11 +105,15 @@ export function registerSecretProviderTools(server: McpServer, client: DockhandC
       id: z.number().describe('Secret provider ID (from list_secret_providers)'),
       selector: z.string().optional().describe('Restrict the probe to one path/scope within the provider'),
       refs: z.array(z.string()).optional().describe('Specific secret references to look for'),
+      stack: z.string().optional().describe('Git stack name: for a provider that decrypts the stack\'s env file (SOPS), the key names that stack\'s synced env file decrypts to. Needs stacks:view on its environment. Dockhand 1.0.55+'),
+      environmentId: z.number().int().optional().describe('Environment ID of `stack` (sent as the body field env). Dockhand 1.0.55+'),
     },
-    async ({ id, selector, refs }) => {
+    async ({ id, selector, refs, stack, environmentId }) => {
       const body: Record<string, unknown> = {};
       if (selector !== undefined) body.selector = selector;
       if (refs !== undefined) body.refs = refs;
+      if (stack !== undefined) body.stack = stack;
+      if (environmentId !== undefined) body.env = environmentId;
       return jsonResponse(await client.post(`/api/secret-providers/${encodePath(id)}/probe`, body));
     }
   );

@@ -280,7 +280,21 @@ const GIT_REPOSITORY_WEBHOOK_IS_A_TRIGGER =
   'compose file as a stack named after the repository; otherwise it is rejected (401) and an ' +
   'audit entry is written. Scheduled to be renamed in the next major release.';
 
+/**
+ * detach_git_stack (#340): the endpoint's summary ("Convert a git-managed stack to a local
+ * stack") reads like a flag flip, but the handler (Finsys/dockhand v1.0.59,
+ * src/routes/api/git/stacks/[id]/detach/+server.ts) deletes the git stack row, unregisters
+ * its sync schedule and deletes its repository checkout — the auto-update, webhook and
+ * repository link are gone and only attach_stack_to_git brings them back.
+ */
+const DETACH_DELETES_GIT_STACK =
+  'Deletes the git stack record, its scheduled sync and its repository checkout: auto-update, ' +
+  'the webhook and the repository link are gone afterwards (attach_stack_to_git creates them ' +
+  'anew). The deployed compose file and the running containers stay; the effective non-secret ' +
+  'variables are written to the stack\'s .env. Needs a successfully deployed git stack (409 otherwise).';
+
 export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
+  detach_git_stack: DETACH_DELETES_GIT_STACK,
   get_git_webhook: GIT_REPOSITORY_WEBHOOK_IS_A_TRIGGER,
   exec_container: EXEC_RETURNS_NO_OUTPUT,
   get_stack_env_raw: RETURNS_THE_FILE_VERBATIM,

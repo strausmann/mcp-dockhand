@@ -21,9 +21,12 @@ export function registerVulnerabilityTools(server: McpServer, client: DockhandCl
   registerTool(server, 'get_vulnerability_count',
     {
       environmentId: z.number().describe('Environment ID (required)'),
+      groupBy: z.enum(['container', 'image', 'stack']).optional().describe('Return per-container, per-image or per-stack counts ({groupBy, groups}, most severe first) instead of the totals. Dockhand 1.0.55+'),
     },
-    async ({ environmentId }) => {
-      return jsonResponse(await client.get('/api/vulnerabilities/count', { env: environmentId }));
+    async ({ environmentId, groupBy }) => {
+      const query: Record<string, string | number> = { env: environmentId };
+      if (groupBy !== undefined) query.groupBy = groupBy;
+      return jsonResponse(await client.get('/api/vulnerabilities/count', query));
     }
   );
 

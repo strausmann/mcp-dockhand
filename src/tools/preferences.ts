@@ -77,4 +77,26 @@ export function registerPreferenceTools(server: McpServer, client: DockhandClien
       return jsonResponse(await client.delete('/api/preferences/tag-order'));
     }
   );
+
+  // --- Interface language (Dockhand 1.0.55+, #340) ---
+  //
+  // Ground truth: Finsys/dockhand v1.0.59, src/routes/api/preferences/language/+server.ts.
+  // Stored per user when auth is on, for the whole install when it is off. PUT accepts a
+  // locale the build carries (src/lib/i18n/locales.ts) or null; anything else is 400.
+
+  registerTool(server, 'get_language_preference',
+    {},
+    async () => {
+      return jsonResponse(await client.get('/api/preferences/language'));
+    }
+  );
+
+  registerTool(server, 'set_language_preference',
+    {
+      language: z.string().nullable().describe('Interface language as a locale code the Dockhand build carries (v1.0.59: en, de, es-ES, fr-FR, fr-CA, pl, zh-CN, ru, uk, pt-BR, tr, ko, bg, ja), or null to go back to following the browser language. Any other value is rejected with 400'),
+    },
+    async ({ language }) => {
+      return jsonResponse(await client.put('/api/preferences/language', { language }));
+    }
+  );
 }
