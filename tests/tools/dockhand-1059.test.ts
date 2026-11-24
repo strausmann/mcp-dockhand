@@ -370,3 +370,11 @@ describe('get_vulnerability_count groupBy (#340)', () => {
     expect(client.get).toHaveBeenCalledWith('/api/vulnerabilities/count', { env: 1 });
   });
 });
+
+describe('attach_stack_to_git description (#340, audit run 9)', () => {
+  it('says that the repository compose replaces the running one on the next deploy', () => {
+    const description = describeTool('attach_stack_to_git');
+    expect(description).toMatch(/deployed from the repository/i);
+    expect(description).toMatch(/replaces the running compose/i);
+  });
+});

@@ -380,7 +380,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     {
       config: z.record(z.string(), z.unknown()).describe('Git stack configuration (url, branch, credentialId, composePath, environmentId, etc.)'),
       envFilePath: z.string().optional().describe('Path to the .env file within the repository this Git stack should use on deploy; also settable via `config.envFilePath` — this explicit field wins on collision. See `get_git_stack_env_files` to discover available .env files in the repository.'),
-      takeOverExternalStack: z.boolean().optional().describe('Take over an EXTERNAL stack (one Dockhand found running but does not manage) of the same name instead of answering 409; any other existing stack still conflicts. Also settable via `config.takeOverExternalStack` — this explicit field wins. To convert a stack Dockhand already manages locally, use attach_stack_to_git. Dockhand 1.0.55+'),
+      takeOverExternalStack: z.boolean().optional().describe('Take over an EXTERNAL stack (one Dockhand found running but does not manage) of the same name instead of answering 409; any other existing stack still conflicts. The next deploy then replaces that stack\'s compose with the repository\'s. Also settable via `config.takeOverExternalStack` — this explicit field wins. To convert a stack Dockhand already manages locally, use attach_stack_to_git. Dockhand 1.0.55+'),
     },
     async ({ config, envFilePath, takeOverExternalStack }) => {
       const body: Record<string, unknown> = { ...config };

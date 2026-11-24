@@ -95,7 +95,7 @@ export function registerSettingsTools(server: McpServer, client: DockhandClient)
 
   registerTool(server, 'set_pinned_digest_report',
     {
-      enabled: z.boolean().describe('Report when the digest behind a pinned image tag moves (true) or stay silent (false). Required: the endpoint stores false for anything but true'),
+      enabled: z.boolean().describe('Instance-wide (needs settings:edit). Report when the digest behind a pinned image tag moves (true) or stay silent (false). Required: the endpoint stores false for anything but true'),
     },
     async ({ enabled }) => {
       return jsonResponse(await client.post('/api/settings/pinned-digest-report', { enabled }));

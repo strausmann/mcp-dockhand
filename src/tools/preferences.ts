@@ -93,7 +93,7 @@ export function registerPreferenceTools(server: McpServer, client: DockhandClien
 
   registerTool(server, 'set_language_preference',
     {
-      language: z.string().nullable().describe('Interface language as a locale code the Dockhand build carries (v1.0.59: en, de, es-ES, fr-FR, fr-CA, pl, zh-CN, ru, uk, pt-BR, tr, ko, bg, ja), or null to go back to following the browser language. Any other value is rejected with 400'),
+      language: z.string().nullable().describe('Applies to the user the MCP server signs in as (its service account) when Dockhand auth is on, and to the whole install when auth is off — not to the human using the UI. Interface language as a locale code the Dockhand build carries (v1.0.59: en, de, es-ES, fr-FR, fr-CA, pl, zh-CN, ru, uk, pt-BR, tr, ko, bg, ja), or null to go back to following the browser language. Any other value is rejected with 400'),
     },
     async ({ language }) => {
       return jsonResponse(await client.put('/api/preferences/language', { language }));

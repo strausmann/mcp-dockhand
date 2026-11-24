@@ -114,8 +114,8 @@ export function registerScheduleTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'set_container_start_stop_schedule',
     {
       environmentId: z.number().describe('Environment ID the container belongs to (required)'),
-      containerName: z.string().describe('Container name (not the ID)'),
-      startAt: z.string().nullable().describe('Daily start time as HH:MM, or a five-field cron expression; null for no scheduled start. Required: the endpoint does not merge, an omitted time would be cleared'),
+      containerName: z.string().describe('Container name (not the ID) of an existing container: an unknown name answers 404, so a schedule left behind by a removed container cannot be cleared here'),
+      startAt: z.string().nullable().describe('Daily start time as HH:MM, or a five-field cron expression, in the environment\'s timezone; null for no scheduled start. Required: the endpoint does not merge, an omitted time would be cleared'),
       stopAt: z.string().nullable().describe('Daily stop time as HH:MM, or a five-field cron expression; null for no scheduled stop. Required for the same reason. startAt and stopAt both null DELETES the schedule'),
       enabled: z.boolean().optional().describe('Whether the schedule runs. Omitted, an existing schedule keeps its current state (a new one is enabled). Ignored when both times are null'),
     },
