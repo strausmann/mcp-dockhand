@@ -59,4 +59,37 @@ describe('tool policy through tools/list', () => {
     expect(byName.get('cancel_job')?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
     expect(byName.get('get_job')?.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
   });
+
+  // Dockhand 1.0.55-1.0.59 tools (#340/#344). Classified from the upstream handlers at v1.0.59:
+  // the four GETs only read settings / the local Docker daemon; the five others mutate.
+  const NEW_READ_TOOLS = [
+    'get_exposure_status',
+    'get_language_preference',
+    'get_container_start_stop_schedule',
+    'get_pinned_digest_report',
+  ];
+  const NEW_WRITE_TOOLS = [
+    'set_language_preference',
+    'set_container_start_stop_schedule',
+    'set_pinned_digest_report',
+    'attach_stack_to_git',
+    'detach_git_stack',
+  ];
+
+  it('MCP_READ_ONLY=true hides every 1.0.59 write tool and keeps the 1.0.59 read tools', async () => {
+    const policy = buildToolPolicy(
+      { MCP_READ_ONLY: 'true' },
+      { endpointMap: TOOL_ENDPOINT_MAP, metaToolNames: META_TOOL_NAMES },
+    );
+    const names = (await listTools(policy)).map((t) => t.name);
+    for (const n of NEW_WRITE_TOOLS) expect(names, n).not.toContain(n);
+    for (const n of NEW_READ_TOOLS) expect(names, n).toContain(n);
+  });
+
+  it('default policy lists the 1.0.59 write tools as destructive', async () => {
+    const byName = new Map((await listTools(defaultToolPolicy())).map((t) => [t.name, t]));
+    for (const n of NEW_WRITE_TOOLS) {
+      expect(byName.get(n)?.annotations, n).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    }
+  });
 });

@@ -26,7 +26,7 @@ function setup() {
   const handlers = new Map<string, ToolHandler>();
   const schemas = new Map<string, Record<string, unknown>>();
   const server = {
-    tool: (name: string, _description: string, schema: Record<string, unknown>, cb: ToolHandler) => {
+    tool: (name: string, _description: string, schema: Record<string, unknown>, _annotations: unknown, cb: ToolHandler) => {
       handlers.set(name, cb);
       schemas.set(name, schema);
     },

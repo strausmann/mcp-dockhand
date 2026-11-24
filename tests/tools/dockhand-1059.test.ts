@@ -55,7 +55,7 @@ function setup(register: Register) {
   const handlers = new Map<string, ToolHandler>();
   const schemas = new Map<string, ZodShape>();
   const server = {
-    tool: (name: string, _d: string, s: ZodShape, cb: ToolHandler) => {
+    tool: (name: string, _d: string, s: ZodShape, _a: unknown, cb: ToolHandler) => {
       handlers.set(name, cb);
       schemas.set(name, s);
     },

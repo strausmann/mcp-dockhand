@@ -2,9 +2,9 @@
 
 # Tools
 
-Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tools are registered; see [README → Read-only mode and tool filter](../README.md#read-only-mode-and-tool-filter). Endpoints and summaries come from the Dockhand OpenAPI spec pinned at commit `9efea8ba2e1e8779441a9b99c101a03f19ca515f`.
+Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tools are registered; see [README → Read-only mode and tool filter](../README.md#read-only-mode-and-tool-filter). Endpoints and summaries come from the Dockhand OpenAPI spec pinned at commit `0b194bd584a9c13fa97646ff8679b089e284a2af`.
 
-**Tools:** 390 · **read:** 151 · **write:** 239
+**Tools:** 399 · **read:** 155 · **write:** 244
 
 | Tool | Mode | Method | Path | Summary |
 | --- | --- | --- | --- | --- |
@@ -12,6 +12,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `add_label` | write | POST | `/api/labels` | Perform a bulk label operation on environments — rename, delete, add to environments, or set a custom color — selected via the action field |
 | `add_user_role` | write | POST | `/api/users/{id}/roles` | Assign a role to a user, optionally scoped to an environment (enterprise, admin only) |
 | `adopt_stack` | write | POST | `/api/stacks/adopt` | Adopt previously discovered compose stacks into Dockhand for a given environment |
+| `attach_stack_to_git` | write | POST | `/api/stacks/{name}/attach` | Convert an internal stack to Git management |
 | `batch_delete_backup_snapshots` | write | POST | `/api/backup/snapshots/batch-delete` | Forget and prune several snapshots from one destination in a single restic forget --prune, with per-snapshot ownership and environment access gates |
 | `batch_get_selfhst_icons` | write | POST | `/api/icons/selfhst/batch` | Resolve multiple selfh.st app icons in one request (avoids per-icon requests a WAF flags as crawling) |
 | `batch_update_containers` | write | POST | `/api/containers/batch-update` | Recreate a set of containers with their latest images, preserving all settings (requires the 'create' permission) |
@@ -50,7 +51,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `create_oidc_provider` | write | POST | `/api/auth/oidc` | Create a new OIDC provider configuration |
 | `create_registry` | write | POST | `/api/registries` | Create a container registry (optionally set it as default); credentials are trimmed and stored encrypted |
 | `create_role` | write | POST | `/api/roles` | Create a custom role (enterprise; admin required when auth is enabled) |
-| `create_secret_provider` | write | POST | `/api/secret-providers` | Create a secret provider (Vault, Infisical, Doppler, 1Password Connect) |
+| `create_secret_provider` | write | POST | `/api/secret-providers` | Create a secret provider of any supported type |
 | `create_stack` | write | POST | `/api/stacks` | Create and (optionally) deploy a compose stack |
 | `create_tag` | write | POST | `/api/tags` | Create a tag (or return the existing one with the same name) in the global catalog |
 | `create_template_compose` | write | POST | `/api/templates/compose` | Return the compose YAML for a template — generated for container templates, fetched from the repository for stack templates |
@@ -87,6 +88,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `deploy_git_stack` | write | POST | `/api/git/stacks/{id}/deploy` | Deploy a git stack, streaming the deploy log as SSE result events via the job-response channel |
 | `deploy_git_stack_stream` | write | POST | `/api/git/stacks/{id}/deploy-stream` | Deploy a git stack with live progress; streams SSE, or returns a jobId to poll (Accept negotiated) |
 | `deploy_stack` | write | POST | `/api/stacks/{name}/deploy` | Deploy (docker compose up) a stack, optionally pulling images, building, and force-recreating; progress and the final result stream over Server-Sent Events |
+| `detach_git_stack` | write | POST | `/api/git/stacks/{id}/detach` | Convert a git-managed stack to a local stack |
 | `detect_docker_socket` | read | GET | `/api/environments/detect-socket` | Detect common Docker/Podman socket paths that exist on the Dockhand host |
 | `diff_backup_snapshots` | write | GET | `/api/backup/snapshots/diff` | Diff two snapshots' file trees (added/changed/removed) - job-polled |
 | `disable_user_mfa` | write | DELETE | `/api/users/{id}/mfa` | Disable MFA for a user |
@@ -132,6 +134,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `get_container_logs` | read | GET | `/api/containers/{id}/logs` | Return the last N lines of a container's combined stdout/stderr logs as a single string |
 | `get_container_shells` | write | GET | `/api/containers/{id}/shells` | Probe a container for available shells (bash/sh/zsh/ash) and report the preferred default (requires the 'exec' permission) |
 | `get_container_sizes` | read | GET | `/api/containers/sizes` | List all containers in an environment together with their writable-layer and root-filesystem sizes (requires the 'view' permission) |
+| `get_container_start_stop_schedule` | read | GET | `/api/scheduled-actions/{containerName}` | Get a container's scheduled start and stop times, from its dockhand.start.at / dockhand.stop.at labels when it carries them |
 | `get_container_stats` | read | GET | `/api/containers/{id}/stats` | Return a one-shot CPU/memory/network/block-IO stats snapshot for a container (Docker-CLI-equivalent memory accounting) |
 | `get_container_tags` | read | GET | `/api/container-tags/{name}` | Get the tag ids assigned to one container (by name) |
 | `get_container_top` | write | GET | `/api/containers/{id}/top` | List the processes running inside a container (via `ps` in the container, falling back to the Docker top API) |
@@ -150,6 +153,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `get_environment_report_schedule` | read | GET | `/api/environments/{id}/report` | Get the scheduled state report configuration for an environment |
 | `get_environment_timezone` | read | GET | `/api/environments/{id}/timezone` | Get the IANA timezone used for scheduling on an environment |
 | `get_environment_update_check` | read | GET | `/api/environments/{id}/update-check` | Get the automatic container-image update-check schedule for an environment |
+| `get_exposure_status` | read | GET | `/api/exposure-status` | Whether this instance is listening beyond localhost with auth off and the Docker socket writable, and whether that warning was dismissed |
 | `get_favorite_groups` | read | GET | `/api/preferences/favorite-groups` | Get the saved log favorite-groups for an environment |
 | `get_favorites` | read | GET | `/api/preferences/favorites` | Get the saved log favorites (container names) for an environment |
 | `get_general_settings` | read | GET | `/api/settings/general` | Get global (instance-wide) general settings |
@@ -164,6 +168,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `get_host_info` | read | GET | `/api/host` | Return host info (hostname, IP, CPU, memory, uptime, Docker counts) for the daemon behind an environment |
 | `get_image_history` | read | GET | `/api/images/{id}/history` | Return the layer build history of a Docker image |
 | `get_job` | read | GET | `/api/jobs/{id}` | Poll a background job's status and accumulated output lines (owner or admin only) |
+| `get_language_preference` | read | GET | `/api/preferences/language` | Get the chosen interface language (null when the browser's language is followed) |
 | `get_ldap_provider` | read | GET | `/api/auth/ldap/{id}` | Get a single LDAP provider configuration by id (enterprise only; bind password is masked) |
 | `get_legal_license` | read | GET | `/api/legal/license` | Return the bundled LICENSE.txt — as JSON by default, or as raw text/plain when format=text |
 | `get_license` | read | GET | `/api/license` | Get the current license status plus the server hostname the license is bound to |
@@ -176,10 +181,11 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `get_oidc_provider` | read | GET | `/api/auth/oidc/{id}` | Get a single OIDC provider configuration by id (client secret is masked) |
 | `get_openapi_spec` | read | GET | `/api/docs` | The full OpenAPI 3.0 specification for the Dockhand REST API (unauthenticated) |
 | `get_pending_updates` | read | GET | `/api/containers/pending-updates` | List the containers in an environment that have a pending image update recorded (requires the 'view' permission) |
+| `get_pinned_digest_report` | read | GET | `/api/settings/pinned-digest-report` | Get whether a moved digest on a pinned image is reported (#1780) |
 | `get_privacy_policy` | read | GET | `/api/legal/privacy` | Return the bundled PRIVACY.txt — as JSON by default, or as raw text/plain when format=text |
 | `get_profile` | read | GET | `/api/profile` | Get the authenticated user's own profile |
 | `get_profile_preferences` | read | GET | `/api/profile/preferences` | Get the current user's UI preferences (theme, fonts, editor options) |
-| `get_prometheus_metrics` | read | GET | `/metrics` | Prometheus metrics endpoint (disabled and 404s unless EXPORT_METRICS=true; public if app auth is disabled, otherwise requires a session or bearer token) |
+| `get_prometheus_metrics` | read | GET | `/metrics` | Prometheus metrics endpoint (disabled and 404s unless EXPORT_METRICS=true; public if app auth is disabled or EXPORT_METRICS_PUBLIC=true, otherwise requires a session or bearer token) |
 | `get_registry` | read | GET | `/api/registries/{id}` | Get a single registry by ID with the password stripped (only a hasCredentials flag) |
 | `get_registry_catalog` | write | GET | `/api/registry/catalog` | List repositories in a registry's V2 catalog (with Harbor project-API fallback), paginated |
 | `get_registry_tag_info` | write | GET | `/api/registry/tag-info` | Resolve the compressed size and creation date of a single registry tag from its manifest (lazy per-tag fetch for the registry browser) |
@@ -252,7 +258,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `list_oidc_providers` | read | GET | `/api/auth/oidc` | List all configured OIDC providers (client secrets are masked) |
 | `list_registries` | read | GET | `/api/registries` | List all configured container registries with passwords stripped (only a hasCredentials flag) |
 | `list_roles` | read | GET | `/api/roles` | List all roles (built-in and custom); needs admin or users:view, plus an enterprise license |
-| `list_schedules` | read | GET | `/api/schedules` | List all schedules (container/env auto-updates, git syncs, image-prune, backups, repo maintenance, system jobs) |
+| `list_schedules` | read | GET | `/api/schedules` | List all schedules (container/env auto-updates, scheduled container start/stop, git syncs, image-prune, backups, repo maintenance, system jobs) |
 | `list_secret_providers` | read | GET | `/api/secret-providers` | List configured secret providers (summaries never include the decrypted config) |
 | `list_stack_deploys` | read | GET | `/api/stacks/{name}/deploys` | List deploy runs recorded for a stack (no log text -- see GET .../{runId}/log) |
 | `list_stack_tags` | read | GET | `/api/stack-tags` | List all stack tag assignments for an environment as a name -> tagIds map |
@@ -313,6 +319,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `self_check` | read | — | — | Read only under MCP_READ_ONLY, where it skips its side effects; write otherwise (see README). |
 | `set_container_auto_update` | write | POST | `/api/auto-update/{containerName}` | Create or update a container's auto-update setting; enabled=false deletes it and its schedule |
 | `set_container_icon` | write | POST | `/api/container-icons/{name}` | Set a container's icon override - either a name reference or an uploaded image |
+| `set_container_start_stop_schedule` | write | PUT | `/api/scheduled-actions/{containerName}` | Set a container's scheduled start and stop times (HH:MM every day, or a five-field cron expression); both empty removes the schedule |
 | `set_container_tags` | write | PUT | `/api/container-tags/{name}` | Replace the tag ids assigned to one container (by name) |
 | `set_dashboard_preferences` | write | POST | `/api/dashboard/preferences` | Update the current user's dashboard preferences (only provided fields are merged) |
 | `set_default_registry` | write | POST | `/api/registries/{id}/default` | Mark a registry as the default registry |
@@ -326,7 +333,9 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `set_favorite_groups` | write | POST | `/api/preferences/favorite-groups` | Add, remove, update or reorder log favorite-groups for an environment |
 | `set_favorites` | write | POST | `/api/preferences/favorites` | Add, remove or reorder log favorites (container names) for an environment |
 | `set_grid_preferences` | write | POST | `/api/preferences/grid` | Save column preferences for one data grid and return all grid preferences |
+| `set_language_preference` | write | PUT | `/api/preferences/language` | Set the interface language; null goes back to following the browser |
 | `set_minimum_release_age` | write | POST | `/api/settings/minimum-release-age` | Set the minimum image age in hours (creation time, with first-observed fallback) |
+| `set_pinned_digest_report` | write | POST | `/api/settings/pinned-digest-report` | Set whether a moved digest on a pinned image is reported (#1780) |
 | `set_sidebar_preferences` | write | POST | `/api/preferences/sidebar` | Save the sidebar menu preferences (order and hidden items) |
 | `set_stack_icon` | write | POST | `/api/stacks/{name}/icon` | Set a stack's icon - either a name reference or an uploaded image |
 | `set_stack_tags` | write | PUT | `/api/stacks/{name}/tags` | Replace the tag ids assigned to one stack (by name) |
@@ -366,7 +375,7 @@ Every tool with its read/write mode. Under `MCP_READ_ONLY=true` only `read` tool
 | `update_config_set` | write | PUT | `/api/config-sets/{id}` | Update an existing config set by ID |
 | `update_container` | write | POST | `/api/containers/{id}/update` | Recreate a container with updated create-options (optionally re-pulling the image first), preserving its configuration (requires the 'create' permission) |
 | `update_container_runtime` | write | POST | `/api/containers/{id}/update-runtime` | Update a running container's restart policy and/or CPU/memory/blkio/pids limits in-place (no recreate) |
-| `update_environment` | write | PUT | `/api/environments/{id}` | Update an environment; renaming also renames its on-disk stacks/git-repos directories |
+| `update_environment` | write | PUT | `/api/environments/{id}` | Update an environment; renaming also renames its on-disk stacks/git-repos directories and repoints the stack paths stored under them |
 | `update_environment_notification` | write | PUT | `/api/environments/{id}/notifications/{notificationId}` | Update a notification-channel link (enabled state and/or event type filter) |
 | `update_general_settings` | write | POST | `/api/settings/general` | Update global general settings (all fields optional; only supplied keys are written) |
 | `update_git_credential` | write | PUT | `/api/git/credentials/{id}` | Update a git credential and return it with secrets stripped |
