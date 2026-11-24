@@ -101,12 +101,13 @@ export const TOOL_DESCRIPTION_OVERRIDES: Readonly<Record<string, string>> = {
   // configuration. Without a secret it either deploys (no secret configured AND
   // ALLOW_WEBHOOKS_WITHOUT_SECRET=true) or answers 401 and writes an audit row.
   get_git_stack_webhook:
-    'Deprecated — use `trigger_git_webhook`. Despite its name this does NOT read anything: it ' +
-    'calls the Git stack\'s manual webhook TRIGGER without a secret. It deploys the stack when ' +
-    'the stack has no webhook secret and the server runs with ALLOW_WEBHOOKS_WITHOUT_SECRET=true; ' +
-    'otherwise it is rejected (401) and an audit entry is written. To see whether a webhook and ' +
-    'a secret are configured, read `webhookEnabled` and `hasWebhookSecret` from `get_git_stack`. ' +
-    'Kept only for compatibility and scheduled for removal in the next major release.',
+    'To READ whether a webhook and a secret are configured, use `get_git_stack` ' +
+    '(`webhookEnabled`, `hasWebhookSecret`) — not this tool. Deprecated: despite its name this ' +
+    'does not read anything, it calls the Git stack\'s manual webhook TRIGGER without a secret. ' +
+    'It deploys the stack when the stack has no webhook secret and the server runs with ' +
+    'ALLOW_WEBHOOKS_WITHOUT_SECRET=true; otherwise it is rejected (401) and an audit entry is ' +
+    'written. To fire the webhook deliberately, use `trigger_git_webhook` with the secret. Kept ' +
+    'only for compatibility and scheduled for removal in the next major release.',
 
   // --- Category 2: no Dockhand endpoint at all (registerMetaTools(), src/tools/meta.ts) ---
   // `toolEndpoint(name)` returns `undefined` for all six — there is no `{method, path}` to
