@@ -121,4 +121,39 @@ describe('git webhook secrets never leave the git stack / repository tools (#326
 
     expect(parsed).toEqual({ error: 'Permission denied' });
   });
+  // Security-review follow-up: no current Dockhand release nests a git stack or repository
+  // row inside another object (checked v1.0.24-v1.0.59: GitStackWithRepo.repository selects
+  // id/name/url/branch/credentialId only, stacksUsing selects id/stackName/environmentId),
+  // but a future or older shape could. The redaction therefore walks every level.
+  it('redacts nested and wrapped occurrences at every depth', async () => {
+    const { handlers, client } = setup();
+    client.get.mockResolvedValue({
+      stack: stackRow({ repository: repoRow() }),
+      items: [{ inner: [stackRow()] }],
+    });
+
+    const text = await call(handlers, 'get_git_stack', { stackId: 7 });
+
+    expect(text).not.toContain(SECRET);
+    expect(text).not.toContain('"webhookSecret"');
+    const parsed = JSON.parse(text) as { stack: Record<string, unknown> & { repository: Record<string, unknown> }; items: Array<{ inner: Array<Record<string, unknown>> }> };
+    expect(parsed.stack.hasWebhookSecret).toBe(true);
+    expect(parsed.stack.repository.hasWebhookSecret).toBe(true);
+    expect(parsed.stack.repository.webhookEnabled).toBe(false);
+    expect(parsed.items[0]!.inner[0]!.hasWebhookSecret).toBe(true);
+  });
+
+  for (const tool of ['get_git_stack_webhook', 'trigger_git_webhook', 'get_git_webhook', 'sync_git_stack', 'sync_git_repository', 'deploy_git_stack', 'deploy_git_repository']) {
+    it(`${tool}: a response that carries a row has the secret removed too`, async () => {
+      const { handlers, client } = setup();
+      const payload = { success: true, stack: stackRow() };
+      client.get.mockResolvedValue(payload);
+      client.post.mockResolvedValue(payload);
+      client.postSSE.mockResolvedValue(payload);
+
+      const text = await call(handlers, tool, { stackId: 7, repositoryId: 3, webhookId: 3, secret: 'x' });
+
+      expect(text).not.toContain(SECRET);
+    });
+  }
 });
