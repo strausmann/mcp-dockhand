@@ -99,7 +99,10 @@ describe('describeTool', () => {
     it('get_git_stack_webhook: no longer claims it sends the secret query parameter', () => {
       const description = describeTool('get_git_stack_webhook');
       expect(description).not.toMatch(/secret passed as the `secret` query parameter/i);
-      expect(description).toMatch(/retrieve the inbound webhook/i);
+      // #317: the endpoint is a trigger; the old "retrieve the inbound webhook URL and
+      // secret" override described a read that never existed.
+      expect(description).not.toMatch(/retrieve the inbound webhook/i);
+      expect(description).toMatch(/use `trigger_git_webhook`/i);
     });
 
     it('leaves the OTHER tool in each shared-endpoint pair on the normal spec-derived path', () => {

@@ -264,7 +264,22 @@ const EXPORT_VOLUME_RETURNS_BASE64_TAR =
   'byte-for-byte and completely unredacted; it can contain real secrets (passwords, keys, ' +
   'credentialed config). Do not log or print the returned content.';
 
+/**
+ * get_git_webhook (Issue #317): the name says "get", but GET /api/git/webhook/{id} is the
+ * manual webhook TRIGGER for a git repository (Finsys/dockhand v1.0.59,
+ * src/routes/api/git/webhook/[id]/+server.ts GET) — it deploys on a matching secret and
+ * writes an audit row otherwise. The spec-derived first line already says "trigger";
+ * this suffix makes the consequence and the deprecation explicit.
+ */
+const GIT_REPOSITORY_WEBHOOK_IS_A_TRIGGER =
+  'Deprecated name — this does NOT read webhook details. It fires the repository webhook: on a ' +
+  'matching `secret` (or with no secret configured and ALLOW_WEBHOOKS_WITHOUT_SECRET=true) it ' +
+  'deploys every stack using this repository; otherwise it is rejected (401) and an audit entry ' +
+  'is written. To see whether a webhook and a secret are configured, read `webhookEnabled` and ' +
+  '`hasWebhookSecret` from `get_git_repository`. Scheduled to be renamed in the next major release.';
+
 export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
+  get_git_webhook: GIT_REPOSITORY_WEBHOOK_IS_A_TRIGGER,
   exec_container: EXEC_RETURNS_NO_OUTPUT,
   get_stack_env_raw: RETURNS_THE_FILE_VERBATIM,
   create_secret_provider: CONFIG_CARRIES_CREDENTIALS,

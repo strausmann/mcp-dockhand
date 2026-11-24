@@ -143,10 +143,21 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     }
   );
 
+  // Issue #317: despite the name this is NOT a read. GET /api/git/webhook/{id} is the
+  // manual webhook TRIGGER for a git repository (Finsys/dockhand v1.0.59,
+  // src/routes/api/git/webhook/[id]/+server.ts GET): it deploys when `secret` matches the
+  // repository's webhook secret (or, with ALLOW_WEBHOOKS_WITHOUT_SECRET=true and no
+  // secret configured, without one) and writes an audit row otherwise. The name stays for
+  // compatibility; the description (TOOL_DESCRIPTION_SUFFIXES) says what it really does.
+  // `secret` goes into the query string exactly like trigger_git_webhook's; the client
+  // redacts query strings from its error messages (src/utils/redact.ts).
   registerTool(server, 'get_git_webhook',
-    { webhookId: z.number().describe('Webhook ID') },
-    async ({ webhookId }) => {
-      return jsonResponse(await client.get(`/api/git/webhook/${encodePath(webhookId)}`));
+    {
+      webhookId: z.number().describe('Git repository ID (from list_git_repositories)'),
+      secret: z.string().optional().describe("Webhook secret, matched against the repository's configured secret; without it the trigger is rejected unless the repository has no secret and the server allows secret-less webhooks"),
+    },
+    async ({ webhookId, secret }) => {
+      return jsonResponse(await client.get(`/api/git/webhook/${encodePath(webhookId)}`, secret !== undefined ? { secret } : undefined));
     }
   );
 
@@ -375,6 +386,8 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     }
   );
 
+  // Issue #317: same endpoint as trigger_git_webhook, minus the secret — a TRIGGER, not
+  // a read. Kept for compatibility only; see its description override.
   registerTool(server, 'get_git_stack_webhook',
     { stackId: z.number().describe('Git stack ID') },
     async ({ stackId }) => {
