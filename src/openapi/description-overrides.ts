@@ -94,13 +94,19 @@ export const TOOL_DESCRIPTION_OVERRIDES: Readonly<Record<string, string>> = {
   // Shares GET /api/git/stacks/{id}/webhook with `trigger_git_webhook`. The spec operation
   // describes "GET webhook trigger ... with the secret passed as the `secret` query
   // parameter" — accurate for `trigger_git_webhook` (which takes and sends `secret`), but
-  // `get_git_stack_webhook` takes only `stackId` and never sends a secret. Restored the
-  // tool's own pre-P3 description.
+  // `get_git_stack_webhook` takes only `stackId` and never sends a secret. The pre-P3
+  // text restored here before ("Retrieve the inbound webhook URL and secret …") was wrong
+  // too (Issue #317): the handler is a webhook TRIGGER (Finsys/dockhand v1.0.59,
+  // src/routes/api/git/stacks/[id]/webhook/+server.ts GET) and never returns webhook
+  // configuration. Without a secret it either deploys (no secret configured AND
+  // ALLOW_WEBHOOKS_WITHOUT_SECRET=true) or answers 401 and writes an audit row.
   get_git_stack_webhook:
-    'Retrieve the inbound webhook URL and secret configured on a Git-based stack (used by ' +
-    'GitHub/GitLab/etc. to POST deploy notifications); use `trigger_git_webhook` to fire the ' +
-    'webhook manually, or `get_git_webhook` for the equivalent on the generic webhook ' +
-    'endpoint.',
+    'Deprecated — use `trigger_git_webhook`. Despite its name this does NOT read anything: it ' +
+    'calls the Git stack\'s manual webhook TRIGGER without a secret. It deploys the stack when ' +
+    'the stack has no webhook secret and the server runs with ALLOW_WEBHOOKS_WITHOUT_SECRET=true; ' +
+    'otherwise it is rejected (401) and an audit entry is written. To see whether a webhook and ' +
+    'a secret are configured, read `webhookEnabled` and `hasWebhookSecret` from `get_git_stack`. ' +
+    'Kept only for compatibility and scheduled for removal in the next major release.',
 
   // --- Category 2: no Dockhand endpoint at all (registerMetaTools(), src/tools/meta.ts) ---
   // `toolEndpoint(name)` returns `undefined` for all six — there is no `{method, path}` to

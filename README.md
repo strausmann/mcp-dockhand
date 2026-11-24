@@ -403,7 +403,8 @@ sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/
 | `test_git_stack` | Test Git connection |
 | `get_git_stack_env_files` | Get env files |
 | `trigger_git_webhook` | Trigger webhook |
-| `get_git_webhook` | Get webhook details |
+| `get_git_stack_webhook` | Deprecated: same trigger as `trigger_git_webhook`, without a secret; not a read |
+| `get_git_webhook` | Deprecated name: triggers the repository webhook (deploys on a matching secret); not a read |
 | `list_git_credentials` | List Git credentials |
 | `create_git_credential` | Create Git credential |
 | `get_git_credential` | Get credential details |
