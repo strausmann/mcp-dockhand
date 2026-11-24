@@ -66,19 +66,42 @@ export const listGitRemoteBranchesBodySchema = z.object(listGitRemoteBranchesSha
   }
 });
 
+/**
+ * Issue #326: Dockhand up to and including 1.0.56 returns the stored `webhookSecret` of
+ * every git stack / git repository in plain text from the list, get, create and update
+ * routes (Finsys/dockhand v1.0.56: src/routes/api/git/stacks/+server.ts GET does
+ * `return json(stacks)` over rows that select `webhookSecret`; the [id] and repository
+ * routes spread the row the same way). Dockhand 1.0.57 fixed this server-side (commit
+ * c60baa24): those routes now drop the field and add `hasWebhookSecret: boolean`.
+ *
+ * This MCP server still talks to older Dockhand releases, so the same transformation is
+ * applied here: a row that carries `webhookSecret` loses it and gains
+ * `hasWebhookSecret`. Against 1.0.57+ the field is already gone and this is a no-op.
+ * Only the exact field name is matched — `webhookEnabled` and every other field pass
+ * through. Non-object values (and objects without the field, e.g. `{ error }`) are
+ * returned unchanged.
+ */
+export function stripWebhookSecret(payload: unknown): unknown {
+  if (Array.isArray(payload)) return payload.map(stripWebhookSecret);
+  if (typeof payload !== 'object' || payload === null) return payload;
+  if (!Object.prototype.hasOwnProperty.call(payload, 'webhookSecret')) return payload;
+  const { webhookSecret, ...rest } = payload as Record<string, unknown>;
+  return { ...rest, hasWebhookSecret: (rest as Record<string, unknown>).hasWebhookSecret ?? !!webhookSecret };
+}
+
 export function registerGitStackTools(server: McpServer, client: DockhandClient): void {
 
   registerTool(server, 'list_git_stacks',
     {},
     async () => {
-      return jsonResponse(await client.get('/api/git/stacks'));
+      return jsonResponse(stripWebhookSecret(await client.get('/api/git/stacks')));
     }
   );
 
   registerTool(server, 'get_git_stack',
     { stackId: z.number().describe('Git stack ID') },
     async ({ stackId }) => {
-      return jsonResponse(await client.get(`/api/git/stacks/${encodePath(stackId)}`));
+      return jsonResponse(stripWebhookSecret(await client.get(`/api/git/stacks/${encodePath(stackId)}`)));
     }
   );
 
@@ -200,7 +223,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
   registerTool(server, 'list_git_repositories',
     {},
     async () => {
-      return jsonResponse(await client.get('/api/git/repositories'));
+      return jsonResponse(stripWebhookSecret(await client.get('/api/git/repositories')));
     }
   );
 
@@ -247,14 +270,14 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       const body: Record<string, unknown> = { name, url };
       if (branch !== undefined) body.branch = branch;
       if (credentialId !== undefined) body.credentialId = credentialId;
-      return jsonResponse(await client.post('/api/git/repositories', body));
+      return jsonResponse(stripWebhookSecret(await client.post('/api/git/repositories', body)));
     }
   );
 
   registerTool(server, 'get_git_repository',
     { repositoryId: z.number().describe('Repository ID') },
     async ({ repositoryId }) => {
-      return jsonResponse(await client.get(`/api/git/repositories/${encodePath(repositoryId)}`));
+      return jsonResponse(stripWebhookSecret(await client.get(`/api/git/repositories/${encodePath(repositoryId)}`)));
     }
   );
 
@@ -321,7 +344,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     async ({ config, envFilePath }) => {
       const body: Record<string, unknown> = { ...config };
       if (envFilePath !== undefined) body.envFilePath = envFilePath;
-      return jsonResponse(await client.post('/api/git/stacks', body));
+      return jsonResponse(stripWebhookSecret(await client.post('/api/git/stacks', body)));
     }
   );
 
@@ -334,7 +357,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     async ({ stackId, config, envFilePath }) => {
       const body: Record<string, unknown> = { ...config };
       if (envFilePath !== undefined) body.envFilePath = envFilePath;
-      return jsonResponse(await client.put(`/api/git/stacks/${encodePath(stackId)}`, body));
+      return jsonResponse(stripWebhookSecret(await client.put(`/api/git/stacks/${encodePath(stackId)}`, body)));
     }
   );
 
@@ -367,7 +390,7 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
       config: z.record(z.string(), z.unknown()).describe('Git repository configuration to merge'),
     },
     async ({ repositoryId, config }) => {
-      return jsonResponse(await client.put(`/api/git/repositories/${encodePath(repositoryId)}`, config));
+      return jsonResponse(stripWebhookSecret(await client.put(`/api/git/repositories/${encodePath(repositoryId)}`, config)));
     }
   );
 
