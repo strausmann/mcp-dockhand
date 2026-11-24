@@ -11,6 +11,18 @@ import { encodePath } from '../utils/encode-path.js';
 import { diffEnvVars, extractDotEnvContent, parseDotEnvKeys, removeKeysFromDotEnv, upsertDotEnv } from '../utils/env-helpers.js';
 import type { EnvDiff } from '../utils/env-helpers.js';
 
+/**
+ * Deploy flags added in Dockhand 1.0.55 (#340). Ground truth: Finsys/dockhand v1.0.59,
+ * src/lib/server/compose-args.ts deployPullPolicy(pull, respectPullPolicy) — no pull, no
+ * pull policy; pull + respectPullPolicy runs a separate `docker compose pull` that honours
+ * each service's pull_policy; pull alone keeps `up --pull always`. pullBase is only used
+ * together with build (stacks.ts: `build && pullBase`).
+ */
+const RESPECT_PULL_POLICY_DESCRIPTION =
+  'With pull:true, pull through a separate `docker compose pull` that honours each service\'s `pull_policy` instead of `up --pull always` (default false). Has no effect without pull. Dockhand 1.0.55+';
+const PULL_BASE_DESCRIPTION =
+  'With build:true, also pull newer base images in a separate `build --pull` step (default false). Has no effect without build. Dockhand 1.0.55+';
+
 export function registerStackTools(server: McpServer, client: DockhandClient): void {
 
   registerTool(server, 'list_stacks',
@@ -48,8 +60,10 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       pull: z.boolean().optional().describe('Pull newer images before deploying when start:true (default: false — see deploy_stack, whose default is pull:true; this endpoint does NOT default to pulling). Ignored when start:false. Dockhand 1.0.51+'),
       build: z.boolean().optional().describe('Build services that declare a `build:` section when start:true (default: false). Ignored when start:false. Dockhand 1.0.51+'),
       forceRecreate: z.boolean().optional().describe('Recreate containers even when their resolved configuration is unchanged, when start:true (default: false). Ignored when start:false. Dockhand 1.0.51+'),
+      respectPullPolicy: z.boolean().optional().describe(RESPECT_PULL_POLICY_DESCRIPTION),
+      pullBase: z.boolean().optional().describe(PULL_BASE_DESCRIPTION),
     },
-    async ({ environmentId, name, compose, composePath, envPath, start, envVars, rawEnvContent, secretProviderId, pull, build, forceRecreate }) => {
+    async ({ environmentId, name, compose, composePath, envPath, start, envVars, rawEnvContent, secretProviderId, pull, build, forceRecreate, respectPullPolicy, pullBase }) => {
       const body: Record<string, unknown> = { name, compose };
       if (composePath !== undefined) body.composePath = composePath;
       if (envPath !== undefined) body.envPath = envPath;
@@ -60,6 +74,8 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       if (pull !== undefined) body.pull = pull;
       if (build !== undefined) body.build = build;
       if (forceRecreate !== undefined) body.forceRecreate = forceRecreate;
+      if (respectPullPolicy !== undefined) body.respectPullPolicy = respectPullPolicy;
+      if (pullBase !== undefined) body.pullBase = pullBase;
 
       return jsonResponse(await client.postSSE('/api/stacks', body, { env: environmentId }));
     }
@@ -153,14 +169,18 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       pull: z.boolean().optional().describe('Pull newer images before redeploying — only applied when restart:true (default: false). Dockhand 1.0.51+'),
       build: z.boolean().optional().describe('Build services that declare a `build:` section — only applied when restart:true (default: false). Dockhand 1.0.51+'),
       forceRecreate: z.boolean().optional().describe('Recreate containers even when their resolved configuration is unchanged — only applied when restart:true (default: TRUE when omitted here — see create_stack, which defaults this to false; env var changes need --force-recreate to take effect). Dockhand 1.0.51+'),
+      respectPullPolicy: z.boolean().optional().describe(`${RESPECT_PULL_POLICY_DESCRIPTION} Only applied when restart:true`),
+      pullBase: z.boolean().optional().describe(`${PULL_BASE_DESCRIPTION} Only applied when restart:true`),
     },
-    async ({ environmentId, name, content, restart, secretProviderId, pull, build, forceRecreate }) => {
+    async ({ environmentId, name, content, restart, secretProviderId, pull, build, forceRecreate, respectPullPolicy, pullBase }) => {
       const body: Record<string, unknown> = { content };
       if (restart !== undefined) body.restart = restart;
       if (secretProviderId !== undefined) body.secretProviderId = secretProviderId;
       if (pull !== undefined) body.pull = pull;
       if (build !== undefined) body.build = build;
       if (forceRecreate !== undefined) body.forceRecreate = forceRecreate;
+      if (respectPullPolicy !== undefined) body.respectPullPolicy = respectPullPolicy;
+      if (pullBase !== undefined) body.pullBase = pullBase;
 
       if (restart) {
         return jsonResponse(await client.putSSE(`/api/stacks/${encodePath(name)}/compose`, body, { env: environmentId }));
@@ -737,13 +757,25 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
     }
   );
 
+  // Ground truth: Finsys/dockhand v1.0.59, src/routes/api/stacks/[name]/env/validate/+server.ts.
+  // Every body field is optional: without `compose` the saved compose file is used,
+  // without `variables` the stack's stored variables. `envValues` (1.0.55+) only marks a
+  // variable referenced as ${NAME} inside another value as used; the response lists
+  // variable NAMES only. No field at all keeps the bodyless request this tool always sent.
   registerTool(server, 'validate_stack_env',
     {
       environmentId: z.number().describe('Environment ID'),
       name: z.string().describe('Stack name'),
+      compose: z.string().optional().describe('Compose content to validate against instead of the saved compose file'),
+      variables: z.array(z.string()).optional().describe('Defined variable NAMES to validate instead of the stack\'s stored variables'),
+      envValues: z.record(z.string(), z.string()).optional().describe('Variable name to value map; a variable referenced as ${NAME} inside one of these values counts as used instead of unused. Values are sent to Dockhand but never returned. Dockhand 1.0.55+'),
     },
-    async ({ environmentId, name }) => {
-      return jsonResponse(await client.post(`/api/stacks/${encodePath(name)}/env/validate`, undefined, { env: environmentId }));
+    async ({ environmentId, name, compose, variables, envValues }) => {
+      const body: Record<string, unknown> = {};
+      if (compose !== undefined) body.compose = compose;
+      if (variables !== undefined) body.variables = variables;
+      if (envValues !== undefined) body.envValues = envValues;
+      return jsonResponse(await client.post(`/api/stacks/${encodePath(name)}/env/validate`, Object.keys(body).length > 0 ? body : undefined, { env: environmentId }));
     }
   );
 
@@ -852,8 +884,10 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       pull: z.boolean().optional().describe('Pull newer images before recreating (default: true)'),
       build: z.boolean().optional().describe('Build services that declare a `build:` section (default: false)'),
       forceRecreate: z.boolean().optional().describe('Recreate containers even when their resolved configuration is unchanged (default: false)'),
+      respectPullPolicy: z.boolean().optional().describe(RESPECT_PULL_POLICY_DESCRIPTION),
+      pullBase: z.boolean().optional().describe(PULL_BASE_DESCRIPTION),
     },
-    async ({ environmentId, name, pull, build, forceRecreate }) => {
+    async ({ environmentId, name, pull, build, forceRecreate, respectPullPolicy, pullBase }) => {
       // Dockhand's /deploy handler reads pull/build/forceRecreate out of the
       // request body. Sending no body is not equivalent to sending defaults:
       // before Dockhand 1.0.38 the handler called request.json() unguarded, so
@@ -863,11 +897,15 @@ export function registerStackTools(server: McpServer, client: DockhandClient): v
       // pull:undefined, i.e. a deploy that never pulls — contradicting what
       // this tool advertises. So always send all three, defaulting to the
       // values the web UI's Deploy popover uses.
-      const body = {
+      const body: Record<string, unknown> = {
         pull: pull ?? true,
         build: build ?? false,
         forceRecreate: forceRecreate ?? false,
       };
+      // Dockhand 1.0.55+ (#340): only sent when supplied, so the deploy stays exactly
+      // what it was for callers that do not know them.
+      if (respectPullPolicy !== undefined) body.respectPullPolicy = respectPullPolicy;
+      if (pullBase !== undefined) body.pullBase = pullBase;
       return jsonResponse(await client.postSSE(`/api/stacks/${encodePath(name)}/deploy`, body, { env: environmentId }));
     }
   );

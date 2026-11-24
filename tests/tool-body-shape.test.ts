@@ -111,6 +111,10 @@ describe('getToolBodyShape — captured from a real tool registration (create_st
       'pull',
       'build',
       'forceRecreate',
+      // Added for Dockhand 1.0.55 (#340) — pull through the services' pull_policy, and
+      // pull newer base images on build.
+      'respectPullPolicy',
+      'pullBase',
     ]);
     expect(result.passthrough).toBe(false);
   });

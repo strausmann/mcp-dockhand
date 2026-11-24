@@ -194,5 +194,19 @@
     "reason": "Der Handler verlangt den exakten WebAuthn-Origin (hasExactWebAuthnOrigin, sonst 403) als Browser-CSRF-Schutz. Ein Tool müsste dafür den Origin-Header fälschen. Betrifft außerdem nur die Passkeys des MCP-Service-Accounts (#302).",
     "adr": "docs/adr/0001-omission-registry.md",
     "date": "2026-10-22"
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/oidc/backchannel-logout",
+    "reason": "Inbound OIDC Back-Channel Logout receiver (Dockhand 1.0.55+, #340): the identity provider POSTs a signed, form-encoded logout_token to end the sessions it names. Public by design, its only credential is the IdP's signature. An MCP client is never the IdP and holds no token to send, so there is no tool use case (same reasoning as GET /api/auth/oidc/callback).",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-11-24"
+  },
+  {
+    "method": "POST",
+    "path": "/api/exposure-status",
+    "reason": "Dismisses the warning that the instance listens beyond localhost with authentication off and a writable Docker socket (Dockhand 1.0.55+, #340). Answers 403 whenever authentication is on, and when it is off the warning is the operator's only notice of an unauthenticated, Docker-socket-capable instance. Dismissing it is a human decision, not something an agent should do on the operator's behalf. The read side is get_exposure_status.",
+    "adr": "docs/adr/0001-omission-registry.md",
+    "date": "2026-11-24"
   }
 ]

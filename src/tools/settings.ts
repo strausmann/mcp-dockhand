@@ -78,4 +78,27 @@ export function registerSettingsTools(server: McpServer, client: DockhandClient)
       return jsonResponse(await client.post('/api/settings/minimum-release-age', { hours }));
     }
   );
+
+  // --- Moved digest on a pinned image (Dockhand 1.0.55+, #340) ---
+  //
+  // Ground truth: Finsys/dockhand v1.0.59,
+  // src/routes/api/settings/pinned-digest-report/+server.ts. Global. The POST stores
+  // `enabled === true`, so anything else (including an omitted field) switches the
+  // report off — hence `enabled` is required here.
+
+  registerTool(server, 'get_pinned_digest_report',
+    {},
+    async () => {
+      return jsonResponse(await client.get('/api/settings/pinned-digest-report'));
+    }
+  );
+
+  registerTool(server, 'set_pinned_digest_report',
+    {
+      enabled: z.boolean().describe('Instance-wide (needs settings:edit). Report when the digest behind a pinned image tag moves (true) or stay silent (false). Required: the endpoint stores false for anything but true'),
+    },
+    async ({ enabled }) => {
+      return jsonResponse(await client.post('/api/settings/pinned-digest-report', { enabled }));
+    }
+  );
 }

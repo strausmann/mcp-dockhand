@@ -280,7 +280,39 @@ const GIT_REPOSITORY_WEBHOOK_IS_A_TRIGGER =
   'compose file as a stack named after the repository; otherwise it is rejected (401) and an ' +
   'audit entry is written. Scheduled to be renamed in the next major release.';
 
+/**
+ * detach_git_stack (#340): the endpoint's summary ("Convert a git-managed stack to a local
+ * stack") reads like a flag flip, but the handler (Finsys/dockhand v1.0.59,
+ * src/routes/api/git/stacks/[id]/detach/+server.ts) deletes the git stack row, unregisters
+ * its sync schedule and deletes its repository checkout — the auto-update, webhook and
+ * repository link are gone and only attach_stack_to_git brings them back.
+ */
+const DETACH_DELETES_GIT_STACK =
+  'Deletes the git stack record, its scheduled sync and its repository checkout (the clone under ' +
+  'the git repos dir, not the deployed stack dir): auto-update, the webhook and its secret, the ' +
+  'branch override and the repository compose/env paths are gone afterwards, and ' +
+  'attach_stack_to_git does not restore them. The repository entry, the deployed compose file, ' +
+  'the running containers and the stack\'s secret variables stay; the effective non-secret ' +
+  'variables are written to the deployed .env when there are any. Needs a compose file from an ' +
+  'earlier deploy on disk (409 otherwise).';
+
+/**
+ * attach_stack_to_git (#340, security audit run 9): the summary ("Convert an internal stack to
+ * Git management") does not say that from then on the REPOSITORY's compose file is what gets
+ * deployed (Finsys/dockhand v1.0.59, src/routes/api/stacks/[name]/attach/+server.ts flips the
+ * stack source to git) — with deployNow right away, otherwise on the next auto-update, webhook
+ * or deploy. A wrong repository or branch replaces the running stack.
+ */
+const ATTACH_REPLACES_COMPOSE_ON_NEXT_DEPLOY =
+  'From then on the stack is deployed from the repository: with deployNow right away, otherwise ' +
+  'on the next deploy, auto-update run or webhook, and that deploy replaces the running compose ' +
+  'file with the repository\'s. Check repository, branch and composePath first. Only a local ' +
+  '(internal) stack converts; use detach_git_stack to go back.';
+
+
 export const TOOL_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
+  detach_git_stack: DETACH_DELETES_GIT_STACK,
+  attach_stack_to_git: ATTACH_REPLACES_COMPOSE_ON_NEXT_DEPLOY,
   get_git_webhook: GIT_REPOSITORY_WEBHOOK_IS_A_TRIGGER,
   exec_container: EXEC_RETURNS_NO_OUTPUT,
   get_stack_env_raw: RETURNS_THE_FILE_VERBATIM,

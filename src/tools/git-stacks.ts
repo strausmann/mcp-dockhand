@@ -380,11 +380,76 @@ export function registerGitStackTools(server: McpServer, client: DockhandClient)
     {
       config: z.record(z.string(), z.unknown()).describe('Git stack configuration (url, branch, credentialId, composePath, environmentId, etc.)'),
       envFilePath: z.string().optional().describe('Path to the .env file within the repository this Git stack should use on deploy; also settable via `config.envFilePath` — this explicit field wins on collision. See `get_git_stack_env_files` to discover available .env files in the repository.'),
+      takeOverExternalStack: z.boolean().optional().describe('Take over an EXTERNAL stack (one Dockhand found running but does not manage) of the same name instead of answering 409; any other existing stack still conflicts. The next deploy then replaces that stack\'s compose with the repository\'s. Also settable via `config.takeOverExternalStack` — this explicit field wins. To convert a stack Dockhand already manages locally, use attach_stack_to_git. Dockhand 1.0.55+'),
     },
-    async ({ config, envFilePath }) => {
+    async ({ config, envFilePath, takeOverExternalStack }) => {
       const body: Record<string, unknown> = { ...config };
       if (envFilePath !== undefined) body.envFilePath = envFilePath;
+      if (takeOverExternalStack !== undefined) body.takeOverExternalStack = takeOverExternalStack;
       return respond(await client.post('/api/git/stacks', body));
+    }
+  );
+
+  // --- Convert between local and git-managed stacks (Dockhand 1.0.55+, #340) ---
+  //
+  // Ground truth: Finsys/dockhand v1.0.59,
+  // src/routes/api/stacks/[name]/attach/+server.ts and
+  // src/routes/api/git/stacks/[id]/detach/+server.ts.
+  //
+  // attach: only an `internal` (local) stack converts (400 otherwise, 404 when unknown);
+  // repositoryId reuses a stored repository, otherwise url (+ repoName, branch,
+  // credentialId) creates one. The stack name cannot change. With deployNow the handler
+  // runs a job, which DockhandClient's Accept: application/json turns into one buffered
+  // result. The response is the new git stack row — answered through respond() like
+  // every other git stack row.
+  //
+  // detach: needs a successfully deployed compose file (409 otherwise). It writes the
+  // effective non-secret variables to the deployed .env, re-registers the stack as
+  // local, then DELETES the git stack row, its sync schedule and its repository
+  // checkout. The running containers are not touched.
+
+  registerTool(server, 'attach_stack_to_git',
+    {
+      environmentId: z.number().describe('Environment ID the stack belongs to'),
+      name: z.string().describe('Name of the local (internal) stack to convert; it keeps this name'),
+      repositoryId: z.number().optional().describe('Existing git repository ID (from list_git_repositories); when set, url/repoName/credentialId are not used'),
+      url: z.string().optional().describe('Repository URL for a NEW repository entry; required when repositoryId is omitted'),
+      repoName: z.string().optional().describe('Name for the new repository entry (default: the stack name)'),
+      branch: z.string().optional().describe('Branch to track (new repository: default "main"; with repositoryId: overrides the repository branch for this stack)'),
+      credentialId: z.number().optional().describe('Git credential ID for a new repository entry'),
+      composePath: z.string().optional().describe('Compose file path inside the repository (default "compose.yaml")'),
+      envFilePath: z.string().optional().describe('.env file path inside the repository'),
+      contextDir: z.string().optional().describe('Build context directory inside the repository'),
+      autoUpdate: z.boolean().optional().describe('Sync and redeploy on a schedule (default false)'),
+      autoUpdateSchedule: z.string().optional().describe('Auto-update schedule preset (default "daily")'),
+      autoUpdateCron: z.string().optional().describe('Auto-update cron expression (default "0 3 * * *")'),
+      webhookEnabled: z.boolean().optional().describe('Enable the deploy webhook (default false); needs webhookSecret unless the server allows secretless webhooks'),
+      webhookSecret: z.string().optional().describe('Webhook secret; stored by Dockhand and never returned (the response carries hasWebhookSecret)'),
+      buildOnDeploy: z.boolean().optional().describe('Build images on deploy (default false)'),
+      noBuildCache: z.boolean().optional().describe('Build without cache (default false)'),
+      repullImages: z.boolean().optional().describe('Pull images again on every deploy (default false)'),
+      forceRedeploy: z.boolean().optional().describe('Redeploy even when the repository did not change (default false)'),
+      secretProviderId: z.number().nullable().optional().describe('Bind a secret provider (id from list_secret_providers), or null to clear the binding; omitted keeps the current one'),
+      envVars: z.array(z.object({
+        key: z.string(),
+        value: z.string(),
+        isSecret: z.boolean().optional(),
+      })).optional().describe('Stack variables to store with the git stack; merged with the variables read from the stack\'s .env file'),
+      deployNow: z.boolean().optional().describe('Deploy from the repository right after converting (default false); the result then carries deployResult'),
+    },
+    async ({ environmentId, name, ...fields }) => {
+      const body: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(fields)) {
+        if (value !== undefined) body[key] = value;
+      }
+      return respond(await client.post(`/api/stacks/${encodePath(name)}/attach`, body, { env: environmentId }));
+    }
+  );
+
+  registerTool(server, 'detach_git_stack',
+    { stackId: z.number().describe('Git stack ID (from list_git_stacks)') },
+    async ({ stackId }) => {
+      return respond(await client.post(`/api/git/stacks/${encodePath(stackId)}/detach`));
     }
   );
 

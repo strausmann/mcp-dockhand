@@ -10,15 +10,15 @@
 > hartes Gate in `scripts/validate-mcp-tools.mjs` (Exit 1 + Auto-Issue) — hier weiterhin nur
 > zur Übersicht gelistet. Die übrigen drei Typen bleiben vollständig advisory.
 
-**Erzeugt:** 2026-11-24T17:15:01.196Z
+**Erzeugt:** 2026-11-24T17:37:23.387Z
 
 ## Zusammenfassung
 
 | Typ | Anzahl | Bedeutung |
 |-----|--------|-----------|
 | BODY_PARAM_UNKNOWN | 11 | Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Ausschluss der Query-/Path-Parameter der Operation). |
-| UNTYPED_PASSTHROUGH | 53 | Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar. |
-| BODY_CONTRACT_UNRESOLVED | 39 | Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork). |
+| UNTYPED_PASSTHROUGH | 54 | Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar. |
+| BODY_CONTRACT_UNRESOLVED | 40 | Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork). |
 
 ## BODY_PARAM_UNKNOWN (11)
 
@@ -26,19 +26,19 @@ Das Tool sendet ein Body-Feld, das der OpenAPI-Contract nicht kennt (nach Aussch
 
 | Tool | HTTP | Pfad | Feld | Datei |
 |------|------|------|------|-------|
-| `activate_license` | POST | `/api/license` | `licenseKey` | system.ts:199 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `name` | stacks.ts:769 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `composePath` | stacks.ts:769 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `envPath` | stacks.ts:769 |
-| `adopt_stack` | POST | `/api/stacks/adopt` | `sourceDir` | stacks.ts:769 |
+| `activate_license` | POST | `/api/license` | `licenseKey` | system.ts:212 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `name` | stacks.ts:801 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `composePath` | stacks.ts:801 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `envPath` | stacks.ts:801 |
+| `adopt_stack` | POST | `/api/stacks/adopt` | `sourceDir` | stacks.ts:801 |
 | `create_environment` | POST | `/api/environments` | `url` | environments.ts:157 |
 | `create_user` | POST | `/api/users` | `roles` | users.ts:33 |
-| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env` | `keys` | stacks.ts:694 |
-| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env/raw` | `keys` | stacks.ts:702 |
+| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env` | `keys` | stacks.ts:714 |
+| `remove_stack_env_vars` | PUT | `/api/stacks/{name}/env/raw` | `keys` | stacks.ts:722 |
 | `set_container_auto_update` | POST | `/api/auto-update/{containerName}` | `policy` | auto-update.ts:37 |
 | `test_environment_connection` | POST | `/api/environments/test` | `url` | environments.ts:225 |
 
-## UNTYPED_PASSTHROUGH (53)
+## UNTYPED_PASSTHROUGH (54)
 
 Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl der Endpunkt einen aufgelösten Contract hat — statisch nicht vollständig prüfbar.
 
@@ -50,7 +50,7 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `create_container` | POST | `/api/containers` | `name`, `image` | containers.ts:325 |
 | `create_environment_notification` | POST | `/api/environments/{environmentId}/notifications` | `notificationId` | environments.ts:370 |
 | `create_git_credential` | POST | `/api/git/credentials` | `name` | git-stacks.ts:219 |
-| `create_git_stack` | POST | `/api/git/stacks` | `stackName` | git-stacks.ts:387 |
+| `create_git_stack` | POST | `/api/git/stacks` | `stackName` | git-stacks.ts:389 |
 | `create_ldap_provider` | POST | `/api/auth/ldap` | `name`, `serverUrl`, `baseDn` | auth.ts:65 |
 | `create_network` | POST | `/api/networks` | `name` | networks.ts:60 |
 | `create_notification` | POST | `/api/notifications` | `type`, `name` | notifications.ts:25 |
@@ -61,7 +61,7 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `create_template_compose` | POST | `/api/templates/compose` | `template` | templates.ts:25 |
 | `create_template_source` | POST | `/api/templates/sources` | `name`, `url` | templates.ts:41 |
 | `create_volume` | POST | `/api/volumes` | `name` | volumes.ts:117 |
-| `receive_git_webhook` | POST | `/api/git/webhook/{webhookId}` | - | git-stacks.ts:459 |
+| `receive_git_webhook` | POST | `/api/git/webhook/{webhookId}` | - | git-stacks.ts:524 |
 | `set_dashboard_preferences` | POST | `/api/dashboard/preferences` | - | dashboard.ts:29 |
 | `set_environment_image_prune` | POST | `/api/environments/{environmentId}/image-prune` | - | environments.ts:353 |
 | `set_environment_update_check` | POST | `/api/environments/{environmentId}/update-check` | - | environments.ts:283 |
@@ -70,8 +70,8 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `test_backup_destination_inline` | POST | `/api/backup/destinations/test` | - | backup-destinations.ts:211 |
 | `test_notification_config` | POST | `/api/notifications/test` | `type` | notifications.ts:65 |
 | `test_registry` | POST | `/api/registries/test` | - | registries.ts:124 |
-| `test_secret_provider` | POST | `/api/secret-providers/{id}/test` | - | secret-providers.ts:125 |
-| `test_secret_provider_config` | POST | `/api/secret-providers/test` | `type`, `config` | secret-providers.ts:151 |
+| `test_secret_provider` | POST | `/api/secret-providers/{id}/test` | - | secret-providers.ts:129 |
+| `test_secret_provider_config` | POST | `/api/secret-providers/test` | `type`, `config` | secret-providers.ts:155 |
 | `update_auth_settings` | PUT | `/api/auth/settings` | - | auth.ts:202 |
 | `update_backup_config` | PUT | `/api/backup/configs/{configId}` | - | backup-configs.ts:138 |
 | `update_backup_destination` | PUT | `/api/backup/destinations/{destinationId}` | - | backup-destinations.ts:126 |
@@ -80,10 +80,10 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `update_container_runtime` | POST | `/api/containers/{containerId}/update-runtime` | - | containers.ts:597 |
 | `update_environment` | PUT | `/api/environments/{environmentId}` | - | environments.ts:197 |
 | `update_environment_notification` | PUT | `/api/environments/{environmentId}/notifications/{notificationId}` | - | environments.ts:401 |
-| `update_general_settings` | POST | `/api/settings/general` | - | system.ts:112 |
+| `update_general_settings` | POST | `/api/settings/general` | - | system.ts:125 |
 | `update_git_credential` | PUT | `/api/git/credentials/{credentialId}` | - | git-stacks.ts:250 |
-| `update_git_repository` | PUT | `/api/git/repositories/{repositoryId}` | - | git-stacks.ts:435 |
-| `update_git_stack` | PUT | `/api/git/stacks/{stackId}` | - | git-stacks.ts:400 |
+| `update_git_repository` | PUT | `/api/git/repositories/{repositoryId}` | - | git-stacks.ts:500 |
+| `update_git_stack` | PUT | `/api/git/stacks/{stackId}` | - | git-stacks.ts:465 |
 | `update_ldap_provider` | PUT | `/api/auth/ldap/{providerId}` | - | auth.ts:155 |
 | `update_notification` | PUT | `/api/notifications/{notificationId}` | - | notifications.ts:42 |
 | `update_oidc_provider` | PUT | `/api/auth/oidc/{providerId}` | - | auth.ts:179 |
@@ -91,14 +91,15 @@ Das Tool hat ein untypisiertes `z.record(...)`-Feld (z.B. `settings`), obwohl de
 | `update_profile_preferences` | PUT | `/api/profile/preferences` | - | users.ts:203 |
 | `update_registry` | PUT | `/api/registries/{registryId}` | - | registries.ts:42 |
 | `update_role` | PUT | `/api/roles/{roleId}` | - | users.ts:162 |
-| `update_scanner_settings` | POST | `/api/settings/scanner` | - | system.ts:180 |
+| `update_scanner_settings` | POST | `/api/settings/scanner` | - | system.ts:193 |
 | `update_schedule_settings` | PUT | `/api/schedules/settings` | - | schedules.ts:32 |
 | `update_secret_provider` | PUT | `/api/secret-providers/{id}` | - | secret-providers.ts:92 |
 | `update_template_source` | PUT | `/api/templates/sources` | `id` | templates.ts:52 |
 | `update_user` | PUT | `/api/users/{userId}` | - | users.ts:50 |
-| `validate_stack_compose` | POST | `/api/stacks/{name}/validate` | `compose` | stacks.ts:910 |
+| `validate_stack_compose` | POST | `/api/stacks/{name}/validate` | `compose` | stacks.ts:948 |
+| `validate_stack_env` | POST | `/api/stacks/{name}/env/validate` | - | stacks.ts:778 |
 
-## BODY_CONTRACT_UNRESOLVED (39)
+## BODY_CONTRACT_UNRESOLVED (40)
 
 Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehlende `@openapi`-JSDoc-Annotation im Dockhand-Fork).
 
@@ -107,28 +108,29 @@ Für diesen body-tragenden Endpunkt liegt (noch) kein OpenAPI-Contract vor (fehl
 | `check_container_updates` | POST | `/api/containers/check-updates` | - | containers.ts:480 |
 | `deploy_git_repository` | POST | `/api/git/repositories/{repositoryId}/deploy` | - | git-stacks.ts:327 |
 | `deploy_git_stack` | POST | `/api/git/stacks/{stackId}/deploy` | - | git-stacks.ts:140 |
-| `deploy_git_stack_stream` | POST | `/api/git/stacks/{stackId}/deploy-stream` | - | git-stacks.ts:414 |
+| `deploy_git_stack_stream` | POST | `/api/git/stacks/{stackId}/deploy-stream` | - | git-stacks.ts:479 |
+| `detach_git_stack` | POST | `/api/git/stacks/{stackId}/detach` | - | git-stacks.ts:452 |
 | `init_backup_destination` | POST | `/api/backup/destinations/{destinationId}/init` | - | backup-destinations.ts:140 |
 | `load_image` | POST | `/api/images/load` | - | images.ts:40 |
 | `logout` | POST | `/api/auth/logout` | - | auth.ts:210 |
 | `pause_container` | POST | `/api/containers/{containerId}/pause` | - | containers.ts:208 |
-| `prune_all` | POST | `/api/prune/all` | - | system.ts:217 |
-| `prune_containers` | POST | `/api/prune/containers` | - | system.ts:224 |
-| `prune_images` | POST | `/api/prune/images` | - | system.ts:231 |
-| `prune_networks` | POST | `/api/prune/networks` | - | system.ts:238 |
-| `prune_volumes` | POST | `/api/prune/volumes` | - | system.ts:245 |
+| `prune_all` | POST | `/api/prune/all` | - | system.ts:230 |
+| `prune_containers` | POST | `/api/prune/containers` | - | system.ts:237 |
+| `prune_images` | POST | `/api/prune/images` | - | system.ts:244 |
+| `prune_networks` | POST | `/api/prune/networks` | - | system.ts:251 |
+| `prune_volumes` | POST | `/api/prune/volumes` | - | system.ts:258 |
 | `release_volume_browse` | POST | `/api/volumes/{volumeName}/browse/release` | - | volumes.ts:75 |
 | `restart_container` | POST | `/api/containers/{containerId}/restart` | - | containers.ts:198 |
-| `restart_stack` | POST | `/api/stacks/{name}/restart` | - | stacks.ts:94 |
+| `restart_stack` | POST | `/api/stacks/{name}/restart` | - | stacks.ts:110 |
 | `run_backup_config` | POST | `/api/backup/configs/{configId}/run` | - | backup-configs.ts:158 |
 | `run_schedule_now` | POST | `/api/schedules/{type}/{scheduleId}/run` | - | schedules.ts:56 |
-| `scan_all_vulnerabilities` | POST | `/api/vulnerabilities/scan-all` | - | vulnerabilities.ts:45 |
+| `scan_all_vulnerabilities` | POST | `/api/vulnerabilities/scan-all` | - | vulnerabilities.ts:48 |
 | `set_default_registry` | POST | `/api/registries/{registryId}/default` | - | registries.ts:56 |
 | `start_container` | POST | `/api/containers/{containerId}/start` | - | containers.ts:178 |
-| `start_stack` | POST | `/api/stacks/{name}/start` | - | stacks.ts:74 |
+| `start_stack` | POST | `/api/stacks/{name}/start` | - | stacks.ts:90 |
 | `stop_backup_config` | POST | `/api/backup/configs/{configId}/stop` | - | backup-configs.ts:165 |
 | `stop_container` | POST | `/api/containers/{containerId}/stop` | - | containers.ts:188 |
-| `stop_stack` | POST | `/api/stacks/{name}/stop` | - | stacks.ts:84 |
+| `stop_stack` | POST | `/api/stacks/{name}/stop` | - | stacks.ts:100 |
 | `sync_git_repository` | POST | `/api/git/repositories/{repositoryId}/sync` | - | git-stacks.ts:334 |
 | `sync_git_stack` | POST | `/api/git/stacks/{stackId}/sync` | - | git-stacks.ts:147 |
 | `test_backup_destination` | POST | `/api/backup/destinations/{destinationId}/test` | - | backup-destinations.ts:174 |

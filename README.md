@@ -392,7 +392,7 @@ sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/
 | `export_volume` | Export volume |
 | `remove_volume` | Remove volume (destructive) |
 
-### Git Stacks (15 tools)
+### Git Stacks (18 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -412,6 +412,8 @@ sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/
 | `delete_git_credential` | Delete credential |
 | `list_git_repositories` | List Git repositories |
 | `create_git_repository` | Create repository config |
+| `attach_stack_to_git` | Convert a local stack to a Git stack (optionally deploy right away) |
+| `detach_git_stack` | Convert a Git stack back to a local stack; deletes the Git stack record, its sync schedule and checkout |
 
 ### Dashboard & Activity (8 tools)
 
@@ -480,7 +482,7 @@ sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/
 | `get_registry_image` | Get image from registry |
 | `get_registry_tags` | Get image tags |
 
-### System & Settings (19 tools)
+### System & Settings (22 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -503,8 +505,11 @@ sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/
 | `activate_license` | Activate license by name and key |
 | `get_prometheus_metrics` | Prometheus metrics |
 | `prune_all` | Prune all resources |
+| `get_exposure_status` | Whether the instance is exposed without auth and with a writable Docker socket |
+| `get_pinned_digest_report` | Whether a moved digest on a pinned image is reported |
+| `set_pinned_digest_report` | Turn that report on or off |
 
-### Users, Roles & Preferences (20 tools)
+### Users, Roles & Preferences (23 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -529,8 +534,10 @@ sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/
 | `get_favorites` | Get favorites |
 | `set_favorites` | Set favorites |
 | `list_config_sets` | List config sets |
+| `get_language_preference` | Interface language (null = follow the browser) |
+| `set_language_preference` | Set the interface language, or null |
 
-### Schedules (9 tools)
+### Schedules (11 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -543,6 +550,8 @@ sharing the workaround ([#90](https://github.com/strausmann/mcp-dockhand/issues/
 | `run_schedule_now` | Run immediately |
 | `toggle_schedule` | Enable/disable |
 | `toggle_system_schedule` | Toggle system schedule |
+| `get_container_start_stop_schedule` | A container's daily/cron start and stop times |
+| `set_container_start_stop_schedule` | Set both times (null for none; both null deletes) |
 
 ### Auto-Update (3 tools)
 
