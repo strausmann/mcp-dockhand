@@ -44,3 +44,23 @@ describe('encodePath', () => {
     expect(encodePath('')).toBe('');
   });
 });
+
+describe('encodePath dot segments', () => {
+  it('rejects "." and ".." (the URL parser would resolve them to another endpoint)', () => {
+    expect(() => encodePath('.')).toThrow(/Invalid path parameter/);
+    expect(() => encodePath('..')).toThrow(/Invalid path parameter/);
+  });
+
+  it('keeps dots inside a longer segment', () => {
+    expect(encodePath('my.stack')).toBe('my.stack');
+    expect(encodePath('.hidden')).toBe('.hidden');
+    expect(encodePath('...')).toBe('...');
+  });
+
+  it('a rejected segment can not reach another endpoint through the real URL builder', () => {
+    // percent-encoded input is double-encoded, so it never turns into a dot segment
+    expect(encodePath('%2e%2e')).toBe('%252e%252e');
+    const url = new URL(`/api/stacks/${encodePath('%2e')}/env/validate`, 'http://x');
+    expect(url.pathname).toBe('/api/stacks/%252e/env/validate');
+  });
+});
