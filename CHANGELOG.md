@@ -5,6 +5,16 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.1](https://github.com/strausmann/mcp-dockhand/compare/v1.19.0...v1.19.1) (2026-11-24)
+
+### Bug Fixes
+
+* **git-stacks:** describe get_git_stack_webhook and get_git_webhook as the triggers they are ([011a325](https://github.com/strausmann/mcp-dockhand/commit/011a3255d6835c90fddd5cd61668bfcc0e7fdfc7)), closes [#317](https://github.com/strausmann/mcp-dockhand/issues/317)
+* **git-stacks:** keep webhook-secret redaction off user-keyed maps and keep __proto__ keys ([7a2163c](https://github.com/strausmann/mcp-dockhand/commit/7a2163c1c8421529e923c112606eb64a59a9103a)), references [#326](https://github.com/strausmann/mcp-dockhand/issues/326)
+* **git-stacks:** never return stored webhook secrets from git stack and repository tools ([9f58c7c](https://github.com/strausmann/mcp-dockhand/commit/9f58c7c90ee6070292b082035e10d54f051f802b)), closes [#326](https://github.com/strausmann/mcp-dockhand/issues/326)
+* **git-stacks:** put the read tool first in webhook trigger descriptions ([d0c6054](https://github.com/strausmann/mcp-dockhand/commit/d0c6054637a1ae2071c39aa13f6b7f04a65eefa4)), references [#317](https://github.com/strausmann/mcp-dockhand/issues/317)
+* **git-stacks:** redact webhook secrets at every depth and from every git tool ([ea6a626](https://github.com/strausmann/mcp-dockhand/commit/ea6a6265c3c36792099dad5d0f3821808c1e2b67)), references [#326](https://github.com/strausmann/mcp-dockhand/issues/326)
+
 ## [1.19.0](https://github.com/strausmann/mcp-dockhand/compare/v1.18.1...v1.19.0) (2026-10-23)
 
 ### Features
