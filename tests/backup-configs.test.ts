@@ -35,7 +35,7 @@ function setup(): { handlers: Map<string, ToolHandler>; schemas: Map<string, Zod
   const handlers = new Map<string, ToolHandler>();
   const schemas = new Map<string, ZodShape>();
   const server = {
-    tool: (name: string, _d: string, s: ZodShape, cb: ToolHandler) => {
+    tool: (name: string, _d: string, s: ZodShape, _a: unknown, cb: ToolHandler) => {
       handlers.set(name, cb);
       schemas.set(name, s);
     },
@@ -374,7 +374,7 @@ describe('run_backup_config', () => {
     };
     const handlersMap = new Map<string, ToolHandler>();
     const server = {
-      tool: (name: string, _d: string, _s: ZodShape, cb: ToolHandler) => { handlersMap.set(name, cb); },
+      tool: (name: string, _d: string, _s: ZodShape, _a: unknown, cb: ToolHandler) => { handlersMap.set(name, cb); },
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     registerBackupConfigTools(server as any, spyClient as any);

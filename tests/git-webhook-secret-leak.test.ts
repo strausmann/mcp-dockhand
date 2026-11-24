@@ -35,7 +35,7 @@ interface MockClient {
 function setup(): { handlers: Map<string, ToolHandler>; client: MockClient } {
   const handlers = new Map<string, ToolHandler>();
   const server = {
-    tool: (name: string, _description: string, _schema: unknown, cb: ToolHandler) => {
+    tool: (name: string, _description: string, _schema: unknown, _annotations: unknown, cb: ToolHandler) => {
       handlers.set(name, cb);
     },
   };

@@ -45,7 +45,7 @@ describe('tool call correlation', () => {
   async function invoke(name: string, callback: () => Promise<unknown>) {
     const { registerTool } = await import('../src/utils/tool-helper.js');
     let handler!: (args: unknown) => Promise<unknown>;
-    const server = { tool: (_n: string, _d: string, _s: unknown, cb: never) => { handler = cb; } };
+    const server = { tool: (_n: string, _d: string, _s: unknown, _a: unknown, cb: never) => { handler = cb; } };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     registerTool(server as any, name, { id: z.number().optional() }, callback as never);
     return handler({});
@@ -87,7 +87,7 @@ describe('tool call correlation', () => {
   it('gives two concurrent invocations different call ids', async () => {
     const { registerTool } = await import('../src/utils/tool-helper.js');
     const handlers = new Map<string, (args: unknown) => Promise<unknown>>();
-    const server = { tool: (n: string, _d: string, _s: unknown, cb: never) => handlers.set(n, cb) };
+    const server = { tool: (n: string, _d: string, _s: unknown, _a: unknown, cb: never) => handlers.set(n, cb) };
 
     const slow = async () => {
       await new Promise((r) => setTimeout(r, 5));

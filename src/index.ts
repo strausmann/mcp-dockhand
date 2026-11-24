@@ -8,6 +8,14 @@
 import { createServer } from './server.js';
 import { parseApiToken } from './auth/api-token.js';
 import { logger, logFatalSync, describeThrown } from './utils/logger.js';
+import {
+  buildToolPolicy,
+  configureToolPolicy,
+  findMisspelledPolicyVars,
+  ToolPolicyError,
+} from './utils/tool-policy.js';
+import { TOOL_ENDPOINT_MAP } from './openapi/tool-endpoint-map.js';
+import { META_TOOL_NAMES } from './utils/meta-tool-names.js';
 
 /**
  * Issue #210, fix round 2: moving normal logging off a blocking destination (see
@@ -94,6 +102,40 @@ logger.info(
   },
   'starting MCP Dockhand server',
 );
+
+// MCP_READ_ONLY / MCP_TOOLS_ALLOW / MCP_TOOLS_DENY (issue #254). Built and configured
+// right before createServer() so every registerTool() call sees the final policy. A bad value
+// or a pattern matching no tool is fatal: failing open would expose write tools the
+// operator meant to hide. A near-miss name (MCP_READONLY) would be silently ignored, so it
+// gets a warning; not fatal, since an unrelated variable could match by accident.
+const misspelledPolicyVars = findMisspelledPolicyVars(process.env);
+if (misspelledPolicyVars.length > 0) {
+  logger.warn(
+    { component: 'config', variables: misspelledPolicyVars },
+    'environment variable looks like a tool policy variable but is not spelled exactly; it is ignored',
+  );
+}
+try {
+  const policy = buildToolPolicy(process.env, {
+    endpointMap: TOOL_ENDPOINT_MAP,
+    metaToolNames: META_TOOL_NAMES,
+  });
+  configureToolPolicy(policy);
+  const { readOnly, registered, total, readmittedWriteTools } = policy.summary;
+  logger.info({ component: 'tools', readOnly, registered, total }, 'tool policy');
+  if (readmittedWriteTools.length > 0) {
+    logger.warn(
+      { component: 'tools', tools: readmittedWriteTools },
+      'write tools re-admitted under MCP_READ_ONLY via exact MCP_TOOLS_ALLOW names',
+    );
+  }
+} catch (error) {
+  if (error instanceof ToolPolicyError) {
+    logFatalSync({ component: 'config' }, error.message);
+    process.exit(1);
+  }
+  throw error;
+}
 
 createServer(config).catch((error: unknown) => {
   logFatalSync(
