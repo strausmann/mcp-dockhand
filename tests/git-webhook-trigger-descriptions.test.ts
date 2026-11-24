@@ -56,6 +56,18 @@ describe('webhook trigger tools are described as triggers, not reads (#317)', ()
   it('get_git_webhook points at get_git_repository for the webhook state', () => {
     expect(describeTool('get_git_webhook')).toMatch(/get_git_repository/);
   });
+
+  // Security audit run 8 (hardening): an LLM that only wants to READ the webhook state must
+  // be sent to the read tool first, not to a trigger.
+  for (const [tool, reader] of [['get_git_stack_webhook', 'get_git_stack'], ['get_git_webhook', 'get_git_repository']] as const) {
+    it(`${tool}: the read pointer (${reader}) comes before any trigger wording`, () => {
+      const d = describeTool(tool);
+      const readAt = d.indexOf(`\`${reader}\``);
+      expect(readAt).toBeGreaterThanOrEqual(0);
+      expect(readAt).toBeLessThan(d.search(/deprecated/i));
+      expect(readAt).toBeLessThan(d.indexOf('trigger_git_webhook') === -1 ? Infinity : d.indexOf('trigger_git_webhook'));
+    });
+  }
 });
 
 describe('get_git_webhook sends the optional secret as the `secret` query parameter (#317)', () => {

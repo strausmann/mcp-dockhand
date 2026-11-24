@@ -157,3 +157,40 @@ describe('git webhook secrets never leave the git stack / repository tools (#326
     });
   }
 });
+
+// Security-audit follow-up (run 8, LOW): the redaction walk must not rewrite payloads whose
+// KEYS are user data. request_git_preview_env returns `{ vars, sources }` keyed by the
+// repository's env variable names (Finsys/dockhand v1.0.59, src/routes/api/git/preview-env);
+// a variable named `webhookSecret` is the user's own data, not a stored webhook secret.
+describe('the webhook-secret redaction leaves user-keyed maps alone', () => {
+  it('request_git_preview_env returns env variable maps verbatim, including odd names', async () => {
+    const { handlers, client } = setup();
+    const raw = '{"vars":{"TZ":"UTC","webhookSecret":"abc","__proto__":"x"},"sources":{"webhookSecret":".env","__proto__":".env"}}';
+    client.post.mockResolvedValue(JSON.parse(raw));
+
+    const text = await call(handlers, 'request_git_preview_env', { composePath: 'compose.yaml', repositoryId: 3 });
+
+    expect(JSON.parse(text)).toEqual(JSON.parse(raw));
+    expect(text).toContain('"__proto__"');
+    expect(text).not.toContain('hasWebhookSecret');
+  });
+
+  it('get_git_stack_env_files is not rewritten either', async () => {
+    const { handlers, client } = setup();
+    const payload = { files: ['.env'], webhookSecret: 'looks-like-a-key-but-is-a-file-listing' };
+    client.get.mockResolvedValue(payload);
+
+    expect(JSON.parse(await call(handlers, 'get_git_stack_env_files', { stackId: 7 }))).toEqual(payload);
+  });
+
+  it('a row keeps a key literally named __proto__ as data while the secret is still removed', async () => {
+    const { handlers, client } = setup();
+    client.get.mockResolvedValue(JSON.parse(`{"id":7,"webhookSecret":"${SECRET}","__proto__":{"x":1}}`));
+
+    const text = await call(handlers, 'get_git_stack', { stackId: 7 });
+
+    expect(text).not.toContain(SECRET);
+    expect(text).toContain('"__proto__"');
+    expect(JSON.parse(text).hasWebhookSecret).toBe(true);
+  });
+});
