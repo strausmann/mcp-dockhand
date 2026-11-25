@@ -5,6 +5,16 @@ All notable changes to **MCP-Dockhand** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.0](https://github.com/strausmann/mcp-dockhand/compare/v1.20.0...v1.21.0) (2026-11-25)
+
+### Features
+
+* **tools:** read-only mode and tool allow/deny filter ([#318](https://github.com/strausmann/mcp-dockhand/issues/318)) ([2ceeeb0](https://github.com/strausmann/mcp-dockhand/commit/2ceeeb057558cdf002b4ae6d2903b74c3f6199d0)), closes [#254](https://github.com/strausmann/mcp-dockhand/issues/254)
+
+### Bug Fixes
+
+* **deps:** patch body-parser, undici and minimatch advisories ([#347](https://github.com/strausmann/mcp-dockhand/issues/347)) ([34a816d](https://github.com/strausmann/mcp-dockhand/commit/34a816d0bed656d668b3fe5ee63b5b6bf8745c1d))
+
 ## [1.20.0](https://github.com/strausmann/mcp-dockhand/compare/v1.19.1...v1.20.0) (2026-11-24)
 
 ### Features
